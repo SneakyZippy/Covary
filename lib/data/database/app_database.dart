@@ -196,7 +196,7 @@ class AppDatabase extends _$AppDatabase {
   // ---------------------------------------------------------------------------
 
   Future<int> insertTrackingWindow(TrackingWindowsCompanion window) {
-    return into(trackingWindows).insert(window);
+    return into(trackingWindows).insertOnConflictUpdate(window);
   }
 
   Future<List<TrackingWindow>> getAllTrackingWindows() {
