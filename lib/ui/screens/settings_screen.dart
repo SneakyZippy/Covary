@@ -748,8 +748,9 @@ class _SnoozeDurationDialogState extends State<_SnoozeDurationDialog> {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
             children: [
               _durationOption(10),
               _durationOption(30),
