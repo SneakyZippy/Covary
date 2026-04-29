@@ -73,8 +73,8 @@ class NotificationService {
   ) async {
     final db = AppDatabase.getInstance();
 
-    if (receivedAction.buttonKeyPressed?.startsWith('snooze_') == true) {
-      final minutesStr = receivedAction.buttonKeyPressed!
+    if (receivedAction.buttonKeyPressed.startsWith('snooze_')) {
+      final minutesStr = receivedAction.buttonKeyPressed
           .replaceFirst('snooze_', '')
           .replaceFirst('m', '');
       final minutes = int.tryParse(minutesStr);

@@ -163,6 +163,8 @@ class ImportService {
       debugPrint('[ImportService] Import failed: $e');
       return 'Import failed: ${e.toString()}';
     }
+  }
+
   /// Normalizes a map to snake_case to match Drift's expected JSON format.
   Map<String, dynamic> _normalize(Map<String, dynamic> input) {
     final result = <String, dynamic>{};

@@ -43,17 +43,18 @@ class MetricService extends ChangeNotifier {
   ///
   /// These can be toggled on/off. Custom metrics can also be added.
   static const List<MetricDefinition> templates = [
+    // --- Mood & State (Frequency: All windows) ---
     MetricDefinition(
       id: 'core_mood',
-      label: 'Mood',
+      label: 'Current Mood',
       category: EventCategory.mood,
       inputType: MetricInputType.scale1to5,
       isEnabled: true,
-      emoji: 'mood',
+      emoji: 'sentiment_satisfied',
     ),
     MetricDefinition(
       id: 'core_energy',
-      label: 'Energy',
+      label: 'Energy Level',
       category: EventCategory.mood,
       inputType: MetricInputType.scale1to5,
       isEnabled: true,
@@ -61,28 +62,14 @@ class MetricService extends ChangeNotifier {
     ),
     MetricDefinition(
       id: 'core_stress',
-      label: 'Stress',
+      label: 'Stress Level',
       category: EventCategory.mood,
       inputType: MetricInputType.scale1to5,
       isEnabled: true,
-      emoji: 'stress',
+      emoji: 'psychology',
     ),
-    MetricDefinition(
-      id: 'core_fatigue',
-      label: 'Fatigue',
-      category: EventCategory.mood,
-      inputType: MetricInputType.scale1to5,
-      isEnabled: true,
-      emoji: 'sleep',
-    ),
-    MetricDefinition(
-      id: 'core_wellbeing',
-      label: 'Wellbeing',
-      category: EventCategory.mood,
-      inputType: MetricInputType.scale1to10,
-      isEnabled: true,
-      emoji: 'star',
-    ),
+    
+    // --- Health (Frequency: Morning) ---
     MetricDefinition(
       id: 'core_sleep_quality',
       label: 'Sleep Quality',
@@ -91,13 +78,31 @@ class MetricService extends ChangeNotifier {
       isEnabled: true,
       emoji: 'bedtime',
     ),
+
+    // --- Behavior & Wellbeing (Frequency: Evening Review) ---
+    MetricDefinition(
+      id: 'core_wellbeing',
+      label: 'General Wellbeing',
+      category: EventCategory.mood,
+      inputType: MetricInputType.scale1to10,
+      isEnabled: true,
+      emoji: 'star',
+    ),
     MetricDefinition(
       id: 'core_sport',
-      label: 'Sport',
+      label: 'Physical Activity',
       category: EventCategory.behavior,
       inputType: MetricInputType.yesNo,
       isEnabled: true,
       emoji: 'run',
+    ),
+    MetricDefinition(
+      id: 'core_meditation',
+      label: 'Mindfulness / Meditation',
+      category: EventCategory.behavior,
+      inputType: MetricInputType.yesNo,
+      isEnabled: true,
+      emoji: 'meditation',
     ),
     MetricDefinition(
       id: 'core_journaling',
@@ -115,20 +120,14 @@ class MetricService extends ChangeNotifier {
       isEnabled: true,
       emoji: 'favorite',
     ),
-    MetricDefinition(
-      id: 'core_meat_consumption',
-      label: 'Meat Consumption',
-      category: EventCategory.nutrition,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'meat',
-    ),
+
+    // --- Optional/Secondary (Disabled by default to reduce clutter) ---
     MetricDefinition(
       id: 'core_focus',
       label: 'Focus',
       category: EventCategory.productivity,
       inputType: MetricInputType.scale1to5,
-      isEnabled: true,
+      isEnabled: false,
       emoji: 'lightbulb',
     ),
     MetricDefinition(
@@ -136,40 +135,8 @@ class MetricService extends ChangeNotifier {
       label: 'Anxiety',
       category: EventCategory.mood,
       inputType: MetricInputType.scale1to5,
-      isEnabled: true,
+      isEnabled: false,
       emoji: 'psychology',
-    ),
-    MetricDefinition(
-      id: 'core_water',
-      label: 'Water Intake',
-      category: EventCategory.nutrition,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'water',
-    ),
-    MetricDefinition(
-      id: 'core_meditation',
-      label: 'Meditation',
-      category: EventCategory.behavior,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'meditation',
-    ),
-    MetricDefinition(
-      id: 'core_reading',
-      label: 'Reading',
-      category: EventCategory.behavior,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'book',
-    ),
-    MetricDefinition(
-      id: 'core_social',
-      label: 'Social Connection',
-      category: EventCategory.social,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'favorite',
     ),
     MetricDefinition(
       id: 'core_coffee_intake',
@@ -276,6 +243,39 @@ class MetricService extends ChangeNotifier {
     _db = db;
     
     final prefs = await SharedPreferences.getInstance();
+    
+    // --- Seed Tracking Windows ---
+    final windowsSeeded = prefs.getBool('tracking_windows_seeded') ?? false;
+    if (!windowsSeeded) {
+      final samples = [
+        ('Morning Reflection', 8, 0, 10, 0, 8, 30),
+        ('Afternoon Sync', 13, 0, 15, 0, 13, 30),
+        ('Evening Review', 20, 0, 22, 0, 20, 30),
+      ];
+
+      for (final s in samples) {
+        try {
+          await _db.insertTrackingWindow(
+            TrackingWindowsCompanion.insert(
+              label: s.$1,
+              startHour: s.$2,
+              startMinute: s.$3,
+              endHour: s.$4,
+              endMinute: s.$5,
+              isNotificationEnabled: const Value(true),
+              notificationHour: s.$6,
+              notificationMinute: s.$7,
+            ),
+          );
+        } catch (e) {
+          debugPrint('[MetricService] Error seeding window ${s.$1}: $e');
+        }
+      }
+      await prefs.setBool('tracking_windows_seeded', true);
+      debugPrint('[MetricService] Seeded 3 sample tracking windows');
+    }
+
+    // --- Seed Core Metrics ---
     final hasSeeded = prefs.getBool('core_metrics_seeded') ?? false;
     
     if (!hasSeeded) {
@@ -315,63 +315,83 @@ class MetricService extends ChangeNotifier {
       await prefs.setBool('core_metrics_seeded', true);
     }
 
-    // Ensure "Coffee Intake" is added if missing (added later as a predefined idea)
+    // --- Ensure Consistency & Reliability ---
+    // We re-sync core metrics to ensure window assignments and categories are correct,
+    // especially for behavioral metrics that should only appear in the evening.
+    final currentWindows = await _db.getAllTrackingWindows();
+    final morningId = currentWindows.cast<TrackingWindow?>().firstWhere((w) => w?.label == 'Morning Reflection', orElse: () => null)?.id;
+    final eveningId = currentWindows.cast<TrackingWindow?>().firstWhere((w) => w?.label == 'Evening Review', orElse: () => null)?.id;
+
     final existingMetrics = await _db.getAllCustomMetrics();
     final existingIds = existingMetrics.map((m) => m.id).toSet();
-    // Ensure core metrics are up to date with template categories/labels
-    for (final row in existingMetrics) {
-      final template = templates.cast<MetricDefinition?>().firstWhere(
-        (t) => t?.id == row.id,
-        orElse: () => null,
-      );
-      if (template != null) {
-        // If category or other fixed fields changed in template, update the DB row
-        if (row.category != template.category) {
-          await _db.updateCustomMetric(
-            row.id,
-            CustomMetricsCompanion(
-              category: Value(template.category),
-            ),
-          );
-          debugPrint('[MetricService] Migrated category for ${row.id}: ${row.category} -> ${template.category}');
+
+    for (final template in templates) {
+      if (!existingIds.contains(template.id)) {
+        // Metric is in templates but not in DB (newly added core metric)
+        List<String> windowIds = template.windowIds;
+        if (template.id == 'core_sleep_quality' && morningId != null) {
+          windowIds = [morningId];
+        } else if (eveningId != null && 
+            (template.category == EventCategory.behavior || 
+             template.category == EventCategory.social || 
+             template.id == 'core_wellbeing')) {
+          windowIds = [eveningId];
         }
-      }
-    }
 
-    if (!existingIds.contains('core_coffee_intake')) {
-      final coffeeTemplate = templates.firstWhere((t) => t.id == 'core_coffee_intake');
-      await _db.insertCustomMetric(
-        CustomMetricsCompanion.insert(
-          id: Value(coffeeTemplate.id),
-          label: coffeeTemplate.label,
-          category: coffeeTemplate.category,
-          inputType: coffeeTemplate.inputType,
-          isEnabled: const Value(true), // Show on homescreen by default
-          windowIds: Value(coffeeTemplate.windowIds.join(',')),
-          emoji: Value(coffeeTemplate.emoji),
-        ),
-      );
-      debugPrint('[MetricService] Migrated: Added missing core_coffee_intake');
-    } else {
-      // Migration: Ensure core_coffee_intake has 'homescreen' and NOT 'anytime'
-      final coffeeRow = existingMetrics.firstWhere((m) => m.id == 'core_coffee_intake');
-      bool changed = false;
-      List<String> windows = coffeeRow.windowIds.isEmpty 
-          ? [] 
-          : coffeeRow.windowIds.split(',').where((s) => s.isNotEmpty).toList();
-      
-      if (!windows.contains('homescreen')) {
-        windows.add('homescreen');
-        changed = true;
-      }
-      if (windows.contains('anytime')) {
-        windows.remove('anytime');
-        changed = true;
-      }
+        await _db.insertCustomMetric(
+          CustomMetricsCompanion.insert(
+            id: Value(template.id),
+            label: template.label,
+            category: template.category,
+            inputType: template.inputType,
+            isEnabled: Value(template.isEnabled),
+            windowIds: Value(windowIds.join(',')),
+            emoji: Value(template.emoji),
+          ),
+        );
+        debugPrint('[MetricService] Added missing core metric: ${template.id}');
+      } else {
+        // Metric already exists, ensure it's consistent with template metadata
+        final row = existingMetrics.firstWhere((m) => m.id == template.id);
+        
+        bool needsUpdate = false;
+        CustomMetricsCompanion updates = const CustomMetricsCompanion();
 
-      if (changed) {
-        await _db.updateCustomMetricWindows('core_coffee_intake', windows.join(','));
-        debugPrint('[MetricService] Migrated: Set core_coffee_intake to homescreen-only');
+        // Sync category
+        if (row.category != template.category) {
+          updates = updates.copyWith(category: Value(template.category));
+          needsUpdate = true;
+        }
+
+        // Sync reliability for behavioral metrics
+        final shouldBeReliable = template.category == EventCategory.behavior || template.category == EventCategory.social;
+        if (shouldBeReliable && row.isRetroReliable != true) {
+          updates = updates.copyWith(isRetroReliable: const Value(true));
+          needsUpdate = true;
+        }
+
+        // Sync windows for behavioral metrics if they are still "anytime"
+        if (eveningId != null && (row.windowIds == 'anytime' || row.windowIds.isEmpty)) {
+          if (template.category == EventCategory.behavior || 
+              template.category == EventCategory.social || 
+              template.id == 'core_wellbeing') {
+            updates = updates.copyWith(windowIds: Value(eveningId));
+            needsUpdate = true;
+          }
+        }
+        
+        // Sync window for sleep quality if it's still "anytime"
+        if (morningId != null && (row.windowIds == 'anytime' || row.windowIds.isEmpty)) {
+          if (template.id == 'core_sleep_quality') {
+            updates = updates.copyWith(windowIds: Value(morningId));
+            needsUpdate = true;
+          }
+        }
+
+        if (needsUpdate) {
+          await _db.updateCustomMetric(row.id, updates);
+          debugPrint('[MetricService] Synchronized core metric: ${row.id}');
+        }
       }
     }
     
