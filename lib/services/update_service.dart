@@ -59,7 +59,9 @@ class UpdateService {
   }
 
   static Future<Map<String, dynamic>?> fetchUpdateInfo() async {
-    final response = await http.get(Uri.parse(versionUrl)).timeout(const Duration(seconds: 10));
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final urlWithCacheBust = Uri.parse('$versionUrl?t=$timestamp');
+    final response = await http.get(urlWithCacheBust).timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     } else {

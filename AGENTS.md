@@ -29,13 +29,14 @@ Every user interaction must record:
 - **"Ship it"**: When the user says "Ship it", perform the following steps:
     1. Increment `build_number` in `version.json` and `version` in `pubspec.yaml`.
     2. Generate a current timestamp (ISO 8601 format) and update `build_timestamp` in `version.json`.
-    3. Run the release build (`flutter build apk --release`).
-    4. Create a timestamped **Safety Backup** in Google Drive:
+    3. Stage and commit the version bump: `git commit -am "Bump version to v<version>"`
+    4. Push the commit to GitHub: `git push`
+    5. Run the release build: `flutter build apk --release`
+    6. Create a timestamped **Safety Backup** in Google Drive (wrap path in quotes):
        - Source: `build\app\outputs\flutter-apk\app-release.apk`
-       - Destination: `%USERPROFILE%\My Drive\Covary\Builds\Covary_v<version>_b<build_number>_<timestamp>.apk`
-    5. Create a new Release on GitHub and upload the APK as a generic `app-release.apk` (required for the "latest" download link):
-       - Command: `gh release create v<version> build\app\outputs\flutter-apk\app-release.apk --title "Release v<version>" --notes-file version.json`
-    6. Push the updated `version.json` and `pubspec.yaml` to GitHub.
+       - Destination: `"%USERPROFILE%\My Drive\Covary\Builds\Covary_v<version>_b<build_number>_<timestamp>.apk"`
+    7. Extract `release_notes` from `version.json` and create a GitHub Release with the APK:
+       - Command: `gh release create v<version> build\app\outputs\flutter-apk\app-release.apk --title "Release v<version>" --notes "<extracted_release_notes>"`
 
 
 Other information in:
