@@ -169,7 +169,21 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
                 ? null
                 : () async {
                     final service = context.read<HealthService>();
-                    await service.requestPermissions();
+                    final success = await service.requestPermissions();
+                    
+                    if (!success && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Health Connect authorization failed. Please ensure '
+                            'Health Connect is installed and you have granted '
+                            'all requested permissions.',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                    
                     await _checkPermissions();
                   },
           ),

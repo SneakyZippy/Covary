@@ -15,13 +15,10 @@
     <!-- Health Connect: read sleep sessions from the last 24 hours -->
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
-    <uses-permission android:name="androidx.health.permission.SLEEP.READ" />
-    <uses-permission android:name="androidx.health.permission.SLEEP.WRITE" />
+    
     <!-- Health Connect: read step counts from the last 24 hours -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.WRITE_STEPS" />
-    <uses-permission android:name="androidx.health.permission.STEPS.READ" />
-    <uses-permission android:name="androidx.health.permission.STEPS.WRITE" />
 
     <!-- Required for the Health Connect rationale alias -->
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA" />
@@ -77,20 +74,15 @@
             <!-- Health Connect rationale filter inside MainActivity -->
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
         <!-- ===================================================================
              HEALTH CONNECT RATIONALE (Required by 'health' package)
              This allows the app to handle requests for permission rationales.
+             Android 14+ uses the intent-filter in MainActivity.
              =================================================================== -->
-        <activity
-            android:name="com.health.HealthConnectRationaleActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
-            </intent-filter>
-        </activity>
 
         <activity-alias
             android:name="ViewPermissionUsageActivity"
@@ -99,6 +91,7 @@
             android:permission="android.permission.health.READ_HEALTH_DATA">
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity-alias>
 
@@ -142,6 +135,7 @@
         <!-- Required for Health Connect permission rationale -->
         <intent>
             <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            <category android:name="android.intent.category.DEFAULT" />
         </intent>
 
         <!-- Required for url_launcher to check if browser can open links -->
