@@ -1,5 +1,5 @@
 ---
-name: Traceloop 2026
+name: Covary 2026
 colors:
   surface: '#0e1512'
   surface-dim: '#0e1512'

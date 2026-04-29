@@ -1,4 +1,4 @@
-// Basic smoke test for the TraceLoop app.
+// Basic smoke test for the Covary app.
 //
 // This is a placeholder test. Full widget tests require mocking
 // SharedPreferences and the Drift database, which will be added

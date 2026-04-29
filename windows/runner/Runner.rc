@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.traceloop" "\0"
-            VALUE "FileDescription", "trace_loop" "\0"
+            VALUE "CompanyName", "com.covary" "\0"
+            VALUE "FileDescription", "covary" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "trace_loop" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.traceloop. All rights reserved." "\0"
-            VALUE "OriginalFilename", "trace_loop.exe" "\0"
-            VALUE "ProductName", "trace_loop" "\0"
+            VALUE "InternalName", "covary" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.covary. All rights reserved." "\0"
+            VALUE "OriginalFilename", "covary.exe" "\0"
+            VALUE "ProductName", "covary" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
