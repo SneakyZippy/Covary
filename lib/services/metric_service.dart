@@ -149,16 +149,9 @@ class MetricService extends ChangeNotifier {
     ),
   ];
 
-  static const Set<String> coreTemplateIds = {
-    'core_mood',
-    'core_energy',
-    'core_stress',
-    'core_fatigue',
-    'core_wellbeing',
-    'core_sleep_quality',
-    'core_focus',
-    'core_anxiety',
-  };
+  /// All core template IDs — derived from [templates] so it never goes stale.
+  static final Set<String> coreTemplateIds =
+      Set<String>.unmodifiable(templates.map((t) => t.id));
 
   // ---------------------------------------------------------------------------
   // Getters

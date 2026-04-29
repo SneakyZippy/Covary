@@ -113,3 +113,19 @@ extension MetricFrequencyX on MetricFrequency {
     return false;
   }
 }
+
+extension MetricInputTypeX on MetricInputType {
+  /// Human-readable label used across the UI (e.g. filter chips, list tiles).
+  String get displayLabel {
+    switch (this) {
+      case MetricInputType.yesNo:
+        return 'Yes / No';
+      case MetricInputType.scale1to5:
+        return 'Scale 1–5';
+      case MetricInputType.scale1to10:
+        return 'Scale 1–10';
+      case MetricInputType.counter:
+        return 'Counter (Tap)';
+    }
+  }
+}
