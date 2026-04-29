@@ -1,0 +1,162 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.covary.covary">
+
+    <!-- ===================================================================
+         INTERNET PERMISSION
+         Required for checking updates against GitHub Gists in Release builds.
+         =================================================================== -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- ===================================================================
+         PASSIVE SENSING PERMISSIONS (Phase 3)
+         =================================================================== -->
+
+    <!-- Health Connect: read sleep sessions from the last 24 hours -->
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+    <uses-permission android:name="androidx.health.permission.SLEEP.READ" />
+    <uses-permission android:name="androidx.health.permission.SLEEP.WRITE" />
+    <!-- Health Connect: read step counts from the last 24 hours -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.WRITE_STEPS" />
+    <uses-permission android:name="androidx.health.permission.STEPS.READ" />
+    <uses-permission android:name="androidx.health.permission.STEPS.WRITE" />
+
+    <!-- Required for the Health Connect rationale alias -->
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA" />
+
+    <!-- Activity Recognition: required by Health Connect on API 29+ -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
+    <!-- App Usage Stats: grants access to per-app foreground time.
+         This is a "special" permission — the user MUST enable it manually
+         in Settings → Apps → Special app access → Usage access.
+         The PermissionShieldScreen will deep-link them there. -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- WorkManager: schedule exact alarms (API 31+), used for the 4-hour sync -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Battery optimization: lets us request the user to exempt this app,
+         so the 4-hour WorkManager task is not killed by aggressive OEM battery managers -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- WorkManager: needed to re-schedule on boot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- WorkManager: wake lock to execute background tasks -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:label="Covary"
+        android:name="${applicationName}"
+        android:icon="@mipmap/launcher_icon">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Health Connect rationale filter inside MainActivity -->
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <!-- ===================================================================
+             HEALTH CONNECT RATIONALE (Required by 'health' package)
+             This allows the app to handle requests for permission rationales.
+             =================================================================== -->
+        <activity
+            android:name="com.health.HealthConnectRationaleActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity"
+            android:permission="android.permission.health.READ_HEALTH_DATA">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ===================================================================
+             WORKMANAGER — Background sync receiver
+             Required so WorkManager can reschedule tasks after device boots.
+             =================================================================== -->
+        <receiver
+            android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
+            android:directBootAware="false"
+            android:enabled="@bool/enable_system_alarm_service_default"
+            android:exported="false"
+            tools:replace="android:enabled">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Health Connect permissions array -->
+        <meta-data
+            android:name="health_permissions"
+            android:resource="@array/health_permissions" />
+
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <!-- ===================================================================
+         PACKAGE VISIBILITY
+         Required to query Health Connect and process text intents.
+         =================================================================== -->
+    <queries>
+        <!-- Health Connect app — required for the health package to communicate -->
+        <package android:name="com.google.android.apps.healthdata" />
+
+        <!-- Required for Health Connect permission rationale -->
+        <intent>
+            <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+        </intent>
+
+        <!-- Required for url_launcher to check if browser can open links -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+
+        <!-- Required for Flutter engine text processing plugin -->
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

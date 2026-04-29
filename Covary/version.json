@@ -1,0 +1,7 @@
+{
+  "latest_version": "1.0.4",
+  "build_number": 12,
+  "build_timestamp": "2026-04-28T23:01:48+02:00",
+  "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
+  "release_notes": "• Redesigned Insights tab for better data management\n• Added HCI Metrics module (Latency & Interaction types)\n• Added Data Quality module (Compliance heatmap & Recall ratio)\n• Resolved Health Connect authorization and permission declarations"
+}
