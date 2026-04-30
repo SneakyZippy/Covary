@@ -3,5 +3,5 @@
   "build_number": 16,
   "build_timestamp": "2026-04-30T08:58:16+02:00",
   "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-  "release_notes": "• Redesigned Insights tab for better data management\n• Added HCI Metrics module (Latency & Interaction types)\n• Added Data Quality module (Compliance heatmap & Recall ratio)\n• Resolved Health Connect authorization and permission declarations"
+  "release_notes": "• Optimized passive sensing with a 24h lookback and 4h sync frequency\n• Enabled Correlation Matrix for behavioral research insights\n• Added 'data_imported' HCI meta-event for full audit traceability\n• Refined Home Screen UI and added quick-access Data Quality link"
 }
