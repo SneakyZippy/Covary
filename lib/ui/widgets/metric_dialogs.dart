@@ -174,6 +174,25 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
     _retroReliableOverride = widget.metric.retroReliableOverride;
   }
 
+  bool get _isScaleChangeDangerous {
+    final oldType = widget.metric.inputType;
+    final newType = _selectedInputType;
+    if (oldType == newType) return false;
+
+    // Scale to Scale change
+    if ((oldType == MetricInputType.scale1to5 && newType == MetricInputType.scale1to10) ||
+        (oldType == MetricInputType.scale1to10 && newType == MetricInputType.scale1to5)) {
+      return true;
+    }
+
+    // Scale to non-Scale change
+    final wasScale = oldType == MetricInputType.scale1to5 || oldType == MetricInputType.scale1to10;
+    final isScale = newType == MetricInputType.scale1to5 || newType == MetricInputType.scale1to10;
+    if (wasScale != isScale) return true;
+
+    return false;
+  }
+
   @override
   void dispose() {
     _labelController.dispose();
@@ -260,6 +279,10 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
                   if (value != null) setState(() => _selectedInputType = value);
                 },
               ),
+              if (_isScaleChangeDangerous) ...[
+                const SizedBox(height: 16),
+                _buildScaleWarning(),
+              ],
               const SizedBox(height: 16),
               const SizedBox(height: 8),
               Text(
@@ -297,6 +320,46 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
           label: const Text('Save'),
         ),
       ],
+    );
+  }
+
+  Widget _buildScaleWarning() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: colorScheme.error, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Data Integrity Warning',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colorScheme.error,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Changing the scale mid-study will make existing logs incomparable to new ones. Averages and correlations for this metric will be skewed.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onErrorContainer,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

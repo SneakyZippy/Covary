@@ -64,9 +64,9 @@ class PassiveSensingService {
       referenceTime = end;
       debugPrint('[PassiveSensingService] Targeting FULL DAY: ${targetDate.toIso8601String().split('T')[0]}');
     } else {
-      // "Today so far" sync (Manual trigger)
+      // "Last 24 hours" sync (Manual trigger or periodic)
       final now = DateTime.now();
-      start = DateTime(now.year, now.month, now.day, 0, 0, 0);
+      start = now.subtract(const Duration(hours: 24));
       end = now;
       referenceTime = now;
       debugPrint('[PassiveSensingService] Targeting TODAY SO FAR');

@@ -61,7 +61,7 @@ void main() async {
   await Workmanager().registerPeriodicTask(
     kPassiveSyncTask,
     kPassiveSyncTask,
-    frequency: const Duration(hours: 6),
+    frequency: const Duration(hours: 4),
     constraints: Constraints(
       networkType: NetworkType.notRequired,
       requiresBatteryNotLow: false,

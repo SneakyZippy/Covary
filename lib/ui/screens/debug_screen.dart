@@ -102,6 +102,38 @@ class _DebugScreenState extends State<DebugScreen> {
     }
   }
 
+  Future<void> _resetMetrics() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Metrics?'),
+        content: const Text(
+          'This will delete all custom metrics, tracking windows, and sort orders, '
+          'then re-seed the default ones. Recorded events will NOT be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reset', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await context.read<MetricService>().debugResetMetrics();
+        _showSnackbar('Metrics reset to defaults.');
+      } catch (e) {
+        _showSnackbar('Error resetting metrics: $e');
+      }
+    }
+  }
+
   Future<void> _seedDummyData() async {
     final db = context.read<AppDatabase>();
     final random = Random();
@@ -336,6 +368,12 @@ class _DebugScreenState extends State<DebugScreen> {
             subtitle: const Text('Deletes every event in the database'),
             trailing: const Icon(Icons.delete_forever, color: Colors.red),
             onTap: _clearDatabase,
+          ),
+          ListTile(
+            title: const Text('Reset Metrics & Windows'),
+            subtitle: const Text('Deletes definitions and re-seeds defaults'),
+            trailing: const Icon(Icons.refresh, color: Colors.orange),
+            onTap: _resetMetrics,
           ),
           ListTile(
             title: const Text('Seed Dummy Data'),

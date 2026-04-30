@@ -734,4 +734,27 @@ class MetricService extends ChangeNotifier {
     await _reload();
     debugPrint('[MetricService] Deleted custom metric: "${metric.label}"');
   }
+
+  /// DEBUG ONLY: Deletes all metrics and tracking windows, 
+  /// clears seeding flags, and re-initializes with defaults.
+  Future<void> debugResetMetrics() async {
+    // 1. Clear database tables
+    await _db.clearAllMetrics();
+    await _db.clearAllTrackingWindows();
+
+    // 2. Clear SharedPreferences flags and sort orders
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('tracking_windows_seeded');
+    await prefs.remove('core_metrics_seeded');
+    await prefs.remove('metric_sort_order');
+    await prefs.remove('tracking_windows_sort_order');
+    
+    // 3. Re-initialize
+    await init(_db);
+
+    // 4. Reschedule notifications
+    await NotificationService.scheduleDailyReminders();
+    
+    debugPrint('[MetricService] Debug Reset: All metrics and windows cleared and re-seeded');
+  }
 }

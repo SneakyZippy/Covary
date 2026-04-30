@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import '../data/database/app_database.dart';
 import 'profile_service.dart';
 import '../data/database/tables/table_utils.dart';
+import '../data/models/enums.dart';
 
 /// Service responsible for importing data from JSON files.
 /// Updated to support full migrations (Profile, Windows, Events).
@@ -153,6 +154,17 @@ class ImportService {
           }
         }
       }
+
+      // 5. Log Import Meta Event
+      await _db.insertEvent(
+        EventsCompanion.insert(
+          category: EventCategory.meta,
+          label: 'data_imported',
+          value: 'true',
+          triggerSource: TriggerSource.manual,
+          interactionType: InteractionType.click,
+        ),
+      );
 
       String summary = 'Import successful!\n';
       summary += '$eventCount events, $metricCount metrics, $windowCount windows restored.';

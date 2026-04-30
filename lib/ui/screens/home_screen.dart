@@ -11,6 +11,7 @@ import '../../services/profile_service.dart';
 import '../widgets/missed_session_card.dart';
 import '../widgets/quick_track_button.dart';
 import 'daily_checkin_screen.dart';
+import 'compliance_screen.dart';
 
 /// The primary Home view.
 ///
@@ -179,11 +180,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 24),
               ],
 
-              const SizedBox(height: 8),
-              const SizedBox(height: 8),
-              const SizedBox(height: 24),
-              const SizedBox(height: 8),
-              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24.0),
+                child: Center(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ComplianceScreen(),
+                        ),
+                      );
+                    },
+                    icon: Icon(Icons.verified_user_rounded, size: 16, color: colorScheme.primary),
+                    label: Text(
+                      'View Data Quality Metrics',
+                      style: textTheme.labelMedium?.copyWith(color: colorScheme.primary),
+                    ),
+                  ),
+                ),
+              ),
               
               _buildQuickActions(quickMetrics, colorScheme, textTheme),
               const SizedBox(height: 32),

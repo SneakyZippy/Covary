@@ -214,6 +214,14 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deleteTrackingWindow(String id) {
     return (delete(trackingWindows)..where((t) => t.id.equals(id))).go();
   }
+
+  Future<void> clearAllMetrics() async {
+    await delete(customMetrics).go();
+  }
+
+  Future<void> clearAllTrackingWindows() async {
+    await delete(trackingWindows).go();
+  }
 }
 
 LazyDatabase _openConnection() {

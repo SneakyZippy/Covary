@@ -22,11 +22,14 @@ void callbackDispatcher() {
         appUsage: appUsageService,
       );
 
-      // Background task always targets the full previous day (Yesterday).
+      // Sync the full previous day to ensure completeness.
       final yesterday = DateTime.now().subtract(const Duration(days: 1));
       await sensingService.syncAll(targetDate: yesterday);
       
-      debugPrint('[WorkManager] Passive sync for yesterday completed successfully.');
+      // Also sync the last 24 hours for real-time data visibility today.
+      await sensingService.syncAll();
+      
+      debugPrint('[WorkManager] Passive sync for yesterday and today completed successfully.');
       return Future.value(true);
     } catch (e) {
       debugPrint('[WorkManager] Passive sync failed: $e');

@@ -68,7 +68,6 @@ class AnalyticsScreen extends StatelessWidget {
                     description: 'Analyze relationships between behaviors.',
                     icon: Icons.grid_view_rounded,
                     color: colorScheme.tertiary,
-                    isComingSoon: true,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CorrelationMatrixScreen()),
@@ -150,15 +149,12 @@ class _AnalyticsCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  final bool isComingSoon;
-
   const _AnalyticsCard({
     required this.title,
     required this.description,
     required this.icon,
     required this.color,
     required this.onTap,
-    this.isComingSoon = false,
   });
 
   @override
@@ -168,12 +164,10 @@ class _AnalyticsCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withAlpha(isComingSoon ? 100 : 255),
+      color: colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: isComingSoon 
-          ? BorderSide(color: colorScheme.outlineVariant.withAlpha(100))
-          : BorderSide.none,
+        side: BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -192,23 +186,6 @@ class _AnalyticsCard extends StatelessWidget {
                 child: Icon(icon, color: color, size: 24),
               ),
               const Spacer(),
-              if (isComingSoon)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'SOON',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
               Text(
                 title,
                 style: textTheme.titleSmall?.copyWith(
