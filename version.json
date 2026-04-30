@@ -1,7 +1,7 @@
 {
   "latest_version": "1.2.0",
-  "build_number": 16,
-  "build_timestamp": "2026-04-30T08:58:16+02:00",
+  "build_number": 17,
+  "build_timestamp": "2026-04-30T09:45:00+02:00",
   "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-  "release_notes": "• Optimized passive sensing with a 24h lookback and 4h sync frequency\n• Enabled Correlation Matrix for behavioral research insights\n• Added 'data_imported' HCI meta-event for full audit traceability\n• Refined Home Screen UI and added quick-access Data Quality link"
+  "release_notes": "• Fixed HCI interaction analytics: SwipeAway and Snooze events now correctly show in the dashboard\n• Accurate latency tracking: Counter metrics now measure real user response time\n• Improved data attribution: Correctly tag trigger source for sessions launched via notification\n• Enhanced UX: Fixed slider auto-advance bug during drag interaction"
 }
