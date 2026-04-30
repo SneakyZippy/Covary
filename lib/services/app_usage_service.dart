@@ -5,6 +5,18 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:usage_stats/usage_stats.dart';
 
+/// Tri-state permission result for App Usage Stats.
+///
+/// - [granted]    : `PACKAGE_USAGE_STATS` is active.
+/// - [denied]     : Permission not yet granted; settings page not yet visited.
+/// - [restricted] : User visited Usage Access settings but the toggle was
+///                  grayed out ("Controlled by restricted setting").
+///                  This happens on Android 13+ when the APK is sideloaded.
+///                  Fix: Settings → Apps → Covary → ⋮ → Allow restricted settings.
+enum AppUsagePermissionStatus { granted, denied, restricted }
+
+const _kSettingsOpenedKey = 'app_usage_settings_opened';
+
 /// SharedPreferences keys for persisted app category sets.
 const _kSocialAppsKey = 'social_app_packages';
 const _kEntertainmentAppsKey = 'entertainment_app_packages';
@@ -151,15 +163,57 @@ class AppUsageService extends ChangeNotifier {
     }
   }
 
+  /// Returns a tri-state [AppUsagePermissionStatus] distinguishing between
+  /// granted, never-asked-denied, and Android 13+ restricted-setting-blocked.
+  ///
+  /// **Restricted detection logic:**
+  /// Android has no public API to detect whether the toggle is grayed out.
+  /// We infer it by checking whether [openPermissionSettings] was previously
+  /// called (persisted flag) AND permission is still not granted after returning.
+  Future<AppUsagePermissionStatus> checkPermissionStatus() async {
+    if (!Platform.isAndroid) return AppUsagePermissionStatus.denied;
+
+    final granted = await isPermissionGranted();
+    if (granted) {
+      await resetRestrictedFlag();
+      return AppUsagePermissionStatus.granted;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final settingsOpened = prefs.getBool(_kSettingsOpenedKey) ?? false;
+
+    if (settingsOpened) {
+      debugPrint(
+        '[AppUsageService] Permission still denied after settings visit → restricted.',
+      );
+      return AppUsagePermissionStatus.restricted;
+    }
+
+    return AppUsagePermissionStatus.denied;
+  }
+
   /// Deep-links the user to the **Usage Access** settings page.
+  ///
+  /// Persists a flag so [checkPermissionStatus] can detect the
+  /// restricted-setting state if the user returns without granting access.
   Future<void> openPermissionSettings() async {
     if (!Platform.isAndroid) return;
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kSettingsOpenedKey, true);
       await UsageStats.grantUsagePermission();
     } on PlatformException catch (e) {
       debugPrint('[AppUsageService] openPermissionSettings error: $e');
     }
   }
+
+  /// Clears the settings-visited flag (called automatically when permission
+  /// is confirmed granted, so future denials are not misclassified as restricted).
+  Future<void> resetRestrictedFlag() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kSettingsOpenedKey);
+  }
+
 
   // ---------------------------------------------------------------------------
   // Data Fetching

@@ -35,12 +35,14 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
     with WidgetsBindingObserver {
   // Permission states — updated on init and every time the app resumes.
   bool _healthGranted = false;
-  bool _usageGranted = false;
+  AppUsagePermissionStatus _usageStatus = AppUsagePermissionStatus.denied;
   bool _notificationsGranted = false;
   bool _batteryIgnored = false;
 
   // Whether a sync is currently in progress (for the loading indicator).
   bool _isSyncing = false;
+
+  bool get _usageGranted => _usageStatus == AppUsagePermissionStatus.granted;
 
   @override
   void initState() {
@@ -76,18 +78,19 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
     final appUsageService = context.read<AppUsageService>();
 
     final healthResult = await healthService.hasPermissions();
-    final usageResult = await appUsageService.isPermissionGranted();
+    final usageStatus = await appUsageService.checkPermissionStatus();
     final notifResult = await AwesomeNotifications().isNotificationAllowed();
     final batteryResult = await Permission.ignoreBatteryOptimizations.isGranted;
 
     if (!mounted) return;
     setState(() {
       _healthGranted = healthResult;
-      _usageGranted = usageResult;
+      _usageStatus = usageStatus;
       _notificationsGranted = notifResult;
       _batteryIgnored = batteryResult;
     });
   }
+
 
   /// Triggers an immediate passive sync cycle.
   ///
@@ -191,29 +194,37 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
           const SizedBox(height: 12),
 
           // ── App Usage Stats ──────────────────────────────────────────────
-          _PermissionCard(
-            icon: Icons.bar_chart_rounded,
-            iconColor: colorScheme.primary,
-            title: 'App Usage Stats',
-            subtitle: 'Total & social screen time',
-            explanation:
-                'Covary measures your daily total screen time, time spent '
-                'in Social Media apps, and time in Entertainment apps.\n\n'
-                'This is a special Android permission that must be enabled '
-                'manually. Tap the button below — you will be taken to the '
-                'Usage Access settings. Toggle Covary ON, then come back.',
-            isGranted: _usageGranted,
-            buttonLabel: _usageGranted
-                ? 'Granted ✓'
-                : 'Open Usage Access Settings',
-            onGrant: _usageGranted
-                ? null
-                : () async {
-                    final service = context.read<AppUsageService>();
-                    await service.openPermissionSettings();
-                    // Permission check will re-run in didChangeAppLifecycleState.
-                  },
-          ),
+          if (_usageStatus == AppUsagePermissionStatus.restricted)
+            _RestrictedSettingGuide(
+              onRetry: () async {
+                final service = context.read<AppUsageService>();
+                await service.openPermissionSettings();
+              },
+            )
+          else
+            _PermissionCard(
+              icon: Icons.bar_chart_rounded,
+              iconColor: colorScheme.primary,
+              title: 'App Usage Stats',
+              subtitle: 'Total & social screen time',
+              explanation:
+                  'Covary measures your daily total screen time, time spent '
+                  'in Social Media apps, and time in Entertainment apps.\n\n'
+                  'This is a special Android permission that must be enabled '
+                  'manually. Tap the button below — you will be taken to the '
+                  'Usage Access settings. Toggle Covary ON, then come back.',
+              isGranted: _usageGranted,
+              buttonLabel: _usageGranted
+                  ? 'Granted ✓'
+                  : 'Open Usage Access Settings',
+              onGrant: _usageGranted
+                  ? null
+                  : () async {
+                      final service = context.read<AppUsageService>();
+                      await service.openPermissionSettings();
+                      // Permission check will re-run in didChangeAppLifecycleState.
+                    },
+            ),
 
           const SizedBox(height: 12),
 
@@ -556,6 +567,199 @@ class _PermissionCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// =============================================================================
+// Restricted Setting Guide
+// =============================================================================
+
+/// Shown when Android's "Controlled by restricted setting" blocks the toggle.
+///
+/// This happens on Android 13+ when the APK is sideloaded (not installed from
+/// the Play Store). The OS restricts sensitive special permissions until the
+/// user explicitly unlocks them via the app's info page.
+///
+/// This guide walks the user through the exact 3-step process to unlock it.
+class _RestrictedSettingGuide extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _RestrictedSettingGuide({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    const orange = Color(0xFFE65100);
+    const orangeSurface = Color(0x26E65100); // ~15% opacity
+
+    return Card(
+      elevation: 0,
+      color: orangeSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: orange.withAlpha(80), width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: orange.withAlpha(30),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.lock_outline_rounded,
+                    color: orange,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'App Usage Stats',
+                        style: textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        'Extra step required',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: orange,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.warning_amber_rounded, color: orange, size: 26),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: orange),
+            const SizedBox(height: 14),
+
+            // ── Explanation ─────────────────────────────────────────────────
+            Text(
+              'Android blocked the toggle because Covary was installed '
+              'directly (not from the Play Store). This is a security '
+              'restriction — you need to unlock it once.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface,
+                height: 1.6,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Step-by-step guide ──────────────────────────────────────────
+            Text(
+              'How to fix it:',
+              style: textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: orange,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _Step(
+              number: '1',
+              text: 'Go to  Settings → Apps → Covary',
+            ),
+            const SizedBox(height: 8),
+            _Step(
+              number: '2',
+              text: 'Tap the  ⋮  (three-dot menu) in the top-right corner',
+            ),
+            const SizedBox(height: 8),
+            _Step(
+              number: '3',
+              text: 'Tap  "Allow restricted settings"  and confirm',
+            ),
+            const SizedBox(height: 8),
+            _Step(
+              number: '4',
+              text: 'Come back here and tap "Open Usage Access Settings" to toggle Covary ON',
+            ),
+
+            const SizedBox(height: 18),
+
+            // ── Retry button ────────────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonal(
+                onPressed: onRetry,
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  backgroundColor: orange.withAlpha(30),
+                  foregroundColor: orange,
+                ),
+                child: const Text('Open Usage Access Settings'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A single numbered step row used in [_RestrictedSettingGuide].
+class _Step extends StatelessWidget {
+  final String number;
+  final String text;
+
+  const _Step({required this.number, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    const orange = Color(0xFFE65100);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: orange.withAlpha(30),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            number,
+            style: textTheme.labelSmall?.copyWith(
+              color: orange,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
