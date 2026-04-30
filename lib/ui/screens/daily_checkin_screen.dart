@@ -24,6 +24,12 @@ class DailyCheckinScreen extends StatefulWidget {
   final CheckinMode mode;
   final DateTime? targetTime;
   final String? fulfilledSlotId;
+  final String? sessionId;
+
+  /// How the session was initiated — [TriggerSource.manual] when opened
+  /// from within the app, [TriggerSource.notification] when launched by
+  /// tapping a push notification.
+  final TriggerSource triggerSource;
 
   const DailyCheckinScreen({
     super.key,
@@ -31,9 +37,8 @@ class DailyCheckinScreen extends StatefulWidget {
     this.targetTime,
     this.fulfilledSlotId,
     this.sessionId,
+    this.triggerSource = TriggerSource.manual,
   });
-
-  final String? sessionId;
 
   @override
   State<DailyCheckinScreen> createState() => _DailyCheckinScreenState();
@@ -193,7 +198,9 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 
                               if (metric.inputType ==
                                   MetricInputType.counter) {
-                                _logCounterTap(metric);
+                                // Bug 2 fix: pass the card-visible timestamp
+                                // so latency is measured, not hardcoded to 0.
+                                _logCounterTap(metric, latency);
                                 setState(() {
                                   _sessionData[metric.id] = ('1', latency);
                                 });
@@ -202,7 +209,12 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                                   _sessionData[metric.id] = (value, latency);
                                 });
                               }
-                              if (index < metrics.length) {
+                              // Bug 4 fix: do NOT auto-advance for sliders —
+                              // the user needs to finish dragging before the
+                              // page flips. They swipe manually instead.
+                              final shouldAutoAdvance =
+                                  metric.inputType != MetricInputType.scale1to10;
+                              if (shouldAutoAdvance && index < metrics.length) {
                                 _pageController.nextPage(
                                   duration:
                                       const Duration(milliseconds: 400),
@@ -255,7 +267,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         return InkWell(
           onTap: () {
             if (metric.inputType == MetricInputType.counter) {
-              _logCounterTap(metric);
+              // latencyMs = 0 in the manual grid — no open-time to measure.
+              _logCounterTap(metric, 0);
             } else {
               _showSingleMetricInput(metric);
             }
@@ -307,7 +320,9 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     );
   }
 
-  Future<void> _logCounterTap(MetricDefinition metric) async {
+  /// Bug 2 fix: [latencyMs] is now passed in from the caller so counter taps
+  /// record real response time instead of always being 0.
+  Future<void> _logCounterTap(MetricDefinition metric, int latencyMs) async {
     try {
       final db = context.read<AppDatabase>();
       await db.insertEvent(
@@ -315,8 +330,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           category: Value(metric.category),
           label: Value(metric.label),
           value: const Value('1'),
-          latencyMs: const Value(0),
-          triggerSource: const Value(TriggerSource.manual),
+          latencyMs: Value(latencyMs),
+          triggerSource: Value(widget.triggerSource),
           interactionType: const Value(InteractionType.click),
           timestamp: Value(widget.targetTime ?? DateTime.now()),
         ),
@@ -362,7 +377,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                     label: Value(metric.label),
                     value: Value(value),
                     latencyMs: Value(latency),
-                    triggerSource: const Value(TriggerSource.manual),
+                    // Bug 3 fix: propagate the widget's triggerSource.
+                    triggerSource: Value(widget.triggerSource),
                     interactionType: const Value(InteractionType.click),
                     timestamp: Value(widget.targetTime ?? DateTime.now()),
                   ),
@@ -406,7 +422,9 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
             label: Value(metric.label),
             value: Value(data.$1),
             latencyMs: Value(data.$2),
-            triggerSource: const Value(TriggerSource.manual),
+            // Bug 3 fix: use widget.triggerSource so notification-launched
+            // sessions are distinguishable from manual opens in the data.
+            triggerSource: Value(widget.triggerSource),
             interactionType: const Value(InteractionType.click),
             timestamp: Value(widget.targetTime ?? DateTime.now()),
             sessionId: Value(sessionId),

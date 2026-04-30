@@ -121,6 +121,9 @@ class NotificationService {
             mode: CheckinMode.guided,
             sessionId: sessionId,
             fulfilledSlotId: windowId,
+            // Bug 3 fix: mark the session as notification-triggered so all
+            // metric events inside it carry the correct triggerSource.
+            triggerSource: TriggerSource.notification,
           ),
         ),
       );

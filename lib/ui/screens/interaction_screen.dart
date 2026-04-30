@@ -25,12 +25,30 @@ class _InteractionScreenState extends State<InteractionScreen> {
   Future<void> _loadInteractionData() async {
     final db = context.read<AppDatabase>();
     final events = await db.getAllEvents();
-    
-    // Only count research-relevant interactions
-    final researchEvents = events.where((e) => 
-      e.category != EventCategory.meta && 
-      e.category != EventCategory.appUsage
-    ).toList();
+
+    // Bug 1 fix: the old filter excluded ALL meta events, which meant
+    // SwipeAway and Snooze (logged as meta by NotificationService) were
+    // invisible in analytics. We now include meta events that represent
+    // real user interactions with notification prompts, identified by
+    // their triggerSource being 'notification' or by having a non-click
+    // interactionType (swipeAway / snooze always come from notifications).
+    //
+    // Excluded: appUsage (passive), and meta events that are purely
+    // system bookkeeping (SessionCompleted, PassiveSyncCompleted, etc.)
+    // identified by being system-triggered with a click interactionType.
+    final researchEvents = events.where((e) {
+      if (e.category == EventCategory.appUsage) return false;
+      if (e.category == EventCategory.meta) {
+        // Include notification-interaction meta events (swipeAway, snooze,
+        // and notification-click events logged by NotificationService).
+        if (e.triggerSource == TriggerSource.notification) return true;
+        if (e.interactionType == InteractionType.swipeAway) return true;
+        if (e.interactionType == InteractionType.snooze) return true;
+        // Exclude all other system/bookkeeping meta events.
+        return false;
+      }
+      return true;
+    }).toList();
 
     final counts = <InteractionType, int>{};
     int totalLatency = 0;
