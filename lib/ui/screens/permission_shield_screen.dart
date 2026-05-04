@@ -174,7 +174,7 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
                     final service = context.read<HealthService>();
                     final success = await service.requestPermissions();
                     
-                    if (!success && mounted) {
+                    if (!success && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(

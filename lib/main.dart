@@ -15,6 +15,7 @@ import 'services/analytics_service.dart';
 import 'services/import_service.dart';
 import 'ui/screens/app_shell.dart';
 import 'ui/screens/profile_setup_screen.dart';
+import 'ui/screens/restore_selection_screen.dart';
 import 'ui/theme/app_theme.dart';
 
 // =============================================================================
@@ -122,9 +123,11 @@ class CovaryApp extends StatelessWidget {
         primaryColor: themeService.primaryColor,
       ),
       themeMode: themeService.themeMode,
-      home: profileService.isFirstLaunch
-          ? const ProfileSetupScreen()
-          : const AppShell(),
+      home: profileService.hasRestoredData
+          ? const RestoreSelectionScreen()
+          : profileService.isFirstLaunch
+              ? const ProfileSetupScreen()
+              : const AppShell(),
     );
   }
 }

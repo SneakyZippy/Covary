@@ -238,8 +238,10 @@ class MetricService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     
     // --- Seed Tracking Windows ---
+    final existingWindows = await _db.getAllTrackingWindows();
     final windowsSeeded = prefs.getBool('tracking_windows_seeded') ?? false;
-    if (!windowsSeeded) {
+    
+    if (!windowsSeeded && existingWindows.isEmpty) {
       final samples = [
         ('Morning Reflection', 8, 0, 10, 0, 8, 30),
         ('Afternoon Sync', 13, 0, 15, 0, 13, 30),
@@ -266,12 +268,16 @@ class MetricService extends ChangeNotifier {
       }
       await prefs.setBool('tracking_windows_seeded', true);
       debugPrint('[MetricService] Seeded 3 sample tracking windows');
+    } else if (!windowsSeeded) {
+      // Handle restore scenario: Data exists but pref is false
+      await prefs.setBool('tracking_windows_seeded', true);
     }
 
     // --- Seed Core Metrics ---
+    final existingMetrics = await _db.getAllCustomMetrics();
     final hasSeeded = prefs.getBool('core_metrics_seeded') ?? false;
     
-    if (!hasSeeded) {
+    if (!hasSeeded && existingMetrics.isEmpty) {
       // Seed default metrics if first launch
       for (final m in templates) {
         try {
@@ -306,6 +312,9 @@ class MetricService extends ChangeNotifier {
         }
       }
       await prefs.setBool('core_metrics_seeded', true);
+    } else if (!hasSeeded) {
+      // Handle restore scenario
+      await prefs.setBool('core_metrics_seeded', true);
     }
 
     // --- Ensure Consistency & Reliability ---
@@ -315,8 +324,8 @@ class MetricService extends ChangeNotifier {
     final morningId = currentWindows.cast<TrackingWindow?>().firstWhere((w) => w?.label == 'Morning Reflection', orElse: () => null)?.id;
     final eveningId = currentWindows.cast<TrackingWindow?>().firstWhere((w) => w?.label == 'Evening Review', orElse: () => null)?.id;
 
-    final existingMetrics = await _db.getAllCustomMetrics();
-    final existingIds = existingMetrics.map((m) => m.id).toSet();
+    final currentMetrics = await _db.getAllCustomMetrics();
+    final existingIds = currentMetrics.map((m) => m.id).toSet();
 
     for (final template in templates) {
       if (!existingIds.contains(template.id)) {
@@ -345,7 +354,7 @@ class MetricService extends ChangeNotifier {
         debugPrint('[MetricService] Added missing core metric: ${template.id}');
       } else {
         // Metric already exists, ensure it's consistent with template metadata
-        final row = existingMetrics.firstWhere((m) => m.id == template.id);
+        final row = currentMetrics.firstWhere((m) => m.id == template.id);
         
         bool needsUpdate = false;
         CustomMetricsCompanion updates = const CustomMetricsCompanion();

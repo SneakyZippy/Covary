@@ -41,6 +41,9 @@ class ProfileService extends ChangeNotifier {
   /// Whether [init] has completed successfully.
   bool _isInitialized = false;
 
+  /// Whether the app detected a restored database without preferences.
+  bool _hasRestoredData = false;
+
   /// Reference to the database for logging meta events.
   late final AppDatabase _db;
 
@@ -59,7 +62,10 @@ class ProfileService extends ChangeNotifier {
 
   /// Whether this is the user's first time launching the app.
   /// Useful for routing to the profile setup screen.
-  bool get isFirstLaunch => _nickname.isEmpty;
+  bool get isFirstLaunch => _nickname.isEmpty && !_hasRestoredData;
+
+  /// Whether the app detected restored data from a cloud backup.
+  bool get hasRestoredData => _hasRestoredData;
 
   /// Returns the current day of the study (Day 1, Day 2, etc.)
   int get studyDay {
@@ -85,6 +91,9 @@ class ProfileService extends ChangeNotifier {
   Future<void> init(AppDatabase db) async {
     _db = db;
     final prefs = await SharedPreferences.getInstance();
+    
+    // Check database to see if we have restored data
+    final allEvents = await _db.getAllEvents();
 
     // --- UUID ---
     final storedUuid = prefs.getString(_kUserUuid);
@@ -92,22 +101,11 @@ class ProfileService extends ChangeNotifier {
       _uuid = storedUuid;
       debugPrint('[ProfileService] Existing user: $_uuid');
     } else {
-      _uuid = const Uuid().v4();
-      await prefs.setString(_kUserUuid, _uuid);
-      debugPrint('[ProfileService] First launch — generated UUID: $_uuid');
-
-      // Log the first launch as a meta event for research tracking.
-      try {
-        await _db.insertEvent(EventsCompanion(
-          category: Value(EventCategory.meta),
-          label: const Value('first_launch'),
-          value: Value(_uuid),
-          triggerSource: const Value(TriggerSource.system),
-          interactionType: const Value(InteractionType.click),
-        ));
-        debugPrint('[ProfileService] Logged first_launch event');
-      } catch (e) {
-        debugPrint('[ProfileService] Error logging first_launch: $e');
+      if (allEvents.isNotEmpty) {
+        _hasRestoredData = true;
+        debugPrint('[ProfileService] Restored database detected!');
+      } else {
+        await _generateNewIdentity(prefs);
       }
     }
 
@@ -127,10 +125,100 @@ class ProfileService extends ChangeNotifier {
       } else {
         _firstLaunchAt = DateTime.now();
       }
-      await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
+      if (!_hasRestoredData) {
+        await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
+      }
     }
 
     _isInitialized = true;
+    notifyListeners();
+  }
+
+  Future<void> _generateNewIdentity(SharedPreferences prefs) async {
+    _uuid = const Uuid().v4();
+    await prefs.setString(_kUserUuid, _uuid);
+    debugPrint('[ProfileService] Generated UUID: $_uuid');
+
+    try {
+      await _db.insertEvent(EventsCompanion(
+        category: Value(EventCategory.meta),
+        label: const Value('first_launch'),
+        value: Value(_uuid),
+        triggerSource: const Value(TriggerSource.system),
+        interactionType: const Value(InteractionType.click),
+      ));
+      debugPrint('[ProfileService] Logged first_launch event');
+    } catch (e) {
+      debugPrint('[ProfileService] Error logging first_launch: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Restore Logic
+  // ---------------------------------------------------------------------------
+
+  /// Starts a completely fresh session by wiping the database and generating a new ID.
+  Future<void> startFresh() async {
+    // 1. Wipe the database
+    await _db.delete(_db.events).go();
+    await _db.delete(_db.customMetrics).go();
+    await _db.delete(_db.trackingWindows).go();
+
+    // 2. Clear prefs and generate new identity
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    await _generateNewIdentity(prefs);
+    
+    _hasRestoredData = false;
+    _firstLaunchAt = DateTime.now();
+    await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
+    
+    notifyListeners();
+  }
+
+  /// Attempts to recover the UUID and nickname from the historical database events.
+  Future<void> recoverFromDatabase() async {
+    final allEvents = await _db.getAllEvents();
+    
+    // Find the original UUID from the first_launch event
+    try {
+      final firstLaunchEvent = allEvents.firstWhere(
+        (e) => e.category == EventCategory.meta && e.label == 'first_launch'
+      );
+      _uuid = firstLaunchEvent.value;
+    } catch (e) {
+      // Fallback: If no first_launch event, generate a new UUID for the old data
+      _uuid = const Uuid().v4();
+      await _db.insertEvent(EventsCompanion(
+        category: Value(EventCategory.meta),
+        label: const Value('first_launch'),
+        value: Value(_uuid),
+        triggerSource: const Value(TriggerSource.system),
+        interactionType: const Value(InteractionType.click),
+      ));
+    }
+
+    // Find the most recent nickname
+    try {
+      final nicknameEvents = allEvents
+          .where((e) => e.category == EventCategory.meta && e.label == 'nickname_changed')
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        
+      if (nicknameEvents.isNotEmpty) {
+        _nickname = nicknameEvents.first.value;
+      } else {
+        _nickname = 'Recovered User'; // Fallback
+      }
+    } catch (e) {
+      _nickname = 'Recovered User';
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kUserUuid, _uuid);
+    await prefs.setString(_kNickname, _nickname);
+    
+    _hasRestoredData = false;
     notifyListeners();
   }
 
