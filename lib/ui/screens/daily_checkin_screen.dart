@@ -209,11 +209,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                                   _sessionData[metric.id] = (value, latency);
                                 });
                               }
-                              // Bug 4 fix: do NOT auto-advance for sliders —
-                              // the user needs to finish dragging before the
-                              // page flips. They swipe manually instead.
-                              final shouldAutoAdvance =
-                                  metric.inputType != MetricInputType.scale1to10;
+                              // Auto-advance for all types (including sliders on release)
+                              const shouldAutoAdvance = true;
                               if (shouldAutoAdvance && index < metrics.length) {
                                 _pageController.nextPage(
                                   duration:

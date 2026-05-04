@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/metric_service.dart';
 import '../../data/database/app_database.dart';
+import '../widgets/edit_window_dialog.dart';
 
 class TrackingWindowsScreen extends StatelessWidget {
   const TrackingWindowsScreen({super.key});
@@ -109,7 +110,7 @@ class TrackingWindowsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) =>
-          _EditWindowDialog(service: service, existing: existing),
+          EditWindowDialog(service: service, existing: existing),
     );
   }
 
@@ -141,153 +142,3 @@ class TrackingWindowsScreen extends StatelessWidget {
   }
 }
 
-class _EditWindowDialog extends StatefulWidget {
-  final MetricService service;
-  final TrackingWindow? existing;
-
-  const _EditWindowDialog({required this.service, this.existing});
-
-  @override
-  State<_EditWindowDialog> createState() => _EditWindowDialogState();
-}
-
-class _EditWindowDialogState extends State<_EditWindowDialog> {
-  final _labelController = TextEditingController();
-  TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
-  TimeOfDay _endTime = const TimeOfDay(hour: 9, minute: 0);
-  bool _isNotificationEnabled = false;
-  TimeOfDay _notificationTime = const TimeOfDay(hour: 8, minute: 0);
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.existing != null) {
-      _labelController.text = widget.existing!.label;
-      _startTime = TimeOfDay(
-        hour: widget.existing!.startHour,
-        minute: widget.existing!.startMinute,
-      );
-      _endTime = TimeOfDay(
-        hour: widget.existing!.endHour,
-        minute: widget.existing!.endMinute,
-      );
-      _isNotificationEnabled = widget.existing!.isNotificationEnabled;
-      _notificationTime = TimeOfDay(
-        hour: widget.existing!.notificationHour,
-        minute: widget.existing!.notificationMinute,
-      );
-    } else {
-      _notificationTime = _startTime;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.existing == null ? 'New Window' : 'Edit Window'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _labelController,
-              decoration: const InputDecoration(
-                labelText: 'Window Name',
-                hintText: 'e.g. Morning Routine',
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              title: const Text('Start Time'),
-              trailing: Text(_startTime.format(context)),
-              onTap: () async {
-                final picked = await showTimePicker(
-                  context: context,
-                  initialTime: _startTime,
-                );
-                if (picked != null) {
-                  setState(() {
-                    // If notification time was the same as start time, sync it to the new start time
-                    if (_notificationTime.hour == _startTime.hour &&
-                        _notificationTime.minute == _startTime.minute) {
-                      _notificationTime = picked;
-                    }
-                    _startTime = picked;
-                  });
-                }
-              },
-            ),
-            ListTile(
-              title: const Text('End Time'),
-              trailing: Text(_endTime.format(context)),
-              onTap: () async {
-                final picked = await showTimePicker(
-                  context: context,
-                  initialTime: _endTime,
-                );
-                if (picked != null) setState(() => _endTime = picked);
-              },
-            ),
-            const Divider(),
-            SwitchListTile(
-              title: const Text('Enable Notification'),
-              subtitle: const Text('Send a reminder for this window'),
-              value: _isNotificationEnabled,
-              onChanged: (val) => setState(() => _isNotificationEnabled = val),
-            ),
-            if (_isNotificationEnabled)
-              ListTile(
-                title: const Text('Notification Time'),
-                trailing: Text(_notificationTime.format(context)),
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: _notificationTime,
-                  );
-                  if (picked != null) setState(() => _notificationTime = picked);
-                },
-              ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            if (_labelController.text.isEmpty) return;
-
-            if (widget.existing == null) {
-              widget.service.addTrackingWindow(
-                label: _labelController.text,
-                startHour: _startTime.hour,
-                startMinute: _startTime.minute,
-                endHour: _endTime.hour,
-                endMinute: _endTime.minute,
-                isNotificationEnabled: _isNotificationEnabled,
-                notificationHour: _notificationTime.hour,
-                notificationMinute: _notificationTime.minute,
-              );
-            } else {
-              widget.service.updateTrackingWindow(
-                widget.existing!.id,
-                label: _labelController.text,
-                startHour: _startTime.hour,
-                startMinute: _startTime.minute,
-                endHour: _endTime.hour,
-                endMinute: _endTime.minute,
-                isNotificationEnabled: _isNotificationEnabled,
-                notificationHour: _notificationTime.hour,
-                notificationMinute: _notificationTime.minute,
-              );
-            }
-            Navigator.pop(context);
-          },
-          child: const Text('Save'),
-        ),
-      ],
-    );
-  }
-}

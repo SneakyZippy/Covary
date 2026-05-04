@@ -308,4 +308,12 @@ class ProfileService extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  /// Resets the onboarding state so the user can see the tutorial again.
+  Future<void> resetOnboarding() async {
+    _hasSeenOnboarding = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kHasSeenOnboarding, false);
+    notifyListeners();
+  }
 }

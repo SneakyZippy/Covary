@@ -48,7 +48,7 @@ class MetricService extends ChangeNotifier {
       id: 'core_mood',
       label: 'Current Mood',
       category: EventCategory.mood,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       emoji: 'sentiment_satisfied',
     ),
@@ -56,7 +56,7 @@ class MetricService extends ChangeNotifier {
       id: 'core_energy',
       label: 'Energy Level',
       category: EventCategory.mood,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       emoji: 'bolt',
     ),
@@ -64,7 +64,7 @@ class MetricService extends ChangeNotifier {
       id: 'core_stress',
       label: 'Stress Level',
       category: EventCategory.mood,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       emoji: 'psychology',
     ),
@@ -74,7 +74,7 @@ class MetricService extends ChangeNotifier {
       id: 'core_sleep_quality',
       label: 'Sleep Quality',
       category: EventCategory.health,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       emoji: 'bedtime',
     ),
@@ -126,7 +126,7 @@ class MetricService extends ChangeNotifier {
       id: 'core_focus',
       label: 'Focus',
       category: EventCategory.productivity,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: false,
       emoji: 'lightbulb',
     ),
@@ -134,7 +134,7 @@ class MetricService extends ChangeNotifier {
       id: 'core_anxiety',
       label: 'Anxiety',
       category: EventCategory.mood,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: false,
       emoji: 'psychology',
     ),
@@ -239,9 +239,11 @@ class MetricService extends ChangeNotifier {
     
     if (!windowsSeeded && existingWindows.isEmpty) {
       final samples = [
-        ('Morning Reflection', 8, 0, 10, 0, 8, 30),
-        ('Afternoon Sync', 13, 0, 15, 0, 13, 30),
-        ('Evening Review', 20, 0, 22, 0, 20, 30),
+        ('Early Morning', 7, 0, 9, 0, 7, 30),
+        ('Late Morning', 10, 0, 12, 0, 10, 30),
+        ('Afternoon Sync', 14, 0, 16, 0, 14, 30),
+        ('Evening Review', 19, 0, 21, 0, 19, 30),
+        ('Night/Bedtime', 22, 0, 0, 0, 22, 30),
       ];
 
       for (final s in samples) {

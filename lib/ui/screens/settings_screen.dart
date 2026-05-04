@@ -381,6 +381,55 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
 
+            // --- Help & Feedback Section ---
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                child: Text(
+                  'Help & Feedback',
+                  style: textTheme.titleSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ListTile(
+                    leading: Icon(Icons.help_outline_rounded, color: colorScheme.secondary),
+                    title: const Text('Show Tutorial Again'),
+                    subtitle: const Text('Review the research mission and setup tour'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Show Tutorial?'),
+                          content: const Text('This will take you back to the onboarding slides. Your current settings and data will not be deleted.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Show')),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await profileService.resetOnboarding();
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+
             // --- Developer Section ---
             SliverToBoxAdapter(
               child: Padding(

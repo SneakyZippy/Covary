@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/profile_service.dart';
+import '../../services/metric_service.dart';
+import '../widgets/edit_window_dialog.dart';
+import '../widgets/metric_icon.dart';
 import 'profile_setup_screen.dart';
+import 'package:covary/ui/screens/app_shell.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -36,49 +40,73 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _completeOnboarding() async {
     final profileService = context.read<ProfileService>();
     final latency = DateTime.now().difference(_startTime).inMilliseconds;
-
+    
     await profileService.completeOnboarding(latencyMs: latency);
-
+    
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
-      );
+      if (profileService.isFirstLaunch) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
+        );
+      } else {
+        // If replaying from settings, go back to the app shell
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const AppShell()),
+          (route) => false,
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    final List<OnboardingData> pages = [
-      OnboardingData(
+    final metricService = context.watch<MetricService>();
+    
+    final List<Widget> pages = [
+      // 1. Mission
+      const OnboardingStaticSlide(
         title: 'Welcome to Covary',
-        description:
-            'A versatile research tool designed to uncover the patterns between your habits, environment, and daily experiences.',
+        description: 'A versatile research tool designed to uncover the patterns between your habits, environment, and daily experiences.',
         icon: Icons.science_rounded,
-        color: colorScheme.primary,
+        color: Colors.blue,
       ),
-      OnboardingData(
+      // 2. Method
+      const OnboardingStaticSlide(
         title: 'Ecological Momentary Assessment',
-        description:
-            'We use "In-the-moment" tracking to capture how you feel throughout the day, providing more accurate data for research.',
+        description: 'We use "In-the-moment" tracking to capture how you feel throughout the day, providing more accurate data for research.',
         icon: Icons.auto_awesome_rounded,
-        color: Colors.amber[700]!,
+        color: Colors.orange,
       ),
-      OnboardingData(
+      // 3. Privacy
+      const OnboardingStaticSlide(
         title: 'Privacy First',
-        description:
-            'Your data never leaves your phone. Everything is stored locally and is only shared when you choose to manually export it.',
+        description: 'Your data never leaves your phone. Everything is stored locally and is only shared when you choose to manually export it.',
         icon: Icons.lock_person_rounded,
-        color: Colors.teal[600]!,
+        color: Colors.teal,
       ),
-      OnboardingData(
+      // 4. Contribution
+      const OnboardingStaticSlide(
         title: 'Support Science',
-        description:
-            'By participating, you are contributing directly to a Bachelor\'s Thesis research project exploring the intersection of human behavior and technology.',
+        description: 'By participating, you are contributing directly to a Bachelor\'s Thesis research project exploring the intersection of human behavior and technology.',
         icon: Icons.school_rounded,
-        color: colorScheme.secondary,
+        color: Colors.purple,
       ),
+      // 5. Window Configuration
+      _WindowSetupSlide(service: metricService),
+      // 6. Metric Selection
+      _MetricSetupSlide(service: metricService),
+    ];
+
+    final pageColors = [
+      colorScheme.primary,
+      Colors.orange,
+      Colors.teal,
+      colorScheme.secondary,
+      Colors.indigo,
+      Colors.cyan,
     ];
 
     return Scaffold(
@@ -90,7 +118,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  pages[_currentPage].color.withAlpha(40),
+                  pageColors[_currentPage].withAlpha(40),
                   colorScheme.surface,
                 ],
                 begin: Alignment.topCenter,
@@ -98,7 +126,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ),
-
+          
           SafeArea(
             child: Column(
               children: [
@@ -109,23 +137,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: const Text('Skip'),
                   ),
                 ),
-
+                
                 Expanded(
-                  child: PageView.builder(
+                  child: PageView(
                     controller: _pageController,
                     onPageChanged: _onPageChanged,
-                    itemCount: pages.length,
-                    itemBuilder: (context, index) {
-                      return OnboardingSlide(data: pages[index]);
-                    },
+                    children: pages,
                   ),
                 ),
-
+                
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 32.0,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
                   child: Column(
                     children: [
                       // Page Indicator
@@ -139,8 +161,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             height: 8,
                             width: _currentPage == index ? 24 : 8,
                             decoration: BoxDecoration(
-                              color: _currentPage == index
-                                  ? pages[_currentPage].color
+                              color: _currentPage == index 
+                                  ? pageColors[_currentPage] 
                                   : colorScheme.outlineVariant,
                               borderRadius: BorderRadius.circular(4),
                             ),
@@ -148,7 +170,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
                       const SizedBox(height: 32),
-
+                      
                       // Action Button
                       SizedBox(
                         width: double.infinity,
@@ -165,15 +187,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             }
                           },
                           style: FilledButton.styleFrom(
-                            backgroundColor: pages[_currentPage].color,
+                            backgroundColor: pageColors[_currentPage],
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                           child: Text(
-                            _currentPage == pages.length - 1
-                                ? 'Get Started'
-                                : 'Next',
+                            _currentPage == pages.length - 1 ? 'Finish Setup' : 'Next',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -193,29 +213,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-class OnboardingData {
+class OnboardingStaticSlide extends StatelessWidget {
   final String title;
   final String description;
   final IconData icon;
   final Color color;
 
-  OnboardingData({
+  const OnboardingStaticSlide({
+    super.key,
     required this.title,
     required this.description,
     required this.icon,
     required this.color,
   });
-}
-
-class OnboardingSlide extends StatelessWidget {
-  final OnboardingData data;
-
-  const OnboardingSlide({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40.0),
       child: Column(
@@ -224,29 +239,262 @@ class OnboardingSlide extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: data.color.withAlpha(30),
+              color: color.withAlpha(30),
               shape: BoxShape.circle,
             ),
-            child: Icon(data.icon, size: 100, color: data.color),
+            child: Icon(
+              icon,
+              size: 100,
+              color: color,
+            ),
           ),
           const SizedBox(height: 60),
           Text(
-            data.title,
+            title,
             style: textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           Text(
-            data.description,
+            description,
             style: textTheme.bodyLarge?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.5,
             ),
             textAlign: TextAlign.center,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WindowSetupSlide extends StatelessWidget {
+  final MetricService service;
+
+  const _WindowSetupSlide({required this.service});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final windows = service.allWindows;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 20),
+          Text(
+            'Your Schedule',
+            style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Set the windows when you\'d like to receive prompts. Covary adapts to your routine.',
+            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: windows.length,
+              itemBuilder: (context, index) {
+                final w = windows[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: colorScheme.outlineVariant.withAlpha(120)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.shadow.withAlpha(10),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => EditWindowDialog(service: service, existing: w),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withAlpha(30),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  _getWindowIcon(w.label),
+                                  color: colorScheme.primary,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      w.label,
+                                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.access_time_rounded, 
+                                          size: 14, color: colorScheme.onSurfaceVariant),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${_formatTime(w.startHour, w.startMinute)} – ${_formatTime(w.endHour, w.endMinute)}',
+                                          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (w.isNotificationEnabled)
+                                Icon(Icons.notifications_active_rounded, 
+                                  color: colorScheme.primary.withAlpha(150), size: 20),
+                              const SizedBox(width: 8),
+                              Icon(Icons.chevron_right_rounded, color: colorScheme.outline),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  IconData _getWindowIcon(String label) {
+    final l = label.toLowerCase();
+    if (l.contains('morning')) return Icons.wb_sunny_rounded;
+    if (l.contains('afternoon')) return Icons.wb_cloudy_rounded;
+    if (l.contains('evening')) return Icons.nights_stay_rounded;
+    return Icons.schedule_rounded;
+  }
+
+  String _formatTime(int hour, int minute) {
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _MetricSetupSlide extends StatelessWidget {
+  final MetricService service;
+
+  const _MetricSetupSlide({required this.service});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final metrics = service.allMetrics;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 20),
+          Text(
+            'Track Your Patterns',
+            style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Select the variables that interest you. You can customize these at any time.',
+            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: metrics.map((m) {
+                  final isSelected = m.isEnabled;
+                  return InkWell(
+                    onTap: () => service.toggleMetric(m.id),
+                    borderRadius: BorderRadius.circular(20),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: (MediaQuery.of(context).size.width - 72) / 2,
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: isSelected 
+                            ? colorScheme.primary.withAlpha(25)
+                            : colorScheme.surfaceContainerHighest.withAlpha(100),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+                          width: 2,
+                        ),
+                        boxShadow: isSelected ? [
+                          BoxShadow(
+                            color: colorScheme.primary.withAlpha(30),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          )
+                        ] : null,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          MetricIcon(
+                            iconName: m.emoji,
+                            size: 40,
+                            color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            m.label,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
