@@ -2,10 +2,10 @@
 
 Covary is a behavioral research tool I'm building for my Bachelor's Thesis.
 
-The goal is to look at the **"big picture"** of our daily lives. I'm tracking how different parts of our world—like our mood, physical activity, and even our phone habits—all swirl together to affect our well-being. It’s about finding the hidden patterns between what’s happening around us and how we’re actually feeling.
+The goal is to look at the **"big picture"** of our daily lives. I'm tracking how different parts of our world - like our mood, physical activity, and even our phone habits - all mixed together affect our well-being. It’s about finding the hidden patterns between what’s happening around us and how we’re actually feeling.
 
 ### What's happening under the hood?
-I'm connecting the dots between your sport habits, (maybe) the weather, your daily mood, sleeping patterns, app consumption, and everything in between.
+I'm connecting the dots between your sport habits, the weather (maybe in the future), your daily mood, sleeping patterns, app consumption, and everything in between.
 
 ---
 
