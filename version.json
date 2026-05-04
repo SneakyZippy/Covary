@@ -1,7 +1,7 @@
 {
-  "latest_version": "1.2.1",
-  "build_number": 18,
-  "build_timestamp": "2026-05-04T13:12:23+02:00",
+  "latest_version": "1.2.2",
+  "build_number": 19,
+  "build_timestamp": "2026-05-04T20:36:21+02:00",
   "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-  "release_notes": "• Fixed homescreen auto-refresh: UI now updates immediately after completing a check-in\n• Resolved update loop bug: App no longer falsely reports a new version after installation\n• HCI Data Integrity: Fixed SwipeAway and Snooze tracking for research accuracy\n• Android Permissions: Added guidance for 'Restricted Settings' when enabling background usage\n• Passive Sensing: Improved Health Connect authorization reliability"
+  "release_notes": "• Metric Infrastructure: Refined UI with chip-based selection system for intuitive check-ins\n• Window Management: Expanded to five daily tracking windows with improved seeding logic\n• Data Quality: Enhanced compliance visualization using session completion intensity maps\n• Architecture: Unified metric system, eliminating Core/Custom distinctions for better data integrity\n• Bug Fixes: Resolved rendering errors in metric management dialogs"
 }
