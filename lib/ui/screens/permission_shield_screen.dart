@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -154,15 +155,15 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
 
           const SizedBox(height: 16),
 
-          // ── Health Connect ───────────────────────────────────────────────
+          // ── Health Connect / HealthKit ──────────────────────────────────
           _PermissionCard(
             icon: Icons.favorite_rounded,
             iconColor: colorScheme.error,
-            title: 'Health Connect',
+            title: Platform.isAndroid ? 'Health Connect' : 'HealthKit',
             subtitle: 'Sleep duration & step count',
             explanation:
                 'Covary reads your nightly sleep duration and daily step '
-                'count from Google Health Connect. These are the two objective '
+                'count from ${Platform.isAndroid ? 'Google Health Connect' : 'Apple HealthKit'}. These are the two objective '
                 'health variables in the research model.\n\n'
                 'All data stays on your device and is only exported when you '
                 'choose to share it.',
@@ -176,10 +177,10 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
                     
                     if (!success && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text(
-                            'Health Connect authorization failed. Please ensure '
-                            'Health Connect is installed and you have granted '
+                            '${Platform.isAndroid ? 'Health Connect' : 'HealthKit'} authorization failed. Please ensure '
+                            'the health app is configured and you have granted '
                             'all requested permissions.',
                           ),
                           behavior: SnackBarBehavior.floating,
@@ -194,36 +195,51 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
           const SizedBox(height: 12),
 
           // ── App Usage Stats ──────────────────────────────────────────────
-          if (_usageStatus == AppUsagePermissionStatus.restricted)
-            _RestrictedSettingGuide(
-              onRetry: () async {
-                final service = context.read<AppUsageService>();
-                await service.openPermissionSettings();
-              },
-            )
-          else
+          if (Platform.isAndroid) ...[
+            if (_usageStatus == AppUsagePermissionStatus.restricted)
+              _RestrictedSettingGuide(
+                onRetry: () async {
+                  final service = context.read<AppUsageService>();
+                  await service.openPermissionSettings();
+                },
+              )
+            else
+              _PermissionCard(
+                icon: Icons.bar_chart_rounded,
+                iconColor: colorScheme.primary,
+                title: 'App Usage Stats',
+                subtitle: 'Total & social screen time',
+                explanation:
+                    'Covary measures your daily total screen time, time spent '
+                    'in Social Media apps, and time in Entertainment apps.\n\n'
+                    'This is a special Android permission that must be enabled '
+                    'manually. Tap the button below — you will be taken to the '
+                    'Usage Access settings. Toggle Covary ON, then come back.',
+                isGranted: _usageGranted,
+                buttonLabel: _usageGranted
+                    ? 'Granted ✓'
+                    : 'Open Usage Access Settings',
+                onGrant: _usageGranted
+                    ? null
+                    : () async {
+                        final service = context.read<AppUsageService>();
+                        await service.openPermissionSettings();
+                        // Permission check will re-run in didChangeAppLifecycleState.
+                      },
+              ),
+          ] else
             _PermissionCard(
               icon: Icons.bar_chart_rounded,
-              iconColor: colorScheme.primary,
+              iconColor: colorScheme.outline,
               title: 'App Usage Stats',
-              subtitle: 'Total & social screen time',
+              subtitle: 'Not supported on iOS',
               explanation:
-                  'Covary measures your daily total screen time, time spent '
-                  'in Social Media apps, and time in Entertainment apps.\n\n'
-                  'This is a special Android permission that must be enabled '
-                  'manually. Tap the button below — you will be taken to the '
-                  'Usage Access settings. Toggle Covary ON, then come back.',
-              isGranted: _usageGranted,
-              buttonLabel: _usageGranted
-                  ? 'Granted ✓'
-                  : 'Open Usage Access Settings',
-              onGrant: _usageGranted
-                  ? null
-                  : () async {
-                      final service = context.read<AppUsageService>();
-                      await service.openPermissionSettings();
-                      // Permission check will re-run in didChangeAppLifecycleState.
-                    },
+                  'Apple does not allow third-party apps to access the usage '
+                  'statistics of other apps. This feature is only available '
+                  'on the Android version of Covary.',
+              isGranted: false,
+              buttonLabel: 'Unavailable',
+              onGrant: null,
             ),
 
           const SizedBox(height: 12),
@@ -267,45 +283,46 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
           const SizedBox(height: 12),
 
           // ── Battery Optimization ─────────────────────────────────────────
-          _PermissionCard(
-            icon: Icons.battery_charging_full_rounded,
-            iconColor: Colors.orange,
-            title: 'Battery Optimization',
-            subtitle: 'Recommended for reliable background sync',
-            explanation:
-                'Some Android devices use aggressive battery management that can '
-                'prevent background syncs from running every 4 hours. Exempting '
-                'Covary ensures research data is collected reliably.\n\n'
-                'This is optional — the app will still work, but syncs may be '
-                'delayed on heavily restricted devices.',
-            isGranted: _batteryIgnored,
-            buttonLabel: _batteryIgnored
-                ? 'Exempted ✓'
-                : 'Disable Battery Optimization',
-            onGrant: _batteryIgnored
-                ? null
-                : () async {
-                    try {
-                      // ignore: deprecated_member_use
-                      await Permission.ignoreBatteryOptimizations.request();
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Could not open battery settings. '
-                              'Please disable optimization manually in your device settings.',
+          if (Platform.isAndroid) ...[
+            _PermissionCard(
+              icon: Icons.battery_charging_full_rounded,
+              iconColor: Colors.orange,
+              title: 'Battery Optimization',
+              subtitle: 'Recommended for reliable background sync',
+              explanation:
+                  'Some Android devices use aggressive battery management that can '
+                  'prevent background syncs from running every 4 hours. Exempting '
+                  'Covary ensures research data is collected reliably.\n\n'
+                  'This is optional — the app will still work, but syncs may be '
+                  'delayed on heavily restricted devices.',
+              isGranted: _batteryIgnored,
+              buttonLabel: _batteryIgnored
+                  ? 'Exempted ✓'
+                  : 'Disable Battery Optimization',
+              onGrant: _batteryIgnored
+                  ? null
+                  : () async {
+                      try {
+                        // ignore: deprecated_member_use
+                        await Permission.ignoreBatteryOptimizations.request();
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Could not open battery settings. '
+                                'Please disable optimization manually in your device settings.',
+                              ),
+                              behavior: SnackBarBehavior.floating,
                             ),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                          );
+                        }
                       }
-                    }
-                    // State will update via app resume lifecycle
-                  },
-          ),
-
-          const SizedBox(height: 24),
+                      // State will update via app resume lifecycle
+                    },
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // ── Sync Now CTA ─────────────────────────────────────────────────
           AnimatedOpacity(
@@ -340,13 +357,14 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
           ),
 
           const SizedBox(height: 8),
-          Text(
-            'The 4-hour automatic sync will also run in the background.',
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+          if (Platform.isAndroid)
+            Text(
+              'The 4-hour automatic sync will also run in the background.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
         ],
       ),
     );

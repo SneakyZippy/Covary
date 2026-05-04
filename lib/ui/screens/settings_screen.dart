@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -227,7 +228,9 @@ class SettingsScreen extends StatelessWidget {
                   child: ListTile(
                     leading: Icon(Icons.security_rounded, color: colorScheme.secondary),
                     title: const Text('Data Permissions'),
-                    subtitle: const Text('Health Connect & App Usage access'),
+                    subtitle: Text(Platform.isAndroid
+                        ? 'Health Connect & App Usage access'
+                        : 'HealthKit access'),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () {
                       Navigator.of(context).push(

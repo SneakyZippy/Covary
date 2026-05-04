@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
@@ -58,24 +59,28 @@ void main() async {
   final analyticsService = AnalyticsService(database);
   final importService = ImportService(database, profileService);
 
-  await Workmanager().initialize(callbackDispatcher);
+  if (Platform.isAndroid) {
+    await Workmanager().initialize(callbackDispatcher);
 
-  await Workmanager().registerPeriodicTask(
-    kPassiveSyncTask,
-    kPassiveSyncTask,
-    frequency: const Duration(hours: 4),
-    constraints: Constraints(
-      networkType: NetworkType.notRequired,
-      requiresBatteryNotLow: false,
-      requiresCharging: false,
-      requiresDeviceIdle: false,
-    ),
-    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-    backoffPolicy: BackoffPolicy.exponential,
-    backoffPolicyDelay: const Duration(minutes: 15),
-  );
+    await Workmanager().registerPeriodicTask(
+      kPassiveSyncTask,
+      kPassiveSyncTask,
+      frequency: const Duration(hours: 4),
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+      ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      backoffPolicy: BackoffPolicy.exponential,
+      backoffPolicyDelay: const Duration(minutes: 15),
+    );
 
-  debugPrint('[Main] WorkManager periodic task registered: $kPassiveSyncTask');
+    debugPrint('[Main] WorkManager periodic task registered: $kPassiveSyncTask');
+  } else {
+    debugPrint('[Main] WorkManager skipped on non-Android platform.');
+  }
 
   runApp(
     MultiProvider(

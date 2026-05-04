@@ -66,5 +66,24 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<key>NSHealthShareUsageDescription</key>
+	<string>Covary needs access to your health data to correlate step count and sleep duration with your subjective wellbeing metrics.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Covary needs access to your health data to correlate step count and sleep duration with your subjective wellbeing metrics.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Covary uses motion data to improve the accuracy of step count tracking for research purposes.</string>
+
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>remote-notification</string>
+	</array>
+
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>be.cvary.passive_sync</string>
+	</array>
 </dict>
 </plist>
