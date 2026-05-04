@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,12 +7,15 @@ import 'package:provider/provider.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/metric_definition.dart';
+import '../../services/app_usage_service.dart';
+import '../../services/health_service.dart';
 import '../../services/metric_service.dart';
 import '../../services/profile_service.dart';
 import '../widgets/missed_session_card.dart';
 import '../widgets/quick_track_button.dart';
 import 'daily_checkin_screen.dart';
 import 'compliance_screen.dart';
+import 'permission_shield_screen.dart';
 
 /// The primary Home view.
 ///
@@ -28,6 +32,13 @@ class _HomeScreenState extends State<HomeScreen> {
   List<TrackingWindow> _missedWindows = [];
   List<TrackingWindow> _activeWindows = [];
   Set<String> _completedWindowIds = {};
+  
+  // Permission Banner State
+  bool _healthMissing = false;
+  bool _usageMissing = false;
+  bool _notificationsMissing = false;
+  bool _bannerPermanentlyDismissed = false;
+
   Timer? _refreshTimer;
   StreamSubscription? _eventSubscription;
 
@@ -86,6 +97,30 @@ class _HomeScreenState extends State<HomeScreen> {
         _completedWindowIds = completedIds;
       });
       _updateMissedSessions(allEvents);
+      _checkPermissionsAndDismissal();
+    }
+  }
+
+  Future<void> _checkPermissionsAndDismissal() async {
+    final healthService = context.read<HealthService>();
+    final appUsageService = context.read<AppUsageService>();
+    final db = context.read<AppDatabase>();
+
+    final healthGranted = await healthService.hasPermissions();
+    final usageGranted = await appUsageService.isPermissionGranted();
+    final notifGranted = await AwesomeNotifications().isNotificationAllowed();
+
+    // Check if the banner has ever been dismissed
+    final dismissEvents = await db.getEventsByLabel('PermissionBannerDismissed');
+    final dismissed = dismissEvents.isNotEmpty;
+
+    if (mounted) {
+      setState(() {
+        _healthMissing = !healthGranted;
+        _usageMissing = !usageGranted;
+        _notificationsMissing = !notifGranted;
+        _bannerPermanentlyDismissed = dismissed;
+      });
     }
   }
 
@@ -145,6 +180,11 @@ class _HomeScreenState extends State<HomeScreen> {
               vertical: 32.0,
             ),
             children: [
+              if (!_bannerPermanentlyDismissed && (_healthMissing || _usageMissing || _notificationsMissing))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24.0),
+                  child: _buildPermissionBanner(colorScheme, textTheme),
+                ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,6 +267,90 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionBanner(ColorScheme colorScheme, TextTheme textTheme) {
+    final missingCount = (_healthMissing ? 1 : 0) + (_usageMissing ? 1 : 0) + (_notificationsMissing ? 1 : 0);
+    
+    return Dismissible(
+      key: const ValueKey('permission_banner'),
+      direction: DismissDirection.horizontal,
+      onDismissed: (_) async {
+        final db = context.read<AppDatabase>();
+        await db.insertEvent(
+          EventsCompanion(
+            category: const Value(EventCategory.meta),
+            label: const Value('PermissionBannerDismissed'),
+            value: const Value(''),
+            triggerSource: const Value(TriggerSource.system),
+            interactionType: const Value(InteractionType.swipeAway),
+          ),
+        );
+        setState(() => _bannerPermanentlyDismissed = true);
+      },
+      child: Card(
+        elevation: 0,
+        color: colorScheme.errorContainer.withAlpha(50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colorScheme.errorContainer, width: 1.5),
+        ),
+        child: InkWell(
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PermissionShieldScreen()),
+            );
+            _checkPermissionsAndDismissal();
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colorScheme.error.withAlpha(30),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.security_rounded,
+                    color: colorScheme.error,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Research Data Paused',
+                        style: textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.error,
+                        ),
+                      ),
+                      Text(
+                        'Missing $missingCount research permission${missingCount > 1 ? 's' : ''}. Tap to resolve.',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: colorScheme.error.withAlpha(150),
+                ),
+              ],
+            ),
           ),
         ),
       ),

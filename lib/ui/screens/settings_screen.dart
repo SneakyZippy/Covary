@@ -690,7 +690,7 @@ class _NotificationSettingsSectionState
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(
-              'Customize the three snooze duration buttons that appear on check-in notifications.',
+              'Customize the quick snooze duration buttons that appear on check-in notifications (alongside "At time...").',
               style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ),
@@ -699,7 +699,7 @@ class _NotificationSettingsSectionState
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(3, (index) {
+              children: List.generate(_durations.length, (index) {
                 final mins = _durations[index];
                 return Expanded(
                   child: Padding(
