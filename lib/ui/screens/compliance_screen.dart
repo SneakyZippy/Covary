@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
+import '../../services/metric_service.dart';
 
 class ComplianceScreen extends StatefulWidget {
   const ComplianceScreen({super.key});
@@ -12,7 +13,7 @@ class ComplianceScreen extends StatefulWidget {
 
 class _ComplianceScreenState extends State<ComplianceScreen> {
   bool _isLoading = true;
-  Map<DateTime, bool> _complianceMap = {};
+  Map<DateTime, double> _complianceMap = {};
   double _recallRatio = 0.0;
 
   @override
@@ -23,31 +24,49 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
 
   Future<void> _loadComplianceData() async {
     final db = context.read<AppDatabase>();
+    final metricService = context.read<MetricService>();
     final now = DateTime.now();
     final fourteenDaysAgo = now.subtract(const Duration(days: 14));
     
     final events = await db.getEventsInDateRange(fourteenDaysAgo, now);
     
-    // Filter out meta events and app usage for compliance
+    // Filter out meta events and app usage for compliance.
+    // IMPORTANT: We also exclude system-triggered events (passive sensing)
+    // because they don't represent user-initiated compliance.
     final researchEvents = events.where((e) => 
       e.category != EventCategory.meta && 
-      e.category != EventCategory.appUsage
+      e.category != EventCategory.appUsage &&
+      e.triggerSource != TriggerSource.system
     ).toList();
 
-    // Calculate Real-time vs Recall
+    // Calculate Real-time vs Recall (excluding system data)
     final total = researchEvents.length;
     final recall = researchEvents.where((e) => e.triggerSource == TriggerSource.manual).length;
     
-    // Simple compliance map (Day -> Has data)
-    final Map<DateTime, bool> tempMap = {};
+    // Multi-shaded compliance map based on session completion
+    final sessionEvents = events.where((e) => 
+      e.category == EventCategory.meta && 
+      e.label == 'SessionCompleted'
+    ).toList();
+
+    final totalWindows = metricService.allWindows.length;
+
+    final Map<DateTime, double> tempMap = {};
     for (int i = 0; i < 14; i++) {
       final date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
-      final hasData = researchEvents.any((e) => 
+      
+      final sessionsThisDay = sessionEvents.where((e) => 
         e.timestamp.year == date.year && 
         e.timestamp.month == date.month && 
         e.timestamp.day == date.day
-      );
-      tempMap[date] = hasData;
+      ).length;
+
+      // Ratio of completed windows vs available windows
+      final ratio = totalWindows > 0 
+          ? (sessionsThisDay / totalWindows).clamp(0.0, 1.0) 
+          : (sessionsThisDay > 0 ? 1.0 : 0.0);
+      
+      tempMap[date] = ratio;
     }
 
     if (mounted) {
@@ -123,15 +142,23 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
               spacing: 8,
               runSpacing: 8,
               children: sortedDates.map((date) {
-                final active = _complianceMap[date] ?? false;
+                final ratio = _complianceMap[date] ?? 0.0;
+                final active = ratio > 0;
+                
+                // Shade intensity: 0.0 (Missed) -> 1.0 (Full)
+                // We use a dark base for partial logs as requested by the user.
+                final Color cellColor = active 
+                    ? Color.lerp(const Color(0xFF0A1F0A), colorScheme.primary, ratio)!
+                    : colorScheme.surface;
+
                 return Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: active ? colorScheme.primary : colorScheme.surface,
+                    color: cellColor,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: active ? colorScheme.primary : colorScheme.outlineVariant,
+                      color: active ? cellColor : colorScheme.outlineVariant,
                       width: 1,
                     ),
                   ),
@@ -141,7 +168,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: active ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                        color: active ? Colors.white : colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -151,8 +178,10 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
             const SizedBox(height: 20),
             Row(
               children: [
-                _LegendItem(color: colorScheme.primary, label: 'Logged'),
-                const SizedBox(width: 16),
+                _LegendItem(color: colorScheme.primary, label: 'Full'),
+                const SizedBox(width: 12),
+                _LegendItem(color: Color.lerp(const Color(0xFF0A1F0A), colorScheme.primary, 0.4)!, label: 'Partial'),
+                const SizedBox(width: 12),
                 _LegendItem(color: colorScheme.surface, label: 'Missed'),
               ],
             ),
