@@ -413,7 +413,7 @@ class _InteractionScreenState extends State<InteractionScreen> {
               Icon(icon, color: colorScheme.secondary, size: 24),
               const SizedBox(width: 12),
               Text(
-                'HCI Researcher Insight',
+                'Research Insight',
                 style: textTheme.labelLarge?.copyWith(
                   color: colorScheme.secondary,
                   fontWeight: FontWeight.bold,
@@ -438,7 +438,7 @@ class _InteractionScreenState extends State<InteractionScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('HCI Metrics Explained'),
+        title: const Text('Interaction Metrics Explained'),
         content: const SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

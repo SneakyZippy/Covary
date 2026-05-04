@@ -10,6 +10,7 @@ import '../data/models/enums.dart';
 const _kUserUuid = 'user_uuid';
 const _kNickname = 'nickname';
 const _kFirstLaunchAt = 'first_launch_at';
+const _kHasSeenOnboarding = 'has_seen_onboarding';
 
 /// Service responsible for user identity and profile management.
 ///
@@ -44,6 +45,9 @@ class ProfileService extends ChangeNotifier {
   /// Whether the app detected a restored database without preferences.
   bool _hasRestoredData = false;
 
+  /// Whether the user has completed the initial tutorial/onboarding.
+  bool _hasSeenOnboarding = false;
+
   /// Reference to the database for logging meta events.
   late final AppDatabase _db;
 
@@ -66,6 +70,9 @@ class ProfileService extends ChangeNotifier {
 
   /// Whether the app detected restored data from a cloud backup.
   bool get hasRestoredData => _hasRestoredData;
+
+  /// Whether the user has seen the onboarding slider.
+  bool get hasSeenOnboarding => _hasSeenOnboarding;
 
   /// Returns the current day of the study (Day 1, Day 2, etc.)
   int get studyDay {
@@ -111,6 +118,9 @@ class ProfileService extends ChangeNotifier {
 
     // --- Nickname ---
     _nickname = prefs.getString(_kNickname) ?? '';
+
+    // --- Onboarding ---
+    _hasSeenOnboarding = prefs.getBool(_kHasSeenOnboarding) ?? false;
 
     // --- First Launch Timestamp ---
     final storedLaunch = prefs.getString(_kFirstLaunchAt);
@@ -274,6 +284,28 @@ class ProfileService extends ChangeNotifier {
     await prefs.setString(_kNickname, _nickname);
     
     debugPrint('[ProfileService] Profile restored: $_nickname ($_uuid)');
+    notifyListeners();
+  }
+
+  /// Marks the onboarding as complete and logs the time spent.
+  Future<void> completeOnboarding({int latencyMs = 0}) async {
+    _hasSeenOnboarding = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kHasSeenOnboarding, true);
+
+    try {
+      await _db.insertEvent(EventsCompanion(
+        category: const Value(EventCategory.meta),
+        label: const Value('onboarding_completed'),
+        value: const Value('true'),
+        latencyMs: Value(latencyMs),
+        triggerSource: const Value(TriggerSource.manual),
+        interactionType: const Value(InteractionType.click),
+      ));
+    } catch (e) {
+      debugPrint('[ProfileService] Error logging onboarding completion: $e');
+    }
+
     notifyListeners();
   }
 }

@@ -14,6 +14,7 @@ import 'services/background_service.dart';
 import 'services/analytics_service.dart';
 import 'services/import_service.dart';
 import 'ui/screens/app_shell.dart';
+import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/profile_setup_screen.dart';
 import 'ui/screens/restore_selection_screen.dart';
 import 'ui/theme/app_theme.dart';
@@ -125,9 +126,11 @@ class CovaryApp extends StatelessWidget {
       themeMode: themeService.themeMode,
       home: profileService.hasRestoredData
           ? const RestoreSelectionScreen()
-          : profileService.isFirstLaunch
-              ? const ProfileSetupScreen()
-              : const AppShell(),
+          : !profileService.hasSeenOnboarding
+              ? const OnboardingScreen()
+              : profileService.isFirstLaunch
+                  ? const ProfileSetupScreen()
+                  : const AppShell(),
     );
   }
 }
