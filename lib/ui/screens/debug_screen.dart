@@ -15,6 +15,7 @@ import '../../services/metric_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/passive_sensing_service.dart';
 import '../../services/update_service.dart';
+import '../widgets/dialog_utils.dart';
 
 class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key});
@@ -76,22 +77,12 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<void> _clearDatabase() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showTextConfirmationDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Database?'),
-        content: const Text('This will permanently delete all events. Are you sure?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Clear', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: 'Clear Database?',
+      content: 'This will permanently delete ALL research events. This cannot be undone.',
+      confirmationWord: 'DELETE',
+      confirmLabel: 'Clear All',
     );
 
     if (confirmed == true && mounted) {
@@ -103,25 +94,12 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<void> _resetMetrics() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showTextConfirmationDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Metrics?'),
-        content: const Text(
-          'This will delete all custom metrics, tracking windows, and sort orders, '
-          'then re-seed the default ones. Recorded events will NOT be deleted.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Reset', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: 'Reset Metrics?',
+      content: 'This will delete all custom metrics, tracking windows, and sort orders, then re-seed the default ones. Recorded events will NOT be deleted.',
+      confirmationWord: 'RESET',
+      confirmLabel: 'Reset Defaults',
     );
 
     if (confirmed == true && mounted) {

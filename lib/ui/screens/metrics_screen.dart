@@ -153,7 +153,7 @@ class _MetricsScreenState extends State<MetricsScreen> {
                   },
                   itemBuilder: (context, index) {
                     final metric = filteredMetrics[index];
-                    return _CustomMetricTile(
+                    return _MetricTile(
                       key: ValueKey(metric.id),
                       metric: metric,
                       index: index,
@@ -192,14 +192,14 @@ class _MetricsScreenState extends State<MetricsScreen> {
 }
 
 // =============================================================================
-// Custom Metric Tile (swipe-to-delete + drag-to-reorder)
+// Metric Tile (swipe-to-delete + drag-to-reorder)
 // =============================================================================
 
-class _CustomMetricTile extends StatelessWidget {
+class _MetricTile extends StatelessWidget {
   final MetricDefinition metric;
   final int index;
 
-  const _CustomMetricTile({
+  const _MetricTile({
     required super.key,
     required this.metric,
     required this.index,
@@ -214,7 +214,7 @@ class _CustomMetricTile extends StatelessWidget {
       key: ValueKey('dismiss_${metric.id}'),
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) => metricService.deleteCustomMetric(metric.id),
+      onDismissed: (_) => metricService.deleteMetric(metric.id),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
@@ -281,14 +281,18 @@ class _CustomMetricTile extends StatelessWidget {
     return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Delete Custom Metric?'),
-            content: Text('Remove "${metric.label}" permanently?'),
+            title: const Text('Delete Metric?'),
+            content: Text('Remove "${metric.label}" from your tracked metrics? This action cannot be undone.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
                 child: const Text('Cancel'),
               ),
               FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                ),
                 onPressed: () => Navigator.of(ctx).pop(true),
                 child: const Text('Delete'),
               ),

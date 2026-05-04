@@ -188,6 +188,10 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<int> deleteCustomMetric(String id) {
+    if (id.isEmpty) {
+      // Defensive check: prevent deletion of all rows if ID is empty
+      return Future.value(0);
+    }
     return (delete(customMetrics)..where((t) => t.id.equals(id))).go();
   }
 

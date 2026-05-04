@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/metric_service.dart';
 import '../../services/profile_service.dart';
+import '../widgets/dialog_utils.dart';
 import 'app_shell.dart';
 import 'profile_setup_screen.dart';
 
@@ -39,26 +40,12 @@ class _RestoreSelectionScreenState extends State<RestoreSelectionScreen> {
   }
 
   Future<void> _startFresh() async {
-    final confirm = await showDialog<bool>(
+    final confirm = await showTextConfirmationDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Start Fresh?'),
-        content: const Text(
-          'This will permanently delete all existing data on this device and '
-          'generate a new Research ID. Are you sure?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-            child: const Text('Delete & Start Fresh'),
-          ),
-        ],
-      ),
+      title: 'Start Fresh?',
+      content: 'This will permanently delete all existing data on this device and generate a new Research ID.',
+      confirmationWord: 'START FRESH',
+      confirmLabel: 'Delete & Start Fresh',
     );
 
     if (confirm != true || !mounted) return;

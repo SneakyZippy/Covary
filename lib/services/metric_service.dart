@@ -14,7 +14,7 @@ const _kCoreMetricPrefix = 'core_metric_enabled_';
 /// Prefix for core-metric window keys in [SharedPreferences].
 const _kCoreMetricWindowPrefix = 'core_metric_window_';
 
-/// Sentinel used in [MetricService.updateCustomMetric] to distinguish
+/// Sentinel used in [MetricService.updateMetric] to distinguish
 /// "retroReliableOverride not passed" from explicitly setting it to null.
 const _kUnset = Object();
 
@@ -27,7 +27,7 @@ const _kUnset = Object();
 /// The Home screen reads [activeMetrics] (only enabled ones).
 /// The Settings screen reads [allMetrics] (everything).
 class MetricService extends ChangeNotifier {
-  late final AppDatabase _db;
+  late AppDatabase _db;
 
   /// Merged list of all metrics (core + custom), cached in memory.
   List<MetricDefinition> _allMetrics = [];
@@ -149,10 +149,6 @@ class MetricService extends ChangeNotifier {
     ),
   ];
 
-  /// All core template IDs — derived from [templates] so it never goes stale.
-  static final Set<String> coreTemplateIds =
-      Set<String>.unmodifiable(templates.map((t) => t.id));
-
   // ---------------------------------------------------------------------------
   // Getters
   // ---------------------------------------------------------------------------
@@ -231,10 +227,10 @@ class MetricService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   /// Loads core metric toggle states from SharedPreferences and
-  /// custom metrics from the Drift database, then merges them.
+  /// Initializes the service by loading and seeding (if necessary) windows and 
+  /// metrics from the Drift database, then merges them.
   Future<void> init(AppDatabase db) async {
     _db = db;
-    
     final prefs = await SharedPreferences.getInstance();
     
     // --- Seed Tracking Windows ---
@@ -273,7 +269,7 @@ class MetricService extends ChangeNotifier {
       await prefs.setBool('tracking_windows_seeded', true);
     }
 
-    // --- Seed Core Metrics ---
+    // --- Seed Metrics ---
     final existingMetrics = await _db.getAllCustomMetrics();
     final hasSeeded = prefs.getBool('core_metrics_seeded') ?? false;
     
@@ -317,85 +313,10 @@ class MetricService extends ChangeNotifier {
       await prefs.setBool('core_metrics_seeded', true);
     }
 
-    // --- Ensure Consistency & Reliability ---
-    // We re-sync core metrics to ensure window assignments and categories are correct,
-    // especially for behavioral metrics that should only appear in the evening.
-    final currentWindows = await _db.getAllTrackingWindows();
-    final morningId = currentWindows.cast<TrackingWindow?>().firstWhere((w) => w?.label == 'Morning Reflection', orElse: () => null)?.id;
-    final eveningId = currentWindows.cast<TrackingWindow?>().firstWhere((w) => w?.label == 'Evening Review', orElse: () => null)?.id;
-
-    final currentMetrics = await _db.getAllCustomMetrics();
-    final existingIds = currentMetrics.map((m) => m.id).toSet();
-
-    for (final template in templates) {
-      if (!existingIds.contains(template.id)) {
-        // Metric is in templates but not in DB (newly added core metric)
-        List<String> windowIds = template.windowIds;
-        if (template.id == 'core_sleep_quality' && morningId != null) {
-          windowIds = [morningId];
-        } else if (eveningId != null && 
-            (template.category == EventCategory.behavior || 
-             template.category == EventCategory.social || 
-             template.id == 'core_wellbeing')) {
-          windowIds = [eveningId];
-        }
-
-        await _db.insertCustomMetric(
-          CustomMetricsCompanion.insert(
-            id: Value(template.id),
-            label: template.label,
-            category: template.category,
-            inputType: template.inputType,
-            isEnabled: Value(template.isEnabled),
-            windowIds: Value(windowIds.join(',')),
-            emoji: Value(template.emoji),
-          ),
-        );
-        debugPrint('[MetricService] Added missing core metric: ${template.id}');
-      } else {
-        // Metric already exists, ensure it's consistent with template metadata
-        final row = currentMetrics.firstWhere((m) => m.id == template.id);
-        
-        bool needsUpdate = false;
-        CustomMetricsCompanion updates = const CustomMetricsCompanion();
-
-        // Sync category
-        if (row.category != template.category) {
-          updates = updates.copyWith(category: Value(template.category));
-          needsUpdate = true;
-        }
-
-        // Sync reliability for behavioral metrics
-        final shouldBeReliable = template.category == EventCategory.behavior || template.category == EventCategory.social;
-        if (shouldBeReliable && row.isRetroReliable != true) {
-          updates = updates.copyWith(isRetroReliable: const Value(true));
-          needsUpdate = true;
-        }
-
-        // Sync windows for behavioral metrics if they are still "anytime"
-        if (eveningId != null && (row.windowIds == 'anytime' || row.windowIds.isEmpty)) {
-          if (template.category == EventCategory.behavior || 
-              template.category == EventCategory.social || 
-              template.id == 'core_wellbeing') {
-            updates = updates.copyWith(windowIds: Value(eveningId));
-            needsUpdate = true;
-          }
-        }
-        
-        // Sync window for sleep quality if it's still "anytime"
-        if (morningId != null && (row.windowIds == 'anytime' || row.windowIds.isEmpty)) {
-          if (template.id == 'core_sleep_quality') {
-            updates = updates.copyWith(windowIds: Value(morningId));
-            needsUpdate = true;
-          }
-        }
-
-        if (needsUpdate) {
-          await _db.updateCustomMetric(row.id, updates);
-          debugPrint('[MetricService] Synchronized core metric: ${row.id}');
-        }
-      }
-    }
+    // Note: We no longer auto-re-insert missing core metrics here.
+    // This allows the user to delete any metric permanently, treating
+    // "core" and "custom" metrics as equal entities.
+    // Syncing of categories/reliability is also removed to respect user edits.
     
     await _reload();
     debugPrint(
@@ -565,11 +486,11 @@ class MetricService extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Custom Metric Management
+  // Metric Management
   // ---------------------------------------------------------------------------
 
-  /// Adds a new user-defined custom metric.
-  Future<void> addCustomMetric({
+  /// Adds a new metric.
+  Future<void> addMetric({
     String? id,
     required String label,
     required EventCategory category,
@@ -615,8 +536,8 @@ class MetricService extends ChangeNotifier {
     debugPrint('[MetricService] Added custom metric: "$label" ($inputType)');
   }
 
-  /// Updates an existing custom metric.
-  Future<void> updateCustomMetric({
+  /// Updates an existing metric.
+  Future<void> updateMetric({
     required String id,
     required String label,
     required EventCategory category,
@@ -715,13 +636,14 @@ class MetricService extends ChangeNotifier {
     await NotificationService.scheduleDailyReminders();
   }
 
-  /// Deletes a custom metric by [id].
-  Future<void> deleteCustomMetric(String id) async {
+  /// Deletes a metric by [id].
+  Future<void> deleteMetric(String id) async {
     final metric = _allMetrics.firstWhere(
       (m) => m.id == id,
       orElse: () => throw ArgumentError('Metric "$id" not found'),
     );
 
+    debugPrint('[MetricService] Deleting metric: "${metric.label}" (ID: $id)');
     await _db.deleteCustomMetric(id);
 
     // Log the deletion as a meta event.
@@ -741,12 +663,13 @@ class MetricService extends ChangeNotifier {
     }
 
     await _reload();
-    debugPrint('[MetricService] Deleted custom metric: "${metric.label}"');
+    debugPrint('[MetricService] Successfully deleted metric: "${metric.label}"');
   }
 
   /// DEBUG ONLY: Deletes all metrics and tracking windows, 
   /// clears seeding flags, and re-initializes with defaults.
   Future<void> debugResetMetrics() async {
+    debugPrint('[MetricService] DANGER: debugResetMetrics() called. Wiping ALL definitions.');
     // 1. Clear database tables
     await _db.clearAllMetrics();
     await _db.clearAllTrackingWindows();

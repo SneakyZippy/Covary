@@ -70,14 +70,14 @@ class AddMetricSelector extends StatelessWidget {
                   ),
                   child: Icon(Icons.add_box_rounded, color: theme.colorScheme.primary),
                 ),
-                title: const Text('Create Custom Metric'),
+                title: const Text('Create New Metric'),
                 subtitle: const Text('Build from scratch'),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 onTap: () {
                   Navigator.pop(context);
                   showDialog(
                     context: context,
-                    builder: (ctx) => const AddCustomMetricDialog(),
+                    builder: (ctx) => const AddMetricDialog(),
                   );
                 },
               ),
@@ -126,7 +126,7 @@ class AddMetricSelector extends StatelessWidget {
         Navigator.pop(context);
         showDialog(
           context: context,
-          builder: (ctx) => AddCustomMetricDialog(template: template),
+          builder: (ctx) => AddMetricDialog(template: template),
         );
       },
     );
@@ -207,7 +207,7 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final metricService = context.read<MetricService>();
-    await metricService.updateCustomMetric(
+    await metricService.updateMetric(
       id: widget.metric.id,
       label: _labelController.text.trim(),
       category: _selectedCategory,
@@ -365,18 +365,18 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
 }
 
 // =============================================================================
-// Add Custom Metric Dialog
+// Add Metric Dialog
 // =============================================================================
 
-class AddCustomMetricDialog extends StatefulWidget {
+class AddMetricDialog extends StatefulWidget {
   final MetricDefinition? template;
-  const AddCustomMetricDialog({super.key, this.template});
+  const AddMetricDialog({super.key, this.template});
 
   @override
-  State<AddCustomMetricDialog> createState() => _AddCustomMetricDialogState();
+  State<AddMetricDialog> createState() => _AddMetricDialogState();
 }
 
-class _AddCustomMetricDialogState extends State<AddCustomMetricDialog> {
+class _AddMetricDialogState extends State<AddMetricDialog> {
   final _labelController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
@@ -417,7 +417,7 @@ class _AddCustomMetricDialogState extends State<AddCustomMetricDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final metricService = context.read<MetricService>();
-    await metricService.addCustomMetric(
+    await metricService.addMetric(
       id: widget.template?.id,
       label: _labelController.text.trim(),
       category: _selectedCategory,
@@ -433,7 +433,7 @@ class _AddCustomMetricDialogState extends State<AddCustomMetricDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add Custom Metric'),
+      title: const Text('Add Metric'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
