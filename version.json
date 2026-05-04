@@ -1,7 +1,7 @@
 {
-  "latest_version": "1.2.0",
-  "build_number": 17,
-  "build_timestamp": "2026-04-30T09:45:00+02:00",
+  "latest_version": "1.2.1",
+  "build_number": 18,
+  "build_timestamp": "2026-05-04T13:12:23+02:00",
   "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-  "release_notes": "• Fixed HCI interaction analytics: SwipeAway and Snooze events now correctly show in the dashboard\n• Accurate latency tracking: Counter metrics now measure real user response time\n• Improved data attribution: Correctly tag trigger source for sessions launched via notification\n• Enhanced UX: Fixed slider auto-advance bug during drag interaction"
+  "release_notes": "• Fixed homescreen auto-refresh: UI now updates immediately after completing a check-in\n• Resolved update loop bug: App no longer falsely reports a new version after installation\n• HCI Data Integrity: Fixed SwipeAway and Snooze tracking for research accuracy\n• Android Permissions: Added guidance for 'Restricted Settings' when enabling background usage\n• Passive Sensing: Improved Health Connect authorization reliability"
 }
