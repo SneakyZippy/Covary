@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<TrackingWindow> _activeWindows = [];
   Set<String> _completedWindowIds = {};
   Timer? _refreshTimer;
+  StreamSubscription? _eventSubscription;
 
   @override
   void initState() {
@@ -38,11 +39,20 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) _loadTodayStats();
     });
+
+    // Also refresh whenever ANY event is added to the database.
+    // This ensures that sessions finished via notifications or deep links
+    // also trigger a refresh on the home screen immediately.
+    final db = context.read<AppDatabase>();
+    _eventSubscription = db.watchAllEvents().listen((_) {
+      if (mounted) _loadTodayStats();
+    });
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _eventSubscription?.cancel();
     super.dispose();
   }
 
@@ -264,17 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         _loadTodayStats();
       },
-      onComplete: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => DailyCheckinScreen(
-              mode: CheckinMode.guided,
-              targetTime: targetTime,
-              fulfilledSlotId: window.id,
-            ),
-          ),
-        );
-      },
+      onComplete: () => _startGuidedCheckin(window.id, targetTime),
       onMetricLogged: _loadTodayStats,
     );
   }
@@ -424,12 +424,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return Icons.timer_rounded;
   }
 
-  Future<void> _startGuidedCheckin([String? windowId]) async {
+  Future<void> _startGuidedCheckin([String? windowId, DateTime? targetTime]) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DailyCheckinScreen(
           mode: CheckinMode.guided,
           fulfilledSlotId: windowId,
+          targetTime: targetTime,
         ),
       ),
     );

@@ -1,0 +1,4 @@
+﻿â€¢ Fixed HCI interaction analytics: SwipeAway and Snooze events now correctly show in the dashboard
+â€¢ Accurate latency tracking: Counter metrics now measure real user response time
+â€¢ Improved data attribution: Correctly tag trigger source for sessions launched via notification
+â€¢ Enhanced UX: Fixed slider auto-advance bug during drag interaction
