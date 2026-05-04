@@ -174,7 +174,7 @@ class MetricService extends ChangeNotifier {
     return _allMetrics.where((m) {
       if (!m.isEnabled) return false;
       if (m.windowIds.contains('anytime')) return true;
-      if (m.windowIds.isEmpty) return true;
+      if (m.windowIds.isEmpty) return false; // Not assigned to any window
 
       // Check if current time falls within any of the assigned windows
       return _allWindows.any((window) {
@@ -265,7 +265,7 @@ class MetricService extends ChangeNotifier {
         }
       }
       await prefs.setBool('tracking_windows_seeded', true);
-      debugPrint('[MetricService] Seeded 3 sample tracking windows');
+      debugPrint('[MetricService] Seeded 5 sample tracking windows');
     } else if (!windowsSeeded) {
       // Handle restore scenario: Data exists but pref is false
       await prefs.setBool('tracking_windows_seeded', true);
@@ -320,6 +320,28 @@ class MetricService extends ChangeNotifier {
     // "core" and "custom" metrics as equal entities.
     // Syncing of categories/reliability is also removed to respect user edits.
     
+    // --- Final Polish: Distribute metrics if this was a fresh seed ---
+    if (!hasSeeded && !windowsSeeded) {
+      try {
+        final windows = await _db.getAllTrackingWindows();
+        final morningId = windows.firstWhere((w) => w.label.contains('Early Morning')).id;
+        final eveningId = windows.firstWhere((w) => w.label.contains('Evening Review')).id;
+        final nightId = windows.firstWhere((w) => w.label.contains('Night/Bedtime')).id;
+
+        // Assign Sleep to Morning
+        await _db.updateCustomMetric('core_sleep_quality', CustomMetricsCompanion(windowIds: Value(morningId)));
+        
+        // Assign Reflection/Habits to Evening & Night
+        final reflectionMetrics = ['core_wellbeing', 'core_sport', 'core_meditation', 'core_journaling', 'core_good_deed'];
+        for (final mId in reflectionMetrics) {
+          await _db.updateCustomMetric(mId, CustomMetricsCompanion(windowIds: Value('$eveningId,$nightId')));
+        }
+        debugPrint('[MetricService] Research-Ready distribution applied to metrics');
+      } catch (e) {
+        debugPrint('[MetricService] Could not auto-distribute metrics: $e');
+      }
+    }
+
     await _reload();
     debugPrint(
       '[MetricService] Initialized with ${_allMetrics.length} metrics '
@@ -629,6 +651,34 @@ class MetricService extends ChangeNotifier {
     );
     await _reload();
     await NotificationService.scheduleDailyReminders();
+  }
+
+  /// Sets exactly which metrics should be tracked in a given window.
+  Future<void> setMetricsForWindow(String windowId, List<String> metricIds) async {
+    for (var m in _allMetrics) {
+      final newWindowIds = List<String>.from(m.windowIds);
+      final shouldBeInWindow = metricIds.contains(m.id);
+      final currentlyInWindow = newWindowIds.contains(windowId);
+
+      bool changed = false;
+      if (shouldBeInWindow && !currentlyInWindow) {
+        newWindowIds.add(windowId);
+        changed = true;
+      } else if (!shouldBeInWindow && currentlyInWindow) {
+        newWindowIds.remove(windowId);
+        changed = true;
+      }
+
+      if (changed) {
+        await _db.updateCustomMetric(
+          m.id,
+          CustomMetricsCompanion(
+            windowIds: Value(newWindowIds.join(',')),
+          ),
+        );
+      }
+    }
+    await _reload();
   }
 
   /// Deletes a tracking window.

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/metric_service.dart';
 import '../../data/database/app_database.dart';
+import '../../data/models/enums.dart';
+import 'metric_icon.dart';
 
 class EditWindowDialog extends StatefulWidget {
   final MetricService service;
@@ -18,6 +20,7 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
   TimeOfDay _endTime = const TimeOfDay(hour: 9, minute: 0);
   bool _isNotificationEnabled = false;
   TimeOfDay _notificationTime = const TimeOfDay(hour: 8, minute: 0);
+  List<String> _selectedMetricIds = [];
 
   @override
   void initState() {
@@ -37,6 +40,11 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
         hour: widget.existing!.notificationHour,
         minute: widget.existing!.notificationMinute,
       );
+      // Load current metric assignments for this window
+      _selectedMetricIds = widget.service.allMetrics
+          .where((m) => m.windowIds.contains(widget.existing!.id))
+          .map((m) => m.id)
+          .toList();
     } else {
       _notificationTime = _startTime;
     }
@@ -113,6 +121,50 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
                   if (picked != null) setState(() => _notificationTime = picked);
                 },
               ),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(
+              'Metrics Tracked in this Window',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: widget.service.allMetrics
+                  .where((m) => m.isEnabled)
+                  .map((metric) {
+                final isAlwaysTracked = metric.windowIds.contains('anytime');
+                final isSelected = isAlwaysTracked || _selectedMetricIds.contains(metric.id);
+                
+                return CheckboxListTile(
+                  value: isSelected,
+                  onChanged: isAlwaysTracked ? null : (val) {
+                    setState(() {
+                      if (val == true) {
+                        _selectedMetricIds.add(metric.id);
+                      } else {
+                        _selectedMetricIds.remove(metric.id);
+                      }
+                    });
+                  },
+                  secondary: MetricIcon(iconName: metric.emoji, size: 24),
+                  title: Text(
+                    metric.label,
+                    style: TextStyle(
+                      color: isAlwaysTracked ? Theme.of(context).colorScheme.outline : null,
+                    ),
+                  ),
+                  subtitle: Text(
+                    isAlwaysTracked ? 'Set to Always Track' : metric.inputType.displayLabel,
+                  ),
+                  dense: true,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -135,7 +187,10 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
                 isNotificationEnabled: _isNotificationEnabled,
                 notificationHour: _notificationTime.hour,
                 notificationMinute: _notificationTime.minute,
-              );
+              ).then((newWindow) {
+                // If we had a way to get the new ID, we'd update metrics here.
+                // For now, new windows start empty and user can edit metrics later.
+              });
             } else {
               widget.service.updateTrackingWindow(
                 widget.existing!.id,
@@ -148,6 +203,8 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
                 notificationHour: _notificationTime.hour,
                 notificationMinute: _notificationTime.minute,
               );
+              // Update metric assignments
+              widget.service.setMetricsForWindow(widget.existing!.id, _selectedMetricIds);
             }
             Navigator.pop(context);
           },

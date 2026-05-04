@@ -556,47 +556,88 @@ class WindowCheckboxList extends StatelessWidget {
     final metricService = context.watch<MetricService>();
     final windows = metricService.allWindows;
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CheckboxListTile(
-          title: const Text('Show on Home Screen'),
-          subtitle: const Text('Add as a "Quick Track" button on home'),
-          value: selectedIds.contains('homescreen'),
-          activeColor: colorScheme.secondary,
-          contentPadding: EdgeInsets.zero,
-          onChanged: (checked) {
-            final newIds = List<String>.from(selectedIds);
-            checked == true ? newIds.add('homescreen') : newIds.remove('homescreen');
-            onChanged(newIds);
-          },
-        ),
-        CheckboxListTile(
-          title: const Text('Anytime'),
-          subtitle: const Text('Include in every guided session'),
-          value: selectedIds.contains('anytime'),
-          activeColor: colorScheme.primary,
-          contentPadding: EdgeInsets.zero,
-          onChanged: (checked) {
-            final newIds = List<String>.from(selectedIds);
-            checked == true ? newIds.add('anytime') : newIds.remove('anytime');
-            onChanged(newIds);
-          },
-        ),
-        ...windows.map((w) => CheckboxListTile(
-              title: Text(w.label),
-              subtitle: Text(
-                  '${w.startHour.toString().padLeft(2, '0')}:${w.startMinute.toString().padLeft(2, '0')} - '
-                  '${w.endHour.toString().padLeft(2, '0')}:${w.endMinute.toString().padLeft(2, '0')}'),
-              value: selectedIds.contains(w.id),
-              activeColor: colorScheme.primary,
-              contentPadding: EdgeInsets.zero,
-              onChanged: (checked) {
+        // --- Special Locations ---
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilterChip(
+              label: const Text('Home Screen'),
+              selected: selectedIds.contains('homescreen'),
+              onSelected: (val) {
                 final newIds = List<String>.from(selectedIds);
-                checked == true ? newIds.add(w.id) : newIds.remove(w.id);
+                val ? newIds.add('homescreen') : newIds.remove('homescreen');
                 onChanged(newIds);
               },
-            )),
+              avatar: Icon(Icons.home_outlined, 
+                  size: 18, 
+                  color: selectedIds.contains('homescreen') ? colorScheme.onSecondaryContainer : colorScheme.primary),
+              selectedColor: colorScheme.secondaryContainer,
+              checkmarkColor: colorScheme.onSecondaryContainer,
+            ),
+            FilterChip(
+              label: const Text('Always Track'),
+              selected: selectedIds.contains('anytime'),
+              onSelected: (val) {
+                final newIds = List<String>.from(selectedIds);
+                if (val) {
+                  // If Always Track is on, remove all specific window assignments (redundant)
+                  final windows = metricService.allWindows.map((w) => w.id).toSet();
+                  newIds.removeWhere((id) => windows.contains(id));
+                  newIds.add('anytime');
+                } else {
+                  newIds.remove('anytime');
+                }
+                onChanged(newIds);
+              },
+              avatar: Icon(Icons.all_inclusive_rounded, 
+                  size: 18, 
+                  color: selectedIds.contains('anytime') ? colorScheme.onPrimaryContainer : colorScheme.primary),
+              selectedColor: colorScheme.primaryContainer,
+              checkmarkColor: colorScheme.onPrimaryContainer,
+            ),
+          ],
+        ),
+        
+        if (windows.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Specific Windows',
+            style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: windows.map((w) {
+              final isSelected = selectedIds.contains(w.id);
+              return FilterChip(
+                label: Text(w.label),
+                tooltip: '${w.startHour.toString().padLeft(2, '0')}:${w.startMinute.toString().padLeft(2, '0')} - '
+                         '${w.endHour.toString().padLeft(2, '0')}:${w.endMinute.toString().padLeft(2, '0')}',
+                selected: isSelected,
+                onSelected: (val) {
+                  final newIds = List<String>.from(selectedIds);
+                  if (val) {
+                    newIds.add(w.id);
+                    // If a specific window is selected, Always Track is no longer true
+                    newIds.remove('anytime');
+                  } else {
+                    newIds.remove(w.id);
+                  }
+                  onChanged(newIds);
+                },
+                selectedColor: colorScheme.primaryContainer,
+                checkmarkColor: colorScheme.onPrimaryContainer,
+              );
+            }).toList(),
+          ),
+        ],
       ],
     );
   }
