@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../ui/screens/daily_checkin_screen.dart';
 import '../data/database/app_database.dart';
 import '../data/models/enums.dart';
+import '../ui/theme/design_system.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -15,7 +16,7 @@ class NotificationService {
   NotificationService._internal();
 
   static const String _kSnoozeDurationsKey = 'notification_snooze_durations';
-  static const List<int> _defaultSnoozeDurations = [10, 60, 120]; // 10m, 1h, 2h
+  static const List<int> _defaultSnoozeDurations = [15, 60]; // 15m, 1h
 
   /// Global navigator key accessed when notifications launch the app
   static GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -29,7 +30,7 @@ class NotificationService {
           channelName: 'EMA Reminders',
           channelDescription:
               'Notifications for Ecological Momentary Assessment prompts',
-          defaultColor: Colors.teal,
+          defaultColor: CovaryDesignSystem.primary,
           ledColor: Colors.white,
           importance: NotificationImportance.High,
           channelShowBadge: true,

@@ -1,33 +1,63 @@
 $ErrorActionPreference = "Stop"
-$env:GH_PAGER = ""
 
-$jsonContent = Get-Content -Raw -Path "version.json" | ConvertFrom-Json
-$latestVersion = $jsonContent.latest_version
-$buildNumber = $jsonContent.build_number
-$releaseNotes = $jsonContent.release_notes
+Write-Host "--- Covary Shipping Process ---" -ForegroundColor Cyan
 
-# Generate a timestamp (e.g., yyyyMMdd_HHmmss)
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+# 1. Load current version
+if (-not (Test-Path "version.json")) {
+    Write-Error "version.json not found!"
+}
+$json = Get-Content -Raw -Path "version.json" | ConvertFrom-Json
+$currentVersion = $json.latest_version
+$newBuildNumber = [int]$json.build_number + 1
+$timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:sszzz"
+$releaseNotes = $json.release_notes
 
+Write-Host "New Build: v$currentVersion+$newBuildNumber" -ForegroundColor Green
+
+# 2. Update version.json
+$json.build_number = $newBuildNumber
+$json.build_timestamp = $timestamp
+$json | ConvertTo-Json -Depth 10 | Out-File -FilePath "version.json" -Encoding utf8
+
+# 3. Update pubspec.yaml
+$pubspec = Get-Content -Path "pubspec.yaml"
+$newVersionString = "version: $currentVersion+$newBuildNumber"
+$pubspec = $pubspec -replace "^version: .*$", $newVersionString
+$pubspec | Out-File -FilePath "pubspec.yaml" -Encoding utf8
+
+Write-Host "Files updated. Starting build..." -ForegroundColor Yellow
+
+# 4. Build APK
+flutter build apk --release
+if ($LASTEXITCODE -ne 0) { throw "Flutter build failed!" }
+
+# 5. Git Operations
+$tag = "v$currentVersion+$newBuildNumber"
+git add pubspec.yaml version.json
+git commit -m "Bump version to $tag"
+git push
+git tag $tag
+git push origin $tag
+
+# 6. Backup to Google Drive
 $sourceApk = "build\app\outputs\flutter-apk\app-release.apk"
-$destApk = "$env:USERPROFILE\My Drive\Covary\Builds\Covary_v${latestVersion}_b${buildNumber}_${timestamp}.apk"
-
-# Ensure directory exists
+$driveTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$destApk = "$env:USERPROFILE\My Drive\Covary\Builds\Covary_v${currentVersion}_b${newBuildNumber}_${driveTimestamp}.apk"
 $destDir = Split-Path $destApk
 if (-not (Test-Path $destDir)) {
     New-Item -ItemType Directory -Force -Path $destDir | Out-Null
 }
-
-Write-Host "Copying APK to $destApk..."
 Copy-Item -Path $sourceApk -Destination $destApk -Force
+Write-Host "Backup created: $destApk" -ForegroundColor Gray
 
-$tag = "v${latestVersion}+${buildNumber}"
-
+# 7. GitHub Release
+Write-Host "Creating GitHub Release..." -ForegroundColor Yellow
 $notesFile = "release_notes_temp.txt"
-$releaseNotes | Out-File -FilePath $notesFile -Encoding utf8
+# Ensure we use UTF8 without BOM for maximum compatibility with gh CLI
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText((Join-Path (Get-Location) $notesFile), $releaseNotes, $utf8NoBom)
 
-Write-Host "Creating GitHub Release for $tag..."
 gh release create $tag $sourceApk --title "Release $tag" --notes-file $notesFile
-
 Remove-Item -Path $notesFile -Force
-Write-Host "Release created successfully."
+
+Write-Host "--- Ship It Successful! ---" -ForegroundColor Green
