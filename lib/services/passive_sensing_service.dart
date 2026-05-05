@@ -122,13 +122,16 @@ class PassiveSensingService {
     }
   }
 
-  /// Fetches total, social, and entertainment screen time and logs them.
+  /// Fetches total and dynamic category screen time and logs them.
   Future<void> _syncAppUsage(String sessionId, DateTime start, DateTime end, DateTime timestamp) async {
-    final usageTasks = {
-      'total_screen_time_minutes': () => _appUsage.fetchTotalScreenTimeMinutes(startTime: start, endTime: end),
-      'social_screen_time_minutes': () => _appUsage.fetchSocialScreenTimeMinutes(startTime: start, endTime: end),
-      'entertainment_screen_time_minutes': () => _appUsage.fetchEntertainmentScreenTimeMinutes(startTime: start, endTime: end),
+    final usageTasks = <String, Future<int?> Function()>{
+      'total_screen_time': () => _appUsage.fetchTotalScreenTimeMinutes(startTime: start, endTime: end),
     };
+
+    // Add all user-defined categories
+    for (final catName in _appUsage.categories.keys) {
+      usageTasks['category_time:$catName'] = () => _appUsage.fetchCategoryUsage(catName, startTime: start, endTime: end);
+    }
 
     for (final task in usageTasks.entries) {
       try {

@@ -7,7 +7,7 @@ import '../../services/profile_service.dart';
 import 'package:covary/services/theme_service.dart';
 import 'profile_setup_screen.dart';
 import 'permission_shield_screen.dart';
-import 'app_category_screen.dart';
+import 'app_category_manager_screen.dart';
 import 'debug_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../services/update_service.dart';
@@ -262,7 +262,7 @@ class SettingsScreen extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => const AppCategoryScreen(),
+                          builder: (_) => const AppCategoryManagerScreen(),
                         ),
                       );
                     },

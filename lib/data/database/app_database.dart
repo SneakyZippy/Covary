@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
   
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -89,6 +89,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 11) {
         // Add isEnabled column to tracking_windows table
         await addColumnSafe(trackingWindows, trackingWindows.isEnabled);
+      }
+      if (from < 12) {
+        // Rename legacy app usage labels for dynamic category support
+        await customStatement("UPDATE events SET label = 'category_time:social' WHERE label = 'social_screen_time_minutes'");
+        await customStatement("UPDATE events SET label = 'category_time:entertainment' WHERE label = 'entertainment_screen_time_minutes'");
+        await customStatement("UPDATE events SET label = 'total_screen_time' WHERE label = 'total_screen_time_minutes'");
       }
     },
   );

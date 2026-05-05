@@ -59,27 +59,39 @@ class AnalyticsService {
 
     for (final e in events) {
       final date = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      final val = double.tryParse(e.value) ?? 0.0;
+      
+      double val;
+      if (e.value == 'true') {
+        val = 1.0;
+      } else if (e.value == 'false') {
+        val = 0.0;
+      } else {
+        val = double.tryParse(e.value) ?? 0.0;
+      }
+      
       dailyGroups.putIfAbsent(date, () => []).add(val);
     }
 
     final Map<DateTime, double> result = {};
     for (final date in dailyGroups.keys) {
       final vals = dailyGroups[date]!;
+      if (vals.isEmpty) continue;
       
-      // Determine aggregation strategy based on category
-      // This is a simplification; in a real scenario we'd check the MetricInputType
-      final event = events.firstWhere((e) => e.label == events.first.label);
+      final firstEvent = events.firstWhere((e) => e.label == events.first.label);
       
-      if (event.category == EventCategory.mood || event.category == EventCategory.productivity) {
-        // Average for scales
+      // Determine aggregation strategy
+      if (firstEvent.category == EventCategory.mood || 
+          firstEvent.category == EventCategory.productivity ||
+          firstEvent.label.toLowerCase().contains('quality')) {
+        // Average for scales and quality metrics
         result[date] = vals.reduce((a, b) => a + b) / vals.length;
-      } else if (event.category == EventCategory.appUsage) {
-        // App usage is usually already a daily total in our app (logged at end of day)
-        // But if multiple logs exist, we take the MAX (cumulative for that day)
+      } else if (firstEvent.category == EventCategory.appUsage || 
+                 firstEvent.category == EventCategory.health) {
+        // Take MAX for daily totals (steps, screen time, sleep duration)
+        // This ensures that if we have multiple syncs, we take the most complete one.
         result[date] = vals.reduce(max);
       } else {
-        // Sum for counters/behavior
+        // Default: Sum for counters/behavior
         result[date] = vals.reduce((a, b) => a + b);
       }
     }
@@ -88,22 +100,45 @@ class AnalyticsService {
   }
 
   /// Computes Spearman Rank Correlation Coefficient.
+  /// 
+  /// Note: We use the Pearson correlation of the ranks, which is the 
+  /// standard definition of Spearman's rho and correctly handles tied ranks.
   double _computeSpearman(List<double> x, List<double> y) {
     final n = x.length;
+    if (n < 3) return 0.0;
     
     // 1. Convert to ranks
     final rankX = _getRanks(x);
     final rankY = _getRanks(y);
 
-    // 2. Sum of squared differences of ranks
-    double sumD2 = 0;
+    // 2. Calculate Pearson correlation of the ranks
+    return _computePearson(rankX, rankY);
+  }
+
+  /// Calculates the Pearson Correlation Coefficient between two lists.
+  double _computePearson(List<double> x, List<double> y) {
+    final n = x.length;
+    double sumX = 0;
+    double sumY = 0;
+    double sumXY = 0;
+    double sumX2 = 0;
+    double sumY2 = 0;
+
     for (int i = 0; i < n; i++) {
-      final d = rankX[i] - rankY[i];
-      sumD2 += d * d;
+      sumX += x[i];
+      sumY += y[i];
+      sumXY += x[i] * y[i];
+      sumX2 += x[i] * x[i];
+      sumY2 += y[i] * y[i];
     }
 
-    // 3. Formula: 1 - (6 * sumD2) / (n * (n^2 - 1))
-    return 1 - (6 * sumD2) / (n * (n * n - 1));
+    final numerator = (n * sumXY) - (sumX * sumY);
+    final denominator = sqrt(
+      (n * sumX2 - (sumX * sumX)) * (n * sumY2 - (sumY * sumY))
+    );
+
+    if (denominator == 0) return 0.0;
+    return numerator / denominator;
   }
 
   /// Converts a list of values to their ranks.

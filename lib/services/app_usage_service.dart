@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -6,13 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:usage_stats/usage_stats.dart';
 
 /// Tri-state permission result for App Usage Stats.
-///
-/// - [granted]    : `PACKAGE_USAGE_STATS` is active.
-/// - [denied]     : Permission not yet granted; settings page not yet visited.
-/// - [restricted] : User visited Usage Access settings but the toggle was
-///                  grayed out ("Controlled by restricted setting").
-///                  This happens on Android 13+ when the APK is sideloaded.
-///                  Fix: Settings → Apps → Covary → ⋮ → Allow restricted settings.
 enum AppUsagePermissionStatus { granted, denied, restricted }
 
 const _kSettingsOpenedKey = 'app_usage_settings_opened';
@@ -21,47 +15,24 @@ const _kSettingsOpenedKey = 'app_usage_settings_opened';
 const _kSocialAppsKey = 'social_app_packages';
 const _kEntertainmentAppsKey = 'entertainment_app_packages';
 const _kCategoriesSeeded = 'app_categories_seeded';
+const _kDynamicCategoriesKey = 'app_usage_dynamic_categories';
 
 /// Wraps the Android `UsageStats` API to query per-app foreground time.
-///
-/// [PACKAGE_USAGE_STATS] is a "protected" special permission — it cannot be
-/// granted via a runtime dialog. The user must enable it manually at:
-/// **Settings → Apps → Special app access → Usage access**
-///
-/// This service provides:
-/// - [isPermissionGranted]: non-intrusive check of current permission state.
-/// - [openPermissionSettings]: deep-link to the Usage Access settings page.
-/// - [fetchTotalScreenTimeMinutes]: total foreground time for all apps (last 24h).
-/// - [fetchSocialScreenTimeMinutes]: foreground time for user-configured Social apps.
-/// - [fetchEntertainmentScreenTimeMinutes]: foreground time for user-configured Entertainment apps.
-/// - [fetchPerAppScreenTimeMinutes]: per-app breakdown for granular research data.
-///
-/// ## Thesis Note
-/// App usage is divided into three buckets for the research model:
-/// 1. **Total screen time** — overall digital exposure.
-/// 2. **Social media time** — correlated with mood and FOMO research signals.
-/// 3. **Entertainment (video) time** — correlated with passive consumption vs. active metrics.
-///
-/// Categories are **user-configurable** and overlap is allowed (e.g., TikTok can
-/// be both Social and Entertainment). This improves ecological validity since
-/// the participant defines their own media boundaries.
-///
-/// iOS Note: Android-only. This service is a no-op on iOS.
 class AppUsageService extends ChangeNotifier {
-  /// User-configured social app package names.
-  Set<String> _socialPackages = {};
-
-  /// User-configured entertainment app package names.
-  Set<String> _entertainmentPackages = {};
+  /// Dynamic map of category names to sets of package names.
+  Map<String, Set<String>> _categories = {};
 
   /// Whether the default seed has already been applied.
   bool _seeded = false;
 
-  /// Public read-only access to the current social package set.
-  Set<String> get socialPackages => Set.unmodifiable(_socialPackages);
+  /// Public read-only access to the current categories.
+  Map<String, Set<String>> get categories => Map.unmodifiable(_categories);
 
-  /// Public read-only access to the current entertainment package set.
-  Set<String> get entertainmentPackages => Set.unmodifiable(_entertainmentPackages);
+  /// Helper for legacy compatibility (Social).
+  Set<String> get socialPackages => _categories['social'] ?? {};
+
+  /// Helper for legacy compatibility (Entertainment).
+  Set<String> get entertainmentPackages => _categories['entertainment'] ?? {};
 
   // ---------------------------------------------------------------------------
   // Initialization
@@ -70,75 +41,109 @@ class AppUsageService extends ChangeNotifier {
   /// Loads persisted category sets from SharedPreferences.
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // 1. Check for dynamic categories first
+    final dynamicJson = prefs.getString(_kDynamicCategoriesKey);
+    if (dynamicJson != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(dynamicJson);
+        _categories = decoded.map((key, value) => MapEntry(key, (value as List).cast<String>().toSet()));
+        debugPrint('[AppUsageService] Loaded ${_categories.length} dynamic categories.');
+      } catch (e) {
+        debugPrint('[AppUsageService] Error decoding dynamic categories: $e');
+      }
+    }
+
+    // 2. Migration from legacy v2 (social/entertainment lists)
+    if (_categories.isEmpty) {
+      final social = prefs.getStringList(_kSocialAppsKey) ?? [];
+      final entertainment = prefs.getStringList(_kEntertainmentAppsKey) ?? [];
+      
+      if (social.isNotEmpty || entertainment.isNotEmpty) {
+        _categories['social'] = social.toSet();
+        _categories['entertainment'] = entertainment.toSet();
+        await _persistCurrent();
+        debugPrint('[AppUsageService] Migrated legacy social/entertainment to dynamic categories.');
+      }
+    }
+
+    // 3. Seeding (if brand new install)
     _seeded = prefs.getBool(_kCategoriesSeeded) ?? false;
-
-    // Migration: clear old auto-seeded defaults (v1 → v2).
-    const migrationKey = 'app_categories_v2_migrated';
-    final v2Migrated = prefs.getBool(migrationKey) ?? false;
-    if (_seeded && !v2Migrated) {
-      _socialPackages = {};
-      _entertainmentPackages = {};
-      await _persist(prefs);
-      await prefs.setBool(migrationKey, true);
-      debugPrint('[AppUsageService] Migrated to v2: cleared auto-seeded categories.');
-      return;
-    }
-
-    if (!_seeded) {
-      _socialPackages = {};
-      _entertainmentPackages = {};
-      await _persist(prefs);
+    if (!_seeded && _categories.isEmpty) {
+      // Default empty categories
+      _categories['social'] = {};
+      _categories['entertainment'] = {};
+      await _persistCurrent();
       await prefs.setBool(_kCategoriesSeeded, true);
-      await prefs.setBool(migrationKey, true);
       _seeded = true;
-      debugPrint('[AppUsageService] Initialized with empty app categories.');
-    } else {
-      _socialPackages = (prefs.getStringList(_kSocialAppsKey) ?? []).toSet();
-      _entertainmentPackages =
-          (prefs.getStringList(_kEntertainmentAppsKey) ?? []).toSet();
-      debugPrint(
-        '[AppUsageService] Loaded ${_socialPackages.length} social, '
-        '${_entertainmentPackages.length} entertainment apps.',
-      );
+      debugPrint('[AppUsageService] Initialized with default empty categories.');
     }
+    
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------------------
   // Category Management
   // ---------------------------------------------------------------------------
 
-  /// Toggles whether [packageName] is classified as a Social app.
-  Future<void> toggleSocialApp(String packageName, bool isSocial) async {
-    if (isSocial) {
-      _socialPackages.add(packageName);
+  /// Adds a new empty category.
+  Future<void> addCategory(String name) async {
+    final normalized = name.trim().toLowerCase();
+    if (normalized.isEmpty || _categories.containsKey(normalized)) return;
+    
+    _categories[normalized] = {};
+    await _persistCurrent();
+    notifyListeners();
+  }
+
+  /// Deletes a category.
+  Future<void> deleteCategory(String name) async {
+    if (!_categories.containsKey(name)) return;
+    
+    _categories.remove(name);
+    await _persistCurrent();
+    notifyListeners();
+  }
+
+  /// Renames a category.
+  Future<void> renameCategory(String oldName, String newName) async {
+    final normalizedNew = newName.trim().toLowerCase();
+    if (normalizedNew.isEmpty || !_categories.containsKey(oldName) || _categories.containsKey(normalizedNew)) return;
+    
+    final apps = _categories.remove(oldName)!;
+    _categories[normalizedNew] = apps;
+    await _persistCurrent();
+    notifyListeners();
+  }
+
+  /// Toggles whether [packageName] is in [categoryName].
+  Future<void> toggleAppInCategory(String packageName, String categoryName, bool isActive) async {
+    if (!_categories.containsKey(categoryName)) return;
+    
+    if (isActive) {
+      _categories[categoryName]!.add(packageName);
     } else {
-      _socialPackages.remove(packageName);
+      _categories[categoryName]!.remove(packageName);
     }
     await _persistCurrent();
     notifyListeners();
   }
 
-  /// Toggles whether [packageName] is classified as an Entertainment app.
-  Future<void> toggleEntertainmentApp(
-    String packageName,
-    bool isEntertainment,
-  ) async {
-    if (isEntertainment) {
-      _entertainmentPackages.add(packageName);
-    } else {
-      _entertainmentPackages.remove(packageName);
-    }
-    await _persistCurrent();
-    notifyListeners();
-  }
+  /// Legacy helper for Social.
+  Future<void> toggleSocialApp(String packageName, bool isSocial) => toggleAppInCategory(packageName, 'social', isSocial);
+
+  /// Legacy helper for Entertainment.
+  Future<void> toggleEntertainmentApp(String packageName, bool isEnt) => toggleAppInCategory(packageName, 'entertainment', isEnt);
+
+  /// Checks if a package is in a specific category.
+  bool isAppInCategory(String packageName, String categoryName) =>
+      _categories[categoryName]?.contains(packageName) ?? false;
 
   /// Checks if a package is classified as Social.
-  bool isSocialApp(String packageName) =>
-      _socialPackages.contains(packageName);
+  bool isSocialApp(String packageName) => isAppInCategory(packageName, 'social');
 
   /// Checks if a package is classified as Entertainment.
-  bool isEntertainmentApp(String packageName) =>
-      _entertainmentPackages.contains(packageName);
+  bool isEntertainmentApp(String packageName) => isAppInCategory(packageName, 'entertainment');
 
   /// Checks if a package is in the curated suggestion list for Social.
   static bool isSuggestedSocial(String packageName) =>
@@ -152,7 +157,6 @@ class AppUsageService extends ChangeNotifier {
   // Permission Check
   // ---------------------------------------------------------------------------
 
-  /// Returns `true` if the [PACKAGE_USAGE_STATS] special permission is active.
   Future<bool> isPermissionGranted() async {
     if (!Platform.isAndroid) return false;
     try {
@@ -163,13 +167,6 @@ class AppUsageService extends ChangeNotifier {
     }
   }
 
-  /// Returns a tri-state [AppUsagePermissionStatus] distinguishing between
-  /// granted, never-asked-denied, and Android 13+ restricted-setting-blocked.
-  ///
-  /// **Restricted detection logic:**
-  /// Android has no public API to detect whether the toggle is grayed out.
-  /// We infer it by checking whether [openPermissionSettings] was previously
-  /// called (persisted flag) AND permission is still not granted after returning.
   Future<AppUsagePermissionStatus> checkPermissionStatus() async {
     if (!Platform.isAndroid) return AppUsagePermissionStatus.denied;
 
@@ -183,19 +180,12 @@ class AppUsageService extends ChangeNotifier {
     final settingsOpened = prefs.getBool(_kSettingsOpenedKey) ?? false;
 
     if (settingsOpened) {
-      debugPrint(
-        '[AppUsageService] Permission still denied after settings visit → restricted.',
-      );
       return AppUsagePermissionStatus.restricted;
     }
 
     return AppUsagePermissionStatus.denied;
   }
 
-  /// Deep-links the user to the **Usage Access** settings page.
-  ///
-  /// Persists a flag so [checkPermissionStatus] can detect the
-  /// restricted-setting state if the user returns without granting access.
   Future<void> openPermissionSettings() async {
     if (!Platform.isAndroid) return;
     try {
@@ -207,19 +197,16 @@ class AppUsageService extends ChangeNotifier {
     }
   }
 
-  /// Clears the settings-visited flag (called automatically when permission
-  /// is confirmed granted, so future denials are not misclassified as restricted).
   Future<void> resetRestrictedFlag() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kSettingsOpenedKey);
   }
 
-
   // ---------------------------------------------------------------------------
   // Data Fetching
   // ---------------------------------------------------------------------------
 
-  /// Returns total foreground time in minutes across all apps in the specified interval.
+  /// Returns total foreground time in minutes across all apps in the interval.
   Future<int?> fetchTotalScreenTimeMinutes({DateTime? startTime, DateTime? endTime}) async {
     if (!Platform.isAndroid) return null;
     try {
@@ -231,92 +218,57 @@ class AppUsageService extends ChangeNotifier {
         totalMs += int.tryParse(stat.totalTimeInForeground ?? '0') ?? 0;
       }
 
-      final minutes = totalMs ~/ 1000 ~/ 60;
-      debugPrint('[AppUsageService] Total screen time: ${minutes}min');
-      return minutes;
+      return totalMs ~/ 60000;
     } catch (e) {
       debugPrint('[AppUsageService] fetchTotalScreenTimeMinutes error: $e');
       return null;
     }
   }
 
-  /// Returns total foreground time in minutes for Social category apps in the interval.
-  Future<int?> fetchSocialScreenTimeMinutes({DateTime? startTime, DateTime? endTime}) async {
+  /// Returns total foreground time in minutes for a specific category.
+  Future<int?> fetchCategoryUsage(String categoryName, {DateTime? startTime, DateTime? endTime}) async {
     if (!Platform.isAndroid) return null;
+    final apps = _categories[categoryName];
+    if (apps == null || apps.isEmpty) return 0;
+
     try {
       final stats = await _queryStats(startTime: startTime, endTime: endTime);
       if (stats == null) return null;
 
       int totalMs = 0;
       for (final stat in stats) {
-        if (_socialPackages.contains(stat.packageName ?? '')) {
+        if (apps.contains(stat.packageName ?? '')) {
           totalMs += int.tryParse(stat.totalTimeInForeground ?? '0') ?? 0;
         }
       }
 
-      final minutes = totalMs ~/ 1000 ~/ 60;
-      debugPrint('[AppUsageService] Social screen time: ${minutes}min');
-      return minutes;
+      return totalMs ~/ 60000;
     } catch (e) {
-      debugPrint('[AppUsageService] fetchSocialScreenTimeMinutes error: $e');
+      debugPrint('[AppUsageService] fetchCategoryUsage($categoryName) error: $e');
       return null;
     }
   }
 
-  /// Returns total foreground time in minutes for Entertainment apps in the interval.
-  Future<int?> fetchEntertainmentScreenTimeMinutes({DateTime? startTime, DateTime? endTime}) async {
-    if (!Platform.isAndroid) return null;
-    try {
-      final stats = await _queryStats(startTime: startTime, endTime: endTime);
-      if (stats == null) return null;
+  /// Legacy helpers.
+  Future<int?> fetchSocialScreenTimeMinutes({DateTime? startTime, DateTime? endTime}) => fetchCategoryUsage('social', startTime: startTime, endTime: endTime);
+  Future<int?> fetchEntertainmentScreenTimeMinutes({DateTime? startTime, DateTime? endTime}) => fetchCategoryUsage('entertainment', startTime: startTime, endTime: endTime);
 
-      int totalMs = 0;
-      for (final stat in stats) {
-        if (_entertainmentPackages.contains(stat.packageName ?? '')) {
-          totalMs += int.tryParse(stat.totalTimeInForeground ?? '0') ?? 0;
-        }
-      }
-
-      final minutes = totalMs ~/ 1000 ~/ 60;
-      debugPrint('[AppUsageService] Entertainment screen time: ${minutes}min');
-      return minutes;
-    } catch (e) {
-      debugPrint(
-        '[AppUsageService] fetchEntertainmentScreenTimeMinutes error: $e',
-      );
-      return null;
-    }
-  }
-
-  /// Returns per-app foreground time in minutes for all apps with >0 usage in the interval.
+  /// Returns per-app foreground time in minutes for all apps with >0 usage.
   Future<Map<String, int>?> fetchPerAppScreenTimeMinutes({DateTime? startTime, DateTime? endTime}) async {
     if (!Platform.isAndroid) return null;
     try {
       final stats = await _queryStats(startTime: startTime, endTime: endTime);
       if (stats == null) return null;
 
-      final msPerPkg = <String, int>{};
+      final result = <String, int>{};
       for (final stat in stats) {
         final pkg = stat.packageName ?? '';
         if (pkg.isEmpty) continue;
-
         final ms = int.tryParse(stat.totalTimeInForeground ?? '0') ?? 0;
         if (ms > 0) {
-          msPerPkg[pkg] = (msPerPkg[pkg] ?? 0) + ms;
+          result[pkg] = (result[pkg] ?? 0) + (ms ~/ 60000);
         }
       }
-
-      final result = <String, int>{};
-      for (final entry in msPerPkg.entries) {
-        final minutes = entry.value ~/ 60000;
-        if (minutes > 0) {
-          result[entry.key] = minutes;
-        }
-      }
-
-      debugPrint(
-        '[AppUsageService] Per-app data: ${result.length} apps with usage',
-      );
       return result;
     } catch (e) {
       debugPrint('[AppUsageService] fetchPerAppScreenTimeMinutes error: $e');
@@ -324,27 +276,55 @@ class AppUsageService extends ChangeNotifier {
     }
   }
 
-  /// Returns the set of all package names seen in usage stats over the last 30 days.
+  /// Returns hourly usage breakdown for a specific day.
+  /// Result map: {hourIndex (0-23): foregroundMinutes}
+  Future<Map<int, int>?> fetchHourlyUsage(DateTime date) async {
+    if (!Platform.isAndroid) return null;
+    
+    final dayStart = DateTime(date.year, date.month, date.day, 0, 0, 0);
+    final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+    try {
+      final events = await UsageStats.queryEvents(dayStart, dayEnd);
+      final hourlyMs = Map<int, int>.fromIterable(List.generate(24, (i) => i), value: (_) => 0);
+      
+      final Map<String, int?> lastMoveToForeground = {};
+
+      for (final event in events) {
+        final pkg = event.packageName ?? '';
+        final timeMs = int.tryParse(event.timeStamp ?? '0') ?? 0;
+        final type = event.eventType;
+
+        if (type == '1') { // MOVE_TO_FOREGROUND
+          lastMoveToForeground[pkg] = timeMs;
+        } else if (type == '2') { // MOVE_TO_BACKGROUND
+          final startTime = lastMoveToForeground[pkg];
+          if (startTime != null) {
+            final duration = timeMs - startTime;
+            if (duration > 0) {
+              final startDt = DateTime.fromMillisecondsSinceEpoch(startTime);
+              hourlyMs[startDt.hour] = (hourlyMs[startDt.hour] ?? 0) + duration;
+            }
+            lastMoveToForeground[pkg] = null;
+          }
+        }
+      }
+
+      // Convert MS to Minutes
+      return hourlyMs.map((hour, ms) => MapEntry(hour, ms ~/ 60000));
+    } catch (e) {
+      debugPrint('[AppUsageService] fetchHourlyUsage error: $e');
+      return null;
+    }
+  }
+
   Future<Set<String>?> fetchInstalledPackages() async {
     if (!Platform.isAndroid) return null;
     try {
-      final hasPermission = await isPermissionGranted();
-      if (!hasPermission) return null;
-
       final now = DateTime.now();
       final since = now.subtract(const Duration(days: 30));
       final stats = await UsageStats.queryUsageStats(since, now);
-
-      final packages = <String>{};
-      for (final stat in stats) {
-        final pkg = stat.packageName ?? '';
-        if (pkg.isNotEmpty) packages.add(pkg);
-      }
-
-      debugPrint(
-        '[AppUsageService] Found ${packages.length} installed packages (30d)',
-      );
-      return packages;
+      return stats.map((s) => s.packageName ?? '').where((p) => p.isNotEmpty).toSet();
     } catch (e) {
       debugPrint('[AppUsageService] fetchInstalledPackages error: $e');
       return null;
@@ -357,18 +337,14 @@ class AppUsageService extends ChangeNotifier {
 
   Future<List<UsageInfo>?> _queryStats({DateTime? startTime, DateTime? endTime}) async {
     final hasPermission = await isPermissionGranted();
-    if (!hasPermission) {
-      debugPrint('[AppUsageService] No usage permission — skipping query.');
-      return null;
-    }
+    if (!hasPermission) return null;
 
     final now = DateTime.now();
     final effectiveEnd = endTime ?? now;
     final effectiveStart = startTime ?? now.subtract(const Duration(hours: 24));
 
     try {
-      final stats = await UsageStats.queryUsageStats(effectiveStart, effectiveEnd);
-      return stats;
+      return await UsageStats.queryUsageStats(effectiveStart, effectiveEnd);
     } catch (e) {
       debugPrint('[AppUsageService] queryUsageStats error: $e');
       return null;
@@ -377,43 +353,17 @@ class AppUsageService extends ChangeNotifier {
 
   Future<void> _persistCurrent() async {
     final prefs = await SharedPreferences.getInstance();
-    await _persist(prefs);
+    final json = jsonEncode(_categories.map((key, value) => MapEntry(key, value.toList())));
+    await prefs.setString(_kDynamicCategoriesKey, json);
   }
-
-  Future<void> _persist(SharedPreferences prefs) async {
-    await prefs.setStringList(_kSocialAppsKey, _socialPackages.toList());
-    await prefs.setStringList(
-      _kEntertainmentAppsKey,
-      _entertainmentPackages.toList(),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Utility: Human-readable name from package name
-  // ---------------------------------------------------------------------------
 
   static String readableName(String packageName) {
     final alias = _knownAliases[packageName];
     if (alias != null) return alias;
-
     final parts = packageName.split('.');
-    final meaningfulParts = parts.where((p) =>
-        p != 'com' &&
-        p != 'org' &&
-        p != 'net' &&
-        p != 'android' &&
-        p != 'app' &&
-        p != 'mobile' &&
-        p != 'client' &&
-        p != 'google' &&
-        p != 'apps' &&
-        p.length > 2);
-
-    if (meaningfulParts.isEmpty) {
-      return parts.last[0].toUpperCase() + parts.last.substring(1);
-    }
-
-    final name = meaningfulParts.last;
+    final meaningful = parts.where((p) => !['com','org','net','android','app','mobile','client','google','apps'].contains(p) && p.length > 2);
+    if (meaningful.isEmpty) return parts.last[0].toUpperCase() + parts.last.substring(1);
+    final name = meaningful.last;
     return name[0].toUpperCase() + name.substring(1);
   }
 
@@ -428,67 +378,25 @@ class AppUsageService extends ChangeNotifier {
     'com.apple.tv': 'Apple TV+',
     'tv.twitch.android.app': 'Twitch',
     'com.google.android.youtube': 'YouTube',
-    'com.google.android.apps.youtube.music': 'YouTube Music',
-    'com.google.android.gm': 'Gmail',
-    'com.google.android.apps.maps': 'Google Maps',
-    'com.google.android.apps.photos': 'Google Photos',
-    'com.google.android.apps.docs': 'Google Docs',
-    'com.google.android.dialer': 'Phone',
-    'com.google.android.apps.messaging': 'Messages',
     'com.netflix.mediaclient': 'Netflix',
     'com.spotify.music': 'Spotify',
-    'com.deezer.android': 'Deezer',
-    'com.soundcloud.android': 'SoundCloud',
-    'com.plexapp.android': 'Plex',
-    'com.bereal.android': 'BeReal',
-    'com.threads.app': 'Threads',
     'com.instagram.android': 'Instagram',
     'com.snapchat.android': 'Snapchat',
     'com.whatsapp': 'WhatsApp',
     'com.discord': 'Discord',
     'org.telegram.messenger': 'Telegram',
-    'com.linkedin.android': 'LinkedIn',
-    'com.pinterest': 'Pinterest',
-    'com.tumblr': 'Tumblr',
-    'com.vkontakte.android': 'VKontakte',
     'com.disney.disneyplus': 'Disney+',
-    'de.zdf.app.zdftivi': 'ZDF',
-    'com.ard.mediathek': 'ARD Mediathek',
-    'de.swr.swr2': 'SWR2',
   };
 
   static const Set<String> suggestedSocialPackages = {
-    'com.instagram.android',
-    'com.facebook.katana',
-    'com.twitter.android',
-    'com.zhiliaoapp.musically',
-    'com.snapchat.android',
-    'com.reddit.frontpage',
-    'com.linkedin.android',
-    'com.pinterest',
-    'com.tumblr',
-    'com.vkontakte.android',
-    'org.telegram.messenger',
-    'com.whatsapp',
-    'com.discord',
-    'com.bereal.android',
-    'com.threads.app',
+    'com.instagram.android', 'com.facebook.katana', 'com.twitter.android', 'com.zhiliaoapp.musically',
+    'com.snapchat.android', 'com.reddit.frontpage', 'org.telegram.messenger', 'com.whatsapp', 'com.discord',
+    'com.bereal.android', 'com.threads.app', 'com.linkedin.android', 'com.pinterest', 'com.tumblr',
   };
 
   static const Set<String> suggestedEntertainmentPackages = {
-    'com.google.android.youtube',
-    'com.netflix.mediaclient',
-    'com.amazon.avod.thirdpartyclient',
-    'com.disney.disneyplus',
-    'com.hbo.hbonow',
-    'com.apple.tv',
-    'com.spotify.music',
-    'com.deezer.android',
-    'com.soundcloud.android',
-    'tv.twitch.android.app',
-    'com.plexapp.android',
-    'de.zdf.app.zdftivi',
-    'com.ard.mediathek',
-    'de.swr.swr2',
+    'com.google.android.youtube', 'com.netflix.mediaclient', 'com.amazon.avod.thirdpartyclient',
+    'com.disney.disneyplus', 'com.spotify.music', 'tv.twitch.android.app', 'com.hbo.hbonow',
+    'com.apple.tv', 'com.plexapp.android', 'de.zdf.app.zdftivi', 'com.ard.mediathek',
   };
 }

@@ -4,6 +4,7 @@ import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../../data/models/metric_definition.dart';
 import '../../data/models/enums.dart';
+import 'package:covary/data/database/app_database.dart';
 
 class CorrelationMatrixScreen extends StatefulWidget {
   const CorrelationMatrixScreen({super.key});
@@ -23,7 +24,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   static const List<MetricDefinition> _passiveMetrics = [
     MetricDefinition(
       id: 'passive_social_usage',
-      label: 'social_screen_time_minutes',
+      label: 'category_time:social',
       category: EventCategory.appUsage,
       inputType: MetricInputType.counter,
       isEnabled: true,
@@ -31,7 +32,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     ),
     MetricDefinition(
       id: 'passive_total_usage',
-      label: 'total_screen_time_minutes',
+      label: 'total_screen_time',
       category: EventCategory.appUsage,
       inputType: MetricInputType.counter,
       isEnabled: true,
@@ -39,7 +40,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     ),
     MetricDefinition(
       id: 'passive_entertainment_usage',
-      label: 'entertainment_screen_time_minutes',
+      label: 'category_time:entertainment',
       category: EventCategory.appUsage,
       inputType: MetricInputType.counter,
       isEnabled: true,
@@ -76,18 +77,21 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     final allAvailable = [...allSubjective, ..._passiveMetrics];
     
     setState(() {
-      // Autoselect: Mood/Behavior on rows, Usage/Health on columns
+      // Symmetrical by default for better research overview
       _rowMetrics = allAvailable.where((m) => 
         m.category == EventCategory.mood || 
         m.category == EventCategory.behavior ||
         m.category == EventCategory.productivity
       ).toList();
 
-      _colMetrics = allAvailable.where((m) => 
+      _colMetrics = List.from(_rowMetrics);
+      
+      // If we have passive data, add it to columns
+      final passive = allAvailable.where((m) => 
         m.category == EventCategory.appUsage || 
-        m.category == EventCategory.health ||
-        m.category == EventCategory.mood
+        m.category == EventCategory.health
       ).toList();
+      _colMetrics.addAll(passive);
 
       // Fallback
       if (_rowMetrics.isEmpty) _rowMetrics = allAvailable.take(5).toList();
@@ -101,15 +105,21 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     if (_rowMetrics.isEmpty || _colMetrics.isEmpty) return;
 
     setState(() => _isLoading = true);
-    
+    final db = context.read<AppDatabase>();
     final analyticsService = context.read<AnalyticsService>();
     final newMatrix = <String, Map<String, double?>>{};
 
     for (final row in _rowMetrics) {
       newMatrix[row.id] = {};
       for (final col in _colMetrics) {
+        // Only show 1.0 on diagonal if the user has actually logged data for it
         if (row.id == col.id && _lagDays == 0) {
-          newMatrix[row.id]![col.id] = 1.0;
+          final events = await db.getEventsByLabel(row.label);
+          if (events.isNotEmpty) {
+            newMatrix[row.id]![col.id] = 1.0;
+          } else {
+            newMatrix[row.id]![col.id] = null;
+          }
           continue;
         }
 
@@ -184,7 +194,13 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
               ? const Center(child: CircularProgressIndicator())
               : _matrix.isEmpty 
                 ? _buildEmptyState(textTheme)
-                : _buildMatrixGrid(colorScheme, textTheme),
+                : ListView(
+                    children: [
+                      const SizedBox(height: 40), // Extra space for slanted headers
+                      _buildMatrixGrid(colorScheme, textTheme),
+                      _buildDataReliabilityInfo(colorScheme, textTheme),
+                    ],
+                  ),
           ),
           _buildLegend(colorScheme, textTheme),
         ],
@@ -193,24 +209,37 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   Widget _buildLagSelector(ColorScheme colorScheme, TextTheme textTheme) {
-    return Padding(
+    return Container(
       padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.history_rounded, size: 18, color: colorScheme.primary),
-              const SizedBox(width: 8),
+              Icon(Icons.history_rounded, size: 20, color: colorScheme.primary),
+              const SizedBox(width: 12),
               Text(
                 'Time Lag: $_lagDays ${_lagDays == 1 ? 'Day' : 'Days'}',
-                style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               if (_lagDays > 0)
-                Text(
-                  'Predicting tomorrow\'s state',
-                  style: textTheme.bodySmall?.copyWith(color: colorScheme.secondary),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Predictive',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -240,72 +269,101 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   Widget _buildMatrixGrid(ColorScheme colorScheme, TextTheme textTheme) {
-    const double cellSize = 60.0;
-    const double headerWidth = 100.0;
-    const double headerHeight = 100.0;
+    const double cellSize = 52.0;
+    const double headerWidth = 120.0;
+    const double headerHeight = 80.0;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Row (Columns)
-            Row(
-              children: [
-                SizedBox(width: headerWidth, height: headerHeight), // Top-left empty space
-                ..._colMetrics.map((m) => _buildColumnHeader(m, cellSize, headerHeight, textTheme)),
-              ],
-            ),
-            // Data Rows
-            ..._rowMetrics.map((row) => Row(
-              children: [
-                _buildRowHeader(row, headerWidth, cellSize, textTheme),
-                ..._colMetrics.map((col) => _buildCell(
-                  _matrix[row.id]?[col.id], 
-                  cellSize, 
-                  colorScheme,
-                )),
-              ],
-            )),
-          ],
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withAlpha(40),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withAlpha(20)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(12, 12, 32, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row (Slanted Columns)
+              Row(
+                children: [
+                  const SizedBox(width: headerWidth), 
+                  ..._colMetrics.map((m) => _buildSlantedHeader(m, cellSize, headerHeight, textTheme)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              // Data Rows
+              ..._rowMetrics.asMap().entries.map((entry) {
+                final rowIndex = entry.key;
+                final row = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 1),
+                  child: Row(
+                    children: [
+                      _buildRowHeader(row, headerWidth, cellSize, textTheme),
+                      ..._colMetrics.asMap().entries.map((colEntry) {
+                        final colIndex = colEntry.key;
+                        final col = colEntry.value;
+                        return _buildCell(
+                          _matrix[row.id]?[col.id], 
+                          cellSize, 
+                          colorScheme,
+                          delayIndex: rowIndex + colIndex,
+                        );
+                      }),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildColumnHeader(MetricDefinition m, double width, double height, TextTheme textTheme) {
-    final double maxTextHeight = height - 40; 
-
+  Widget _buildSlantedHeader(MetricDefinition m, double width, double height, TextTheme textTheme) {
     return Container(
       width: width,
       height: height,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      alignment: Alignment.bottomCenter,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          _buildEmoji(m.emoji, 18),
-          const SizedBox(height: 4),
-          RotatedBox(
-            quarterTurns: 3,
-            child: SizedBox(
-              width: maxTextHeight,
-              child: Text(
-                _displayLabel(m),
-                style: textTheme.labelSmall?.copyWith(
-                  fontSize: 9,
-                  height: 1.1,
+      alignment: Alignment.bottomLeft,
+      child: Transform.translate(
+        offset: const Offset(12, -2),
+        child: Transform.rotate(
+          angle: -0.5, // Slightly less slanted for better readability
+          child: Container(
+            width: 90,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(10),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildEmoji(m.emoji, 12),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    _displayLabel(m),
+                    style: textTheme.labelSmall?.copyWith(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                      color: Colors.white.withAlpha(200),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.left,
-              ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -314,7 +372,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     return Container(
       width: width,
       height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.only(right: 12),
       alignment: Alignment.centerRight,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -323,13 +381,24 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
             child: Text(
               _displayLabel(m),
               textAlign: TextAlign.right,
-              style: textTheme.labelSmall?.copyWith(fontSize: 9),
+              style: textTheme.labelSmall?.copyWith(
+                fontSize: 10, 
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withAlpha(180),
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 4),
-          _buildEmoji(m.emoji, 16),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(15),
+              shape: BoxShape.circle,
+            ),
+            child: _buildEmoji(m.emoji, 14),
+          ),
         ],
       ),
     );
@@ -337,42 +406,87 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
 
   String _displayLabel(MetricDefinition m) {
     if (m.id.startsWith('passive_')) {
-      // Clean up internal labels for display
-      return m.label.replaceAll('_screen_time_minutes', '').replaceAll('_', ' ').toUpperCase();
+      // Clean up internal labels for display: "category_time:social" -> "SOCIAL"
+      String label = m.label;
+      if (label.contains(':')) {
+        label = label.split(':').last;
+      }
+      return label.replaceAll('_', ' ').toUpperCase();
     }
     return m.label;
   }
 
-  Widget _buildCell(double? correlation, double size, ColorScheme colorScheme) {
-    Color cellColor = Colors.transparent;
-    String text = '-';
+  Widget _buildCell(double? correlation, double size, ColorScheme colorScheme, {int delayIndex = 0}) {
+    Color cellColor = Colors.white.withAlpha(8);
+    String text = '';
     
-    if (correlation != null) {
-      text = correlation.abs() > 0.1 ? correlation.toStringAsFixed(2) : '0';
-      if (correlation > 0) {
-        cellColor = Colors.blue.withValues(alpha: correlation.clamp(0, 1));
+    bool hasData = correlation != null;
+    if (hasData) {
+      text = correlation.abs() > 0.05 ? correlation.toStringAsFixed(2) : '0';
+      if (correlation > 0.05) {
+        cellColor = Color.lerp(
+          colorScheme.surfaceContainerHighest.withAlpha(100), 
+          Colors.cyanAccent, 
+          correlation.clamp(0, 1)
+        )!.withAlpha((correlation * 240).toInt().clamp(60, 240));
+      } else if (correlation < -0.05) {
+        cellColor = Color.lerp(
+          colorScheme.surfaceContainerHighest.withAlpha(100), 
+          Colors.orangeAccent, 
+          correlation.abs().clamp(0, 1)
+        )!.withAlpha((correlation.abs() * 240).toInt().clamp(60, 240));
       } else {
-        cellColor = Colors.red.withValues(alpha: correlation.abs().clamp(0, 1));
+        cellColor = Colors.white.withAlpha(15);
+        text = '·';
       }
+    } else {
+      text = '·';
     }
 
-    return Container(
-      width: size,
-      height: size,
-      margin: const EdgeInsets.all(1),
-      decoration: BoxDecoration(
-        color: cellColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Center(
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: correlation != null && correlation.abs() > 0.5 
-              ? Colors.white 
-              : Colors.black87,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 300 + (delayIndex * 30)),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Opacity(
+            opacity: value.clamp(0.0, 1.0),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        width: size - 6,
+        height: size - 6,
+        margin: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: cellColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasData && correlation.abs() > 0.6 
+                ? Colors.white.withAlpha(80) 
+                : Colors.white.withAlpha(10),
+            width: 0.5,
+          ),
+          boxShadow: hasData && correlation.abs() > 0.8 ? [
+            BoxShadow(
+              color: cellColor.withAlpha(100),
+              blurRadius: 8,
+              spreadRadius: -2,
+            )
+          ] : null,
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: text == '·' ? 14 : 10,
+              fontWeight: FontWeight.w900,
+              color: hasData && correlation.abs() > 0.4 
+                ? Colors.white 
+                : Colors.white24,
+            ),
           ),
         ),
       ),
@@ -399,16 +513,70 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     return map[key] ?? '📊';
   }
 
+  Widget _buildDataReliabilityInfo(ColorScheme colorScheme, TextTheme textTheme) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.surfaceContainerHighest.withAlpha(150),
+              colorScheme.surfaceContainerHighest.withAlpha(80),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colorScheme.primary.withAlpha(30)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withAlpha(30),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.insights_rounded, size: 18, color: colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Research Integrity',
+                  style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'To ensure statistical validity, correlations are only calculated once 3 days of overlapping data are present. The intensity of color represents the strength of the relationship.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildLegend(ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: colorScheme.surfaceContainerHighest.withAlpha(100),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant.withAlpha(50))),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _LegendItem(label: 'Positive', color: Colors.blue),
-          _LegendItem(label: 'Neutral', color: Colors.grey.withAlpha(50)),
-          _LegendItem(label: 'Negative', color: Colors.red),
+          _LegendItem(label: 'Positive', color: Colors.cyanAccent),
+          _LegendItem(label: 'Neutral', color: Colors.white24),
+          _LegendItem(label: 'Negative', color: Colors.orangeAccent),
         ],
       ),
     );
@@ -424,15 +592,15 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
             const Icon(Icons.grid_off_rounded, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
-              'Not enough data or no metrics selected.',
+              'Not enough data yet.',
               textAlign: TextAlign.center,
               style: textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             const Text(
-              'Select metrics to compare in the filter menu.',
+              'Try logging more behaviors daily. Metrics will automatically appear here once 3 days of data are recorded.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
         ),
@@ -564,7 +732,12 @@ class _MetricSelectionDialogState extends State<_MetricSelectionDialog> {
 
   String _displayLabel(MetricDefinition m) {
     if (m.id.startsWith('passive_')) {
-      return m.label.replaceAll('_screen_time_minutes', '').replaceAll('_', ' ').toUpperCase();
+      // Clean up internal labels for display: "category_time:social" -> "SOCIAL"
+      String label = m.label;
+      if (label.contains(':')) {
+        label = label.split(':').last;
+      }
+      return label.replaceAll('_', ' ').toUpperCase();
     }
     return m.label;
   }
