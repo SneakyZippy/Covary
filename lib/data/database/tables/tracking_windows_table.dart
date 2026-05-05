@@ -24,6 +24,9 @@ class TrackingWindows extends Table {
   /// The time to send the notification.
   IntColumn get notificationHour => integer()();
   IntColumn get notificationMinute => integer()();
+  
+  /// Whether this window is active for research.
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {id};

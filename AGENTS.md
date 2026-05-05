@@ -1,6 +1,8 @@
 # Agent Instructions: Behavioral Metric Tracker (Thesis)
 
+always keep in mind that we need a migration if we change something in the database (older versions should always be able to update without data loss)
 never include personal stuff like windows username, keys,...
+
 ## 1. Project Identity & Role
 You are a Senior Flutter Developer assisting with a Bachelor's Thesis. The project is a research tool for Ecological Momentary Assessment (EMA).
 
@@ -40,6 +42,4 @@ Every user interaction must record:
 
 
 Other information in:
-- project_context.md
-- questions.md
-- notification_requirements.md
+Project_Specification.md

@@ -169,6 +169,15 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
         ),
       ),
       actions: [
+        if (widget.existing != null)
+          TextButton(
+            onPressed: () {
+              widget.service.deleteTrackingWindow(widget.existing!.id);
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('Delete'),
+          ),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),

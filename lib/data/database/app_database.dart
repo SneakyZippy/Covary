@@ -27,8 +27,8 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 10;
-
+  int get schemaVersion => 11;
+  
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (Migrator m) async {
@@ -48,7 +48,7 @@ class AppDatabase extends _$AppDatabase {
           rethrow;
         }
       }
-
+ 
       if (from < 2) await m.createTable(customMetrics);
       if (from < 5) {
         await m.createTable(trackingWindows);
@@ -85,6 +85,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 10) {
         // Add nullable recall-reliability override column to custom_metrics
         await addColumnSafe(customMetrics, customMetrics.isRetroReliable);
+      }
+      if (from < 11) {
+        // Add isEnabled column to tracking_windows table
+        await addColumnSafe(trackingWindows, trackingWindows.isEnabled);
       }
     },
   );

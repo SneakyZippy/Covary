@@ -224,41 +224,65 @@ class _MetricTile extends StatelessWidget {
         ),
         child: Icon(Icons.delete_outline_rounded, color: colorScheme.onErrorContainer),
       ),
-      child: Card(
-        elevation: 0,
-        color: colorScheme.surfaceContainerHighest,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: metric.isEnabled ? colorScheme.surface : colorScheme.surface.withAlpha(150),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: metric.isEnabled ? colorScheme.outlineVariant : colorScheme.outlineVariant.withAlpha(100),
+          ),
+          boxShadow: metric.isEnabled ? [
+            BoxShadow(
+              color: colorScheme.shadow.withAlpha(10),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ] : null,
+        ),
         child: ListTile(
-          contentPadding: const EdgeInsets.only(left: 8, right: 20),
+          contentPadding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
           leading: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               ReorderableDragStartListener(
                 index: index,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Icon(
                     Icons.drag_indicator_rounded,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    color: colorScheme.onSurfaceVariant.withAlpha(80),
+                    size: 20,
                   ),
                 ),
               ),
-              MetricIcon(iconName: metric.emoji, size: 24),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: metric.isEnabled ? colorScheme.primary.withAlpha(30) : colorScheme.surfaceContainerHighest,
+                  shape: BoxShape.circle,
+                ),
+                child: MetricIcon(
+                  iconName: metric.emoji, 
+                  size: 24,
+                  color: metric.isEnabled ? colorScheme.primary : colorScheme.outline,
+                ),
+              ),
             ],
           ),
           title: Text(
             metric.label,
-            style: TextStyle(fontWeight: FontWeight.w500, color: colorScheme.onSurface),
+            style: TextStyle(
+              fontWeight: FontWeight.bold, 
+              color: metric.isEnabled ? colorScheme.onSurface : colorScheme.outline,
+            ),
           ),
-          subtitle: Row(
-            children: [
-              Text(
-                metric.inputType.displayLabel,
-                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
-              ),
-              const SizedBox(width: 8),
-            ],
+          subtitle: Text(
+            metric.inputType.displayLabel,
+            style: TextStyle(
+              color: metric.isEnabled ? colorScheme.onSurfaceVariant : colorScheme.outline, 
+              fontSize: 12,
+            ),
           ),
           trailing: Switch(
             value: metric.isEnabled,

@@ -1254,6 +1254,21 @@ class $TrackingWindowsTable extends TrackingWindows
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isEnabledMeta = const VerificationMeta(
+    'isEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> isEnabled = GeneratedColumn<bool>(
+    'is_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1265,6 +1280,7 @@ class $TrackingWindowsTable extends TrackingWindows
     isNotificationEnabled,
     notificationHour,
     notificationMinute,
+    isEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1355,6 +1371,12 @@ class $TrackingWindowsTable extends TrackingWindows
     } else if (isInserting) {
       context.missing(_notificationMinuteMeta);
     }
+    if (data.containsKey('is_enabled')) {
+      context.handle(
+        _isEnabledMeta,
+        isEnabled.isAcceptableOrUnknown(data['is_enabled']!, _isEnabledMeta),
+      );
+    }
     return context;
   }
 
@@ -1400,6 +1422,10 @@ class $TrackingWindowsTable extends TrackingWindows
         DriftSqlType.int,
         data['${effectivePrefix}notification_minute'],
       )!,
+      isEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_enabled'],
+      )!,
     );
   }
 
@@ -1430,6 +1456,9 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
   /// The time to send the notification.
   final int notificationHour;
   final int notificationMinute;
+
+  /// Whether this window is active for research.
+  final bool isEnabled;
   const TrackingWindow({
     required this.id,
     required this.label,
@@ -1440,6 +1469,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
     required this.isNotificationEnabled,
     required this.notificationHour,
     required this.notificationMinute,
+    required this.isEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1453,6 +1483,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
     map['is_notification_enabled'] = Variable<bool>(isNotificationEnabled);
     map['notification_hour'] = Variable<int>(notificationHour);
     map['notification_minute'] = Variable<int>(notificationMinute);
+    map['is_enabled'] = Variable<bool>(isEnabled);
     return map;
   }
 
@@ -1467,6 +1498,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
       isNotificationEnabled: Value(isNotificationEnabled),
       notificationHour: Value(notificationHour),
       notificationMinute: Value(notificationMinute),
+      isEnabled: Value(isEnabled),
     );
   }
 
@@ -1487,6 +1519,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
       ),
       notificationHour: serializer.fromJson<int>(json['notificationHour']),
       notificationMinute: serializer.fromJson<int>(json['notificationMinute']),
+      isEnabled: serializer.fromJson<bool>(json['isEnabled']),
     );
   }
   @override
@@ -1502,6 +1535,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
       'isNotificationEnabled': serializer.toJson<bool>(isNotificationEnabled),
       'notificationHour': serializer.toJson<int>(notificationHour),
       'notificationMinute': serializer.toJson<int>(notificationMinute),
+      'isEnabled': serializer.toJson<bool>(isEnabled),
     };
   }
 
@@ -1515,6 +1549,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
     bool? isNotificationEnabled,
     int? notificationHour,
     int? notificationMinute,
+    bool? isEnabled,
   }) => TrackingWindow(
     id: id ?? this.id,
     label: label ?? this.label,
@@ -1525,6 +1560,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
     isNotificationEnabled: isNotificationEnabled ?? this.isNotificationEnabled,
     notificationHour: notificationHour ?? this.notificationHour,
     notificationMinute: notificationMinute ?? this.notificationMinute,
+    isEnabled: isEnabled ?? this.isEnabled,
   );
   TrackingWindow copyWithCompanion(TrackingWindowsCompanion data) {
     return TrackingWindow(
@@ -1545,6 +1581,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
       notificationMinute: data.notificationMinute.present
           ? data.notificationMinute.value
           : this.notificationMinute,
+      isEnabled: data.isEnabled.present ? data.isEnabled.value : this.isEnabled,
     );
   }
 
@@ -1559,7 +1596,8 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
           ..write('endMinute: $endMinute, ')
           ..write('isNotificationEnabled: $isNotificationEnabled, ')
           ..write('notificationHour: $notificationHour, ')
-          ..write('notificationMinute: $notificationMinute')
+          ..write('notificationMinute: $notificationMinute, ')
+          ..write('isEnabled: $isEnabled')
           ..write(')'))
         .toString();
   }
@@ -1575,6 +1613,7 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
     isNotificationEnabled,
     notificationHour,
     notificationMinute,
+    isEnabled,
   );
   @override
   bool operator ==(Object other) =>
@@ -1588,7 +1627,8 @@ class TrackingWindow extends DataClass implements Insertable<TrackingWindow> {
           other.endMinute == this.endMinute &&
           other.isNotificationEnabled == this.isNotificationEnabled &&
           other.notificationHour == this.notificationHour &&
-          other.notificationMinute == this.notificationMinute);
+          other.notificationMinute == this.notificationMinute &&
+          other.isEnabled == this.isEnabled);
 }
 
 class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
@@ -1601,6 +1641,7 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
   final Value<bool> isNotificationEnabled;
   final Value<int> notificationHour;
   final Value<int> notificationMinute;
+  final Value<bool> isEnabled;
   final Value<int> rowid;
   const TrackingWindowsCompanion({
     this.id = const Value.absent(),
@@ -1612,6 +1653,7 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
     this.isNotificationEnabled = const Value.absent(),
     this.notificationHour = const Value.absent(),
     this.notificationMinute = const Value.absent(),
+    this.isEnabled = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TrackingWindowsCompanion.insert({
@@ -1624,6 +1666,7 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
     this.isNotificationEnabled = const Value.absent(),
     required int notificationHour,
     required int notificationMinute,
+    this.isEnabled = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : label = Value(label),
        startHour = Value(startHour),
@@ -1642,6 +1685,7 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
     Expression<bool>? isNotificationEnabled,
     Expression<int>? notificationHour,
     Expression<int>? notificationMinute,
+    Expression<bool>? isEnabled,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1655,6 +1699,7 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
         'is_notification_enabled': isNotificationEnabled,
       if (notificationHour != null) 'notification_hour': notificationHour,
       if (notificationMinute != null) 'notification_minute': notificationMinute,
+      if (isEnabled != null) 'is_enabled': isEnabled,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1669,6 +1714,7 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
     Value<bool>? isNotificationEnabled,
     Value<int>? notificationHour,
     Value<int>? notificationMinute,
+    Value<bool>? isEnabled,
     Value<int>? rowid,
   }) {
     return TrackingWindowsCompanion(
@@ -1682,6 +1728,7 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
           isNotificationEnabled ?? this.isNotificationEnabled,
       notificationHour: notificationHour ?? this.notificationHour,
       notificationMinute: notificationMinute ?? this.notificationMinute,
+      isEnabled: isEnabled ?? this.isEnabled,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1718,6 +1765,9 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
     if (notificationMinute.present) {
       map['notification_minute'] = Variable<int>(notificationMinute.value);
     }
+    if (isEnabled.present) {
+      map['is_enabled'] = Variable<bool>(isEnabled.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1736,6 +1786,7 @@ class TrackingWindowsCompanion extends UpdateCompanion<TrackingWindow> {
           ..write('isNotificationEnabled: $isNotificationEnabled, ')
           ..write('notificationHour: $notificationHour, ')
           ..write('notificationMinute: $notificationMinute, ')
+          ..write('isEnabled: $isEnabled, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2312,6 +2363,7 @@ typedef $$TrackingWindowsTableCreateCompanionBuilder =
       Value<bool> isNotificationEnabled,
       required int notificationHour,
       required int notificationMinute,
+      Value<bool> isEnabled,
       Value<int> rowid,
     });
 typedef $$TrackingWindowsTableUpdateCompanionBuilder =
@@ -2325,6 +2377,7 @@ typedef $$TrackingWindowsTableUpdateCompanionBuilder =
       Value<bool> isNotificationEnabled,
       Value<int> notificationHour,
       Value<int> notificationMinute,
+      Value<bool> isEnabled,
       Value<int> rowid,
     });
 
@@ -2379,6 +2432,11 @@ class $$TrackingWindowsTableFilterComposer
 
   ColumnFilters<int> get notificationMinute => $composableBuilder(
     column: $table.notificationMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isEnabled => $composableBuilder(
+    column: $table.isEnabled,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2436,6 +2494,11 @@ class $$TrackingWindowsTableOrderingComposer
     column: $table.notificationMinute,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isEnabled => $composableBuilder(
+    column: $table.isEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TrackingWindowsTableAnnotationComposer
@@ -2481,6 +2544,9 @@ class $$TrackingWindowsTableAnnotationComposer
     column: $table.notificationMinute,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isEnabled =>
+      $composableBuilder(column: $table.isEnabled, builder: (column) => column);
 }
 
 class $$TrackingWindowsTableTableManager
@@ -2529,6 +2595,7 @@ class $$TrackingWindowsTableTableManager
                 Value<bool> isNotificationEnabled = const Value.absent(),
                 Value<int> notificationHour = const Value.absent(),
                 Value<int> notificationMinute = const Value.absent(),
+                Value<bool> isEnabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TrackingWindowsCompanion(
                 id: id,
@@ -2540,6 +2607,7 @@ class $$TrackingWindowsTableTableManager
                 isNotificationEnabled: isNotificationEnabled,
                 notificationHour: notificationHour,
                 notificationMinute: notificationMinute,
+                isEnabled: isEnabled,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2553,6 +2621,7 @@ class $$TrackingWindowsTableTableManager
                 Value<bool> isNotificationEnabled = const Value.absent(),
                 required int notificationHour,
                 required int notificationMinute,
+                Value<bool> isEnabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TrackingWindowsCompanion.insert(
                 id: id,
@@ -2564,6 +2633,7 @@ class $$TrackingWindowsTableTableManager
                 isNotificationEnabled: isNotificationEnabled,
                 notificationHour: notificationHour,
                 notificationMinute: notificationMinute,
+                isEnabled: isEnabled,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

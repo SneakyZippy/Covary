@@ -163,7 +163,7 @@ class MetricService extends ChangeNotifier {
   TrackingWindow? get activeWindow {
     final now = DateTime.now();
     try {
-      return _allWindows.firstWhere((w) => isTimeInWindow(now, w));
+      return _allWindows.firstWhere((w) => w.isEnabled && isTimeInWindow(now, w));
     } catch (_) {
       return null;
     }
@@ -178,6 +178,7 @@ class MetricService extends ChangeNotifier {
 
       // Check if current time falls within any of the assigned windows
       return _allWindows.any((window) {
+        if (!window.isEnabled) return false; // Skip disabled windows
         if (!m.windowIds.contains(window.id)) return false;
         return isTimeInWindow(time, window);
       });
@@ -239,11 +240,11 @@ class MetricService extends ChangeNotifier {
     
     if (!windowsSeeded && existingWindows.isEmpty) {
       final samples = [
-        ('Early Morning', 7, 0, 9, 0, 7, 30),
-        ('Late Morning', 10, 0, 12, 0, 10, 30),
-        ('Afternoon Sync', 14, 0, 16, 0, 14, 30),
-        ('Evening Review', 19, 0, 21, 0, 19, 30),
-        ('Night/Bedtime', 22, 0, 0, 0, 22, 30),
+        ('Early Morning', 7, 0, 9, 0, 7, 30, true),
+        ('Late Morning', 10, 0, 12, 0, 10, 30, false),
+        ('Afternoon Sync', 14, 0, 16, 0, 14, 30, true),
+        ('Evening Review', 19, 0, 21, 0, 19, 30, false),
+        ('Night/Bedtime', 22, 0, 0, 0, 22, 30, true),
       ];
 
       for (final s in samples) {
@@ -258,6 +259,7 @@ class MetricService extends ChangeNotifier {
               isNotificationEnabled: const Value(true),
               notificationHour: s.$6,
               notificationMinute: s.$7,
+              isEnabled: Value(s.$8),
             ),
           );
         } catch (e) {
@@ -487,6 +489,23 @@ class MetricService extends ChangeNotifier {
     _allMetrics[index] = metric.copyWith(isEnabled: newEnabled);
     notifyListeners();
     debugPrint('[MetricService] Toggled "${metric.label}" → $newEnabled');
+  }
+ 
+  /// Enables or disables a tracking window by [id].
+  Future<void> toggleTrackingWindow(String id) async {
+    final index = _allWindows.indexWhere((w) => w.id == id);
+    if (index == -1) return;
+ 
+    final window = _allWindows[index];
+    final newEnabled = !window.isEnabled;
+ 
+    await _db.updateTrackingWindow(
+      id,
+      TrackingWindowsCompanion(isEnabled: Value(newEnabled)),
+    );
+ 
+    await _reload(); // Reload to update memory and notify
+    debugPrint('[MetricService] Toggled window "${window.label}" → $newEnabled');
   }
 
   /// Changes the assigned tracking windows for a metric.

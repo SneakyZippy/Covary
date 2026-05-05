@@ -231,42 +231,54 @@ class OnboardingStaticSlide extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: color.withAlpha(30),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 100,
-              color: color,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: color.withAlpha(30),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        icon,
+                        size: 100,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 60),
+                    Text(
+                      title,
+                      style: textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      description,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 60),
-          Text(
-            title,
-            style: textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            description,
-            style: textTheme.bodyLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -306,22 +318,30 @@ class _WindowSetupSlide extends StatelessWidget {
               itemCount: windows.length,
               itemBuilder: (context, index) {
                 final w = windows[index];
-                return Container(
+                final isEnabled = w.isEnabled;
+                
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: colorScheme.outlineVariant.withAlpha(120)),
-                    boxShadow: [
+                    color: isEnabled ? colorScheme.surface : colorScheme.surface.withAlpha(100),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: isEnabled 
+                          ? colorScheme.primary.withAlpha(100) 
+                          : colorScheme.outlineVariant.withAlpha(150),
+                      width: isEnabled ? 2 : 1,
+                    ),
+                    boxShadow: isEnabled ? [
                       BoxShadow(
-                        color: colorScheme.shadow.withAlpha(10),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        color: colorScheme.shadow.withAlpha(20),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
                       ),
-                    ],
+                    ] : null,
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(28),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -335,47 +355,62 @@ class _WindowSetupSlide extends StatelessWidget {
                           padding: const EdgeInsets.all(20),
                           child: Row(
                             children: [
-                              Container(
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withAlpha(30),
+                                  color: isEnabled 
+                                      ? colorScheme.primary.withAlpha(40) 
+                                      : colorScheme.surfaceContainerHighest,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   _getWindowIcon(w.label),
-                                  color: colorScheme.primary,
+                                  color: isEnabled ? colorScheme.primary : colorScheme.outline,
                                   size: 24,
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 20),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       w.label,
-                                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                      style: textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: isEnabled ? colorScheme.onSurface : colorScheme.outline,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
                                       children: [
                                         Icon(Icons.access_time_rounded, 
-                                          size: 14, color: colorScheme.onSurfaceVariant),
-                                        const SizedBox(width: 4),
+                                          size: 14, 
+                                          color: isEnabled ? colorScheme.primary.withAlpha(180) : colorScheme.outline),
+                                        const SizedBox(width: 6),
                                         Text(
                                           '${_formatTime(w.startHour, w.startMinute)} – ${_formatTime(w.endHour, w.endMinute)}',
-                                          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color: isEnabled ? colorScheme.onSurfaceVariant : colorScheme.outline,
+                                            fontWeight: isEnabled ? FontWeight.w500 : null,
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ],
                                 ),
                               ),
-                              if (w.isNotificationEnabled)
+                              if (w.isNotificationEnabled && isEnabled)
                                 Icon(Icons.notifications_active_rounded, 
-                                  color: colorScheme.primary.withAlpha(150), size: 20),
-                              const SizedBox(width: 8),
-                              Icon(Icons.chevron_right_rounded, color: colorScheme.outline),
+                                  color: colorScheme.primary.withAlpha(200), size: 18),
+                              const SizedBox(width: 12),
+                              Checkbox(
+                                value: isEnabled,
+                                onChanged: (val) => service.toggleTrackingWindow(w.id),
+                                activeColor: colorScheme.primary,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
                             ],
                           ),
                         ),
@@ -435,63 +470,61 @@ class _MetricSetupSlide extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           Expanded(
-            child: SingleChildScrollView(
+            child: GridView.count(
               physics: const BouncingScrollPhysics(),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
-                children: metrics.map((m) {
-                  final isSelected = m.isEnabled;
-                  return InkWell(
-                    onTap: () => service.toggleMetric(m.id),
-                    borderRadius: BorderRadius.circular(20),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: (MediaQuery.of(context).size.width - 72) / 2,
-                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: isSelected 
-                            ? colorScheme.primary.withAlpha(25)
-                            : colorScheme.surfaceContainerHighest.withAlpha(100),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
-                          width: 2,
-                        ),
-                        boxShadow: isSelected ? [
-                          BoxShadow(
-                            color: colorScheme.primary.withAlpha(30),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          )
-                        ] : null,
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.1,
+              children: metrics.map((m) {
+                final isSelected = m.isEnabled;
+                return InkWell(
+                  onTap: () => service.toggleMetric(m.id),
+                  borderRadius: BorderRadius.circular(20),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: isSelected 
+                          ? colorScheme.primary.withAlpha(25)
+                          : colorScheme.surfaceContainerHighest.withAlpha(100),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+                        width: 2,
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          MetricIcon(
-                            iconName: m.emoji,
-                            size: 40,
-                            color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            m.label,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? colorScheme.primary : colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
+                      boxShadow: isSelected ? [
+                        BoxShadow(
+                          color: colorScheme.primary.withAlpha(30),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        )
+                      ] : null,
                     ),
-                  );
-                }).toList(),
-              ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        MetricIcon(
+                          iconName: m.emoji,
+                          size: 40,
+                          color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          m.label,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
           const SizedBox(height: 16),
