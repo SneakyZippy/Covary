@@ -214,7 +214,16 @@ class _MetricTile extends StatelessWidget {
       key: ValueKey('dismiss_${metric.id}'),
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) => metricService.deleteMetric(metric.id),
+      onDismissed: (_) {
+        metricService.deleteMetric(metric.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${metric.label}" removed from tracking. Past research data remains safe in the database.'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      },
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
@@ -242,33 +251,17 @@ class _MetricTile extends StatelessWidget {
         ),
         child: ListTile(
           contentPadding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Icon(
-                    Icons.drag_indicator_rounded,
-                    color: colorScheme.onSurfaceVariant.withAlpha(80),
-                    size: 20,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: metric.isEnabled ? colorScheme.primary.withAlpha(30) : colorScheme.surfaceContainerHighest,
-                  shape: BoxShape.circle,
-                ),
-                child: MetricIcon(
-                  iconName: metric.emoji, 
-                  size: 24,
-                  color: metric.isEnabled ? colorScheme.primary : colorScheme.outline,
-                ),
-              ),
-            ],
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: metric.isEnabled ? colorScheme.primary.withAlpha(30) : colorScheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            child: MetricIcon(
+              iconName: metric.emoji, 
+              size: 24,
+              color: metric.isEnabled ? colorScheme.primary : colorScheme.outline,
+            ),
           ),
           title: Text(
             metric.label,

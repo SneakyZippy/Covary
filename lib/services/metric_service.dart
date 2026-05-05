@@ -240,11 +240,11 @@ class MetricService extends ChangeNotifier {
     
     if (!windowsSeeded && existingWindows.isEmpty) {
       final samples = [
-        ('Early Morning', 7, 0, 9, 0, 7, 30, true),
-        ('Late Morning', 10, 0, 12, 0, 10, 30, false),
-        ('Afternoon Sync', 14, 0, 16, 0, 14, 30, true),
-        ('Evening Review', 19, 0, 21, 0, 19, 30, false),
-        ('Night/Bedtime', 22, 0, 0, 0, 22, 30, true),
+        ('Early Morning', 7, 0, 9, 0, 7, 0, true),
+        ('Late Morning', 10, 0, 12, 0, 10, 0, false),
+        ('Afternoon Sync', 14, 0, 16, 0, 14, 0, true),
+        ('Evening Review', 19, 0, 21, 0, 19, 0, false),
+        ('Night/Bedtime', 22, 0, 0, 0, 22, 0, true),
       ];
 
       for (final s in samples) {
@@ -271,6 +271,24 @@ class MetricService extends ChangeNotifier {
     } else if (!windowsSeeded) {
       // Handle restore scenario: Data exists but pref is false
       await prefs.setBool('tracking_windows_seeded', true);
+    }
+
+    // --- MIGRATION: Sync existing windows notification time ---
+    final migrationKey = 'notif_sync_v1';
+    if (!(prefs.getBool(migrationKey) ?? false)) {
+      final windows = await _db.getAllTrackingWindows();
+      for (var w in windows) {
+        if (w.notificationHour != w.startHour || w.notificationMinute != w.startMinute) {
+          await _db.updateTrackingWindow(
+            w.id,
+            TrackingWindowsCompanion(
+              notificationHour: Value(w.startHour),
+              notificationMinute: Value(w.startMinute),
+            ),
+          );
+        }
+      }
+      await prefs.setBool(migrationKey, true);
     }
 
     // --- Seed Metrics ---
@@ -660,12 +678,8 @@ class MetricService extends ChangeNotifier {
         isNotificationEnabled: isNotificationEnabled != null
             ? Value(isNotificationEnabled)
             : const Value.absent(),
-        notificationHour: notificationHour != null
-            ? Value(notificationHour)
-            : const Value.absent(),
-        notificationMinute: notificationMinute != null
-            ? Value(notificationMinute)
-            : const Value.absent(),
+        notificationHour: Value(notificationHour ?? startHour),
+        notificationMinute: Value(notificationMinute ?? startMinute),
       ),
     );
     await _reload();

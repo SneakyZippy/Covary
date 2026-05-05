@@ -19,7 +19,6 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 9, minute: 0);
   bool _isNotificationEnabled = false;
-  TimeOfDay _notificationTime = const TimeOfDay(hour: 8, minute: 0);
   List<String> _selectedMetricIds = [];
 
   @override
@@ -36,17 +35,11 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
         minute: widget.existing!.endMinute,
       );
       _isNotificationEnabled = widget.existing!.isNotificationEnabled;
-      _notificationTime = TimeOfDay(
-        hour: widget.existing!.notificationHour,
-        minute: widget.existing!.notificationMinute,
-      );
       // Load current metric assignments for this window
       _selectedMetricIds = widget.service.allMetrics
           .where((m) => m.windowIds.contains(widget.existing!.id))
           .map((m) => m.id)
           .toList();
-    } else {
-      _notificationTime = _startTime;
     }
   }
 
@@ -82,10 +75,6 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
                 );
                 if (picked != null) {
                   setState(() {
-                    if (_notificationTime.hour == _startTime.hour &&
-                        _notificationTime.minute == _startTime.minute) {
-                      _notificationTime = picked;
-                    }
                     _startTime = picked;
                   });
                 }
@@ -109,18 +98,7 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
               value: _isNotificationEnabled,
               onChanged: (val) => setState(() => _isNotificationEnabled = val),
             ),
-            if (_isNotificationEnabled)
-              ListTile(
-                title: const Text('Notification Time'),
-                trailing: Text(_notificationTime.format(context)),
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: _notificationTime,
-                  );
-                  if (picked != null) setState(() => _notificationTime = picked);
-                },
-              ),
+
             const Divider(),
             const SizedBox(height: 12),
             Text(
@@ -194,8 +172,8 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
                 endHour: _endTime.hour,
                 endMinute: _endTime.minute,
                 isNotificationEnabled: _isNotificationEnabled,
-                notificationHour: _notificationTime.hour,
-                notificationMinute: _notificationTime.minute,
+                notificationHour: _startTime.hour,
+                notificationMinute: _startTime.minute,
               ).then((newWindow) {
                 // If we had a way to get the new ID, we'd update metrics here.
                 // For now, new windows start empty and user can edit metrics later.
@@ -209,8 +187,8 @@ class _EditWindowDialogState extends State<EditWindowDialog> {
                 endHour: _endTime.hour,
                 endMinute: _endTime.minute,
                 isNotificationEnabled: _isNotificationEnabled,
-                notificationHour: _notificationTime.hour,
-                notificationMinute: _notificationTime.minute,
+                notificationHour: _startTime.hour,
+                notificationMinute: _startTime.minute,
               );
               // Update metric assignments
               widget.service.setMetricsForWindow(widget.existing!.id, _selectedMetricIds);

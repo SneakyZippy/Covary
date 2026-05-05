@@ -460,12 +460,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${window.label} Check-in',
-                            style: textTheme.headlineSmall?.copyWith(
-                              color: colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${window.label} Check-in',
+                                  style: textTheme.headlineSmall?.copyWith(
+                                    color: colorScheme.onPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              if (window.isNotificationEnabled)
+                                Icon(
+                                  Icons.notifications_active_rounded,
+                                  color: colorScheme.onPrimary.withAlpha(180),
+                                  size: 18,
+                                ),
+                            ],
                           ),
                           Text(
                             'Ready to track your progress?',
