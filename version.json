@@ -1,7 +1,7 @@
 {
-  "latest_version": "1.2.4",
-  "build_number": 21,
-  "build_timestamp": "2026-05-04T21:33:45+02:00",
+  "latest_version": "1.2.5",
+  "build_number": 22,
+  "build_timestamp": "2026-05-05T21:08:07+02:00",
   "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-  "release_notes": "- Bug Fix: Resolved a crash in the Settings screen when configuring notification snooze slots.\n- UX: Improved resilience of the snooze slot configuration UI."
+  "release_notes": "- Bug Fix: Resolved correlation metric issues (boolean parsing & label mismatch).\n- UI: Implemented a premium visual redesign with slanted headers, glassmorphism, and smooth staggered entrance animations.\n- Stability: Fixed a crash in the matrix animation overshoot."
 }
