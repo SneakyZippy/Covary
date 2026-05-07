@@ -216,7 +216,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                 : ListView(
                     children: [
                       const SizedBox(
-                        height: 40,
+                        height: 80,
                       ), // Extra space for slanted headers
                       _buildMatrixGrid(colorScheme, textTheme),
                       _buildDataReliabilityInfo(colorScheme, textTheme),
@@ -391,7 +391,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
             angle: -0.65,
             alignment: Alignment.bottomLeft,
             child: Container(
-              width: 110,
+              width: 140,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.white.withAlpha(12),

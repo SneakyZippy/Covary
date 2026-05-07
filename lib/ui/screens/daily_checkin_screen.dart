@@ -264,8 +264,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         return InkWell(
           onTap: () {
             if (metric.inputType == MetricInputType.counter) {
-              // latencyMs = 0 in the manual grid — no open-time to measure.
-              _logCounterTap(metric, 0);
+              final latency = DateTime.now().difference(_cardVisibleAt).inMilliseconds;
+              _logCounterTap(metric, latency);
             } else {
               _showSingleMetricInput(metric);
             }

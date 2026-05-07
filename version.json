@@ -1,7 +1,7 @@
 {
-  "latest_version": "1.2.5",
+  "latest_version": "1.2.6",
   "build_number": 22,
-  "build_timestamp": "2026-05-05T21:08:07+02:00",
+  "build_timestamp": "2026-05-07T18:48:30+02:00",
   "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-  "release_notes": "- Bug Fix: Resolved correlation metric issues (boolean parsing & label mismatch).\n- UI: Implemented a premium visual redesign with slanted headers, glassmorphism, and smooth staggered entrance animations.\n- Stability: Fixed a crash in the matrix animation overshoot."
+  "release_notes": "- Data: Implemented Soft Migration for research metrics (Weather, Biological).\n- UI: Integrated premium branding and logo across settings.\n- Analytics: Refined Correlation Matrix layout and color precision.\n- Research: Fixed response latency tracking for manual logs."
 }

@@ -248,6 +248,40 @@ class MetricService extends ChangeNotifier {
       }
     }
 
+    // --- SOFT MIGRATION: Inject missing core metrics for existing users ---
+    final syncKey = 'core_metrics_v2_sync';
+    if (!(prefs.getBool(syncKey) ?? false)) {
+      final currentMetricIds = _allMetrics.map((m) => m.id).toSet();
+      int addedCount = 0;
+      
+      for (final template in templates) {
+        if (!currentMetricIds.contains(template.id)) {
+          try {
+            await _db.insertCustomMetric(
+              CustomMetricsCompanion.insert(
+                id: Value(template.id),
+                label: template.label,
+                category: template.category,
+                inputType: template.inputType,
+                isEnabled: Value(template.isEnabled),
+                windowIds: Value(template.windowIds.join(',')),
+                emoji: Value(template.emoji),
+              ),
+            );
+            addedCount++;
+          } catch (e) {
+            debugPrint('[MetricService] Error injecting missing metric ${template.id}: $e');
+          }
+        }
+      }
+      
+      if (addedCount > 0) {
+        debugPrint('[MetricService] Soft Migration: Injected $addedCount new research metrics');
+        await _reload(); // Refresh to include new metrics
+      }
+      await prefs.setBool(syncKey, true);
+    }
+
     await _reload();
     debugPrint(
       '[MetricService] Initialized with ${_allMetrics.length} metrics '

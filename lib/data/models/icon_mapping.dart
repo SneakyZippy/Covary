@@ -63,6 +63,22 @@ IconData? getIconData(String identifier) {
       return Icons.task_alt_rounded;
     case 'wrench':
       return Icons.build_circle_rounded;
+    case 'water_drop':
+      return Icons.water_drop_rounded;
+    case 'personal_injury':
+      return Icons.personal_injury_rounded;
+    case 'sick':
+      return Icons.sick_rounded;
+    case 'wc':
+      return Icons.wc_rounded;
+    case 'umbrella':
+      return Icons.umbrella_rounded;
+    case 'sunny':
+      return Icons.sunny;
+    case 'air':
+      return Icons.air_rounded;
+    case 'forest':
+      return Icons.forest_rounded;
     default:
       return null;
   }
@@ -93,4 +109,12 @@ final List<String> curatedIcons = [
   'lightbulb',
   'task',
   'wrench',
+  'water_drop',
+  'personal_injury',
+  'sick',
+  'wc',
+  'umbrella',
+  'sunny',
+  'air',
+  'forest',
 ];
