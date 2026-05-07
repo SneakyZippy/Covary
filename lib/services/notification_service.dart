@@ -81,7 +81,7 @@ class NotificationService {
       final minutes = int.tryParse(minutesStr);
       if (minutes != null) {
         await _logInteraction(db, InteractionType.snooze, receivedAction.payload);
-        _snoozeNotification(Duration(minutes: minutes), receivedAction.payload);
+        await _snoozeNotification(Duration(minutes: minutes), receivedAction.payload);
       }
     } else if (receivedAction.buttonKeyPressed == 'remind_at') {
       await _logInteraction(db, InteractionType.snooze, receivedAction.payload);
@@ -203,11 +203,11 @@ class NotificationService {
     await prefs.setInt('dismiss_count', 0);
   }
 
-  static void _snoozeNotification(
+  static Future<void> _snoozeNotification(
     Duration offset,
     Map<String, String?>? payload,
-  ) {
-    schedulePrompt(delay: offset, payload: payload);
+  ) async {
+    await schedulePrompt(delay: offset, payload: payload);
   }
 
   // ===========================================================================
@@ -244,7 +244,7 @@ class NotificationService {
       }
 
       final delay = scheduledTime.difference(now);
-      _snoozeNotification(delay, payload);
+      await _snoozeNotification(delay, payload);
 
       final newContext = navigatorKey.currentContext;
       if (newContext != null && newContext.mounted) {
@@ -440,10 +440,17 @@ class NotificationService {
 
     final snoozeDurations = await getSnoozeDurations();
 
+    // Use the same ID logic as scheduleDailyReminders to ensure consistent window handling
+    // or fallback to 100 if no window_id is present.
+    final windowId = payload?['window_id'];
+    final notificationId = windowId != null 
+        ? (windowId.hashCode.abs() % 100000) 
+        : 100;
+
     try {
       await AwesomeNotifications().createNotification(
         content: NotificationContent(
-          id: 100,
+          id: notificationId,
           channelKey: 'ema_reminders',
           title: 'Time for a quick update!',
           body: 'Please take a moment to record your current status.',
