@@ -255,21 +255,25 @@ class NotificationService {
 
       final delay = scheduledTime.difference(now);
       
+      final newContext = navigatorKey.currentContext;
+      final timeString = (newContext != null && newContext.mounted) 
+          ? time.format(newContext)
+          : '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+          
       // Log the specific time chosen for "Remind at"
       await _logInteraction(
         AppDatabase.getInstance(), 
         InteractionType.snooze, 
         payload, 
-        value: 'Until ${time.format(context)}'
+        value: 'Until $timeString'
       );
       
       await _snoozeNotification(delay, payload);
 
-      final newContext = navigatorKey.currentContext;
       if (newContext != null && newContext.mounted) {
         ScaffoldMessenger.of(newContext).showSnackBar(
           SnackBar(
-            content: Text('Reminder set for ${time.format(newContext)}'),
+            content: Text('Reminder set for $timeString'),
           ),
         );
       }
