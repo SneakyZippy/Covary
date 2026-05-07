@@ -10,6 +10,7 @@ import '../data/database/app_database.dart';
 import '../data/models/enums.dart';
 import '../ui/theme/design_system.dart';
 
+@pragma("vm:entry-point")
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
