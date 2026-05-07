@@ -78,3 +78,36 @@ The engine compares the "Total Screen Time" of the currently selected period aga
 *   **Chart Toggling**: Users can swap between a smooth, curved Line Chart (with gradient fills below the line) and a Stacked Bar Chart.
 *   **Interactive Tooltips**: Tapping the chart reveals a unified tooltip showing the exact minute breakdown for the top tracked categories.
 *   **Hourly Drill-down**: Tapping a specific day on the Line Chart triggers a secondary database fetch to render an hourly breakdown bar chart for that specific day.
+
+---
+
+## 5. Lagged Trend Analysis (`LaggedTrendScreen`)
+
+This screen provides a focused, two-metric "deep dive" that visualizes how one behavior predicts another with a time delay.
+
+### Metric Selection
+*   **Auto-Detection**: On launch, the engine exhaustively scans all enabled metric pairs across lags 0–7 and presents the pair with the highest |ρ| (absolute Spearman correlation).
+*   **Manual Override**: Users can tap either metric chip to swap in any available metric from a bottom-sheet picker.
+
+### Normalization
+Both metrics are min-max normalized to 0.0–1.0 so they can be overlaid on the same Y-axis regardless of their native scale (e.g., Mood 1–5 vs Steps 0–20,000).
+*   **Formula**: `(value - min) / (max - min)` per metric, computed over the visible date range.
+*   **Edge case**: If all values are identical, the series normalizes to 0.5.
+
+### Peak Lag Detection
+The engine performs a sweep from lag 0 to lag 7 days, calling `calculateSpearmanCorrelation()` at each offset. The lag with the highest absolute ρ is selected as the "optimal lag."
+
+### Date Range
+Users can toggle between **7, 14, and 30 day** windows via choice chips. The chart and correlation coefficient recalculate live.
+
+### Natural-Language Insight
+A glassmorphic card renders a human-readable interpretation:
+*   *Same-day*: "Your Sleep Quality peaks on days with high Mood."
+*   *Lagged*: "Your Fatigue dips 2 days after low Social Media use."
+*   The verb ("peaks" / "dips") is derived from the sign of ρ.
+
+### Visualization
+*   **Dual Line Chart**: Two smooth, curved `LineChartBarData` series with gradient fills below each line.
+*   **Color Coding**: Metric A uses the primary theme color (Aquamarine), Metric B uses the secondary color (Deep Violet).
+*   **Stats Cards**: "PEAK CORRELATION" (e.g., 0.82) and "OPTIMAL LAG" (e.g., 2 DAYS) are displayed with progress bars.
+

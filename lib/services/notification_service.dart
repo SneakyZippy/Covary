@@ -81,7 +81,15 @@ class NotificationService {
           .replaceFirst('m', '');
       final minutes = int.tryParse(minutesStr);
       if (minutes != null) {
-        await _logInteraction(db, InteractionType.snooze, receivedAction.payload);
+        final snoozeVal = minutes >= 60 && minutes % 60 == 0 
+            ? '${minutes ~/ 60}h' 
+            : '${minutes}m';
+        await _logInteraction(
+          db, 
+          InteractionType.snooze, 
+          receivedAction.payload, 
+          value: '+$snoozeVal'
+        );
         await _snoozeNotification(Duration(minutes: minutes), receivedAction.payload);
       }
     } else if (receivedAction.buttonKeyPressed == 'remind_at') {
@@ -168,6 +176,7 @@ class NotificationService {
     InteractionType type,
     Map<String, String?>? payload, {
     String? sessionId,
+    String? value,
   }) async {
     final windowLabel = payload?['window_label'];
     final metricId = payload?['metric_id'];
@@ -180,7 +189,7 @@ class NotificationService {
       EventsCompanion(
         category: const Value(EventCategory.meta),
         label: Value(label),
-        value: const Value(''),
+        value: Value(value ?? ''),
         triggerSource: const Value(TriggerSource.notification),
         interactionType: Value(type),
         sessionId: Value(sessionId),
@@ -245,6 +254,15 @@ class NotificationService {
       }
 
       final delay = scheduledTime.difference(now);
+      
+      // Log the specific time chosen for "Remind at"
+      await _logInteraction(
+        AppDatabase.getInstance(), 
+        InteractionType.snooze, 
+        payload, 
+        value: 'Until ${time.format(context)}'
+      );
+      
       await _snoozeNotification(delay, payload);
 
       final newContext = navigatorKey.currentContext;

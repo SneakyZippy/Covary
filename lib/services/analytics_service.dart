@@ -50,6 +50,117 @@ class AnalyticsService {
     return _computeSpearman(listA, listB);
   }
 
+  // ---------------------------------------------------------------------------
+  // Lagged Trend Analysis
+  // ---------------------------------------------------------------------------
+
+  /// Returns the daily aggregated time series for a metric, optionally
+  /// normalized to 0.0–1.0 range via min-max scaling.
+  ///
+  /// Used by the Lagged Trend screen to plot two metrics on the same Y-axis.
+  Future<Map<DateTime, double>> getDailyTimeSeries(
+    String label, {
+    bool normalize = false,
+    int lastNDays = 14,
+  }) async {
+    final events = await _db.getEventsByLabel(label);
+    if (events.isEmpty) return {};
+
+    final daily = _aggregateByDay(events);
+
+    // Filter to last N days
+    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final cutoffDate = DateTime(cutoff.year, cutoff.month, cutoff.day);
+    daily.removeWhere((date, _) => date.isBefore(cutoffDate));
+
+    if (!normalize || daily.isEmpty) return daily;
+
+    // Min-max normalization
+    final values = daily.values.toList();
+    final minVal = values.reduce(min);
+    final maxVal = values.reduce(max);
+    final range = maxVal - minVal;
+
+    if (range == 0) {
+      // All values are identical — normalize to 0.5
+      return daily.map((k, _) => MapEntry(k, 0.5));
+    }
+
+    return daily.map((k, v) => MapEntry(k, (v - minVal) / range));
+  }
+
+  /// Sweeps lag 0–7 days and returns the lag with the highest |ρ|.
+  ///
+  /// Returns a record: `(bestLag, correlation, allCorrelations)`.
+  /// [allCorrelations] is a `Map<int, double?>` of lag to ρ for chart display.
+  Future<({int bestLag, double correlation, Map<int, double?> allCorrelations})?>
+      findPeakLagCorrelation({
+    required String metricA,
+    required String metricB,
+    int maxLag = 7,
+  }) async {
+    final Map<int, double?> all = {};
+    int bestLag = 0;
+    double bestAbs = -1;
+    double bestVal = 0;
+
+    for (int lag = 0; lag <= maxLag; lag++) {
+      final r = await calculateSpearmanCorrelation(
+        metricA: metricA,
+        metricB: metricB,
+        lagDays: lag,
+      );
+      all[lag] = r;
+      if (r != null && r.abs() > bestAbs) {
+        bestAbs = r.abs();
+        bestVal = r;
+        bestLag = lag;
+      }
+    }
+
+    if (bestAbs < 0) return null; // No valid data at any lag
+
+    return (bestLag: bestLag, correlation: bestVal, allCorrelations: all);
+  }
+
+  /// Auto-detects the most strongly correlated pair from a list of labels.
+  ///
+  /// Returns `(labelA, labelB, bestLag, correlation)` for the pair with
+  /// the highest |ρ| at any lag 0–7.
+  Future<({String labelA, String labelB, int bestLag, double correlation})?>
+      findMostCorrelatedPair(List<String> labels) async {
+    if (labels.length < 2) return null;
+
+    String? bestA, bestB;
+    int bestLag = 0;
+    double bestAbs = -1;
+    double bestVal = 0;
+
+    for (int i = 0; i < labels.length; i++) {
+      for (int j = i + 1; j < labels.length; j++) {
+        final result = await findPeakLagCorrelation(
+          metricA: labels[i],
+          metricB: labels[j],
+        );
+        if (result != null && result.correlation.abs() > bestAbs) {
+          bestAbs = result.correlation.abs();
+          bestVal = result.correlation;
+          bestLag = result.bestLag;
+          bestA = labels[i];
+          bestB = labels[j];
+        }
+      }
+    }
+
+    if (bestA == null || bestB == null) return null;
+    return (
+      labelA: bestA,
+      labelB: bestB,
+      bestLag: bestLag,
+      correlation: bestVal,
+    );
+  }
+
   /// Aggregates events into daily values.
   /// 
   /// For mood/scales, it takes the average.

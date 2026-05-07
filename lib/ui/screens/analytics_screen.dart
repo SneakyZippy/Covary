@@ -3,6 +3,8 @@ import 'usage_trends_screen.dart';
 import 'correlation_matrix_screen.dart';
 import 'interaction_screen.dart';
 import 'compliance_screen.dart';
+import 'lagged_trend_screen.dart';
+import '../../ui/theme/design_system.dart';
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
@@ -91,6 +93,16 @@ class AnalyticsScreen extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const ComplianceScreen()),
+                    ),
+                  ),
+                  _AnalyticsCard(
+                    title: 'Lagged Trend',
+                    description: 'Discover time-delayed correlations between metrics.',
+                    icon: Icons.timeline_rounded,
+                    color: CovaryDesignSystem.secondary,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LaggedTrendScreen()),
                     ),
                   ),
                 ]),
