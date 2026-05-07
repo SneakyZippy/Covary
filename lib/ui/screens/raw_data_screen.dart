@@ -172,9 +172,16 @@ class _SessionGroup {
       return 'Passive Data Sync';
     }
     if (source == TriggerSource.notification) {
-      final interaction = events.first.interactionType;
-      final label = events.first.label.replaceFirst('Notification: ', '');
-      final interactionStr = interaction.name[0].toUpperCase() + interaction.name.substring(1);
+      final first = events.first;
+      final interaction = first.interactionType;
+      final label = first.label.replaceFirst('Notification: ', '');
+      var interactionStr = interaction.name[0].toUpperCase() + interaction.name.substring(1);
+      
+      // If it's a snooze, append the value (e.g. "+15m" or "Until 18:30")
+      if (interaction == InteractionType.snooze && first.value.isNotEmpty) {
+        interactionStr += ' (${first.value})';
+      }
+      
       return '$label: $interactionStr';
     }
     
