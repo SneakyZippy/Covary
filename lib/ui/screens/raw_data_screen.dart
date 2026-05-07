@@ -496,6 +496,14 @@ class _EventRow extends StatelessWidget {
         icon = Icons.settings_rounded;
         color = colorScheme.onSurfaceVariant;
         break;
+      case EventCategory.biological:
+        icon = Icons.water_drop_outlined;
+        color = colorScheme.primary;
+        break;
+      case EventCategory.weather:
+        icon = Icons.cloud_outlined;
+        color = colorScheme.secondary;
+        break;
     }
     return Icon(icon, color: color.withAlpha(180), size: 18);
   }

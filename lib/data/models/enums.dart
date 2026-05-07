@@ -29,6 +29,12 @@ enum EventCategory {
   /// Screen time and per-app usage statistics.
   appUsage,
 
+  /// Biological data: menstrual cycle, flow, libido, cramps.
+  biological,
+
+  /// Environmental data: weather, temperature, wind.
+  weather,
+
   /// System-level events: first launch, nickname changes, exports.
   meta,
 }

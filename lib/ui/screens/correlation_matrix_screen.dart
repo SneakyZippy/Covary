@@ -90,21 +90,23 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
             (m) =>
                 m.category == EventCategory.mood ||
                 m.category == EventCategory.behavior ||
-                m.category == EventCategory.productivity,
+                m.category == EventCategory.productivity ||
+                m.category == EventCategory.biological,
           )
           .toList();
 
       _colMetrics = List.from(_rowMetrics);
 
-      // If we have passive data, add it to columns
-      final passive = allAvailable
+      // If we have passive, weather or health data, add it to columns
+      final passiveAndContext = allAvailable
           .where(
             (m) =>
                 m.category == EventCategory.appUsage ||
-                m.category == EventCategory.health,
+                m.category == EventCategory.health ||
+                m.category == EventCategory.weather,
           )
           .toList();
-      _colMetrics.addAll(passive);
+      _colMetrics.addAll(passiveAndContext);
 
       // Fallback
       if (_rowMetrics.isEmpty) _rowMetrics = allAvailable.take(5).toList();
@@ -564,8 +566,9 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   Widget _buildEmoji(String? emoji, double size) {
-    if (emoji == null)
+    if (emoji == null) {
       return Icon(Icons.circle, size: size, color: Colors.grey);
+    }
     return Text(_mapEmoji(emoji), style: TextStyle(fontSize: size));
   }
 
@@ -590,6 +593,15 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       'social_usage': '📱',
       'total_usage': '⌛',
       'entertainment_usage': '🎬',
+      'water_drop': '💧',
+      'personal_injury': '🤕',
+      'sick': '🤒',
+      'restaurant': '🥣',
+      'wc': '🚽',
+      'umbrella': '🌧️',
+      'sunny': '☀️',
+      'air': '🌬️',
+      'forest': '🌳',
     };
     return map[key] ?? '📊';
   }

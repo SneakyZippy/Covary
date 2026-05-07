@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../data/database/app_database.dart';
 import '../data/models/enums.dart';
 import '../data/models/metric_definition.dart';
+import '../data/metric_presets.dart';
 import 'notification_service.dart';
 
 /// Prefix for core-metric toggle keys in [SharedPreferences].
@@ -40,114 +41,7 @@ class MetricService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   /// The core metrics as specified in the thesis research plan.
-  ///
-  /// These can be toggled on/off. Custom metrics can also be added.
-  static const List<MetricDefinition> templates = [
-    // --- Mood & State (Frequency: All windows) ---
-    MetricDefinition(
-      id: 'core_mood',
-      label: 'Current Mood',
-      category: EventCategory.mood,
-      inputType: MetricInputType.scale1to10,
-      isEnabled: true,
-      emoji: 'sentiment_satisfied',
-    ),
-    MetricDefinition(
-      id: 'core_energy',
-      label: 'Energy Level',
-      category: EventCategory.mood,
-      inputType: MetricInputType.scale1to10,
-      isEnabled: true,
-      emoji: 'bolt',
-    ),
-    MetricDefinition(
-      id: 'core_stress',
-      label: 'Stress Level',
-      category: EventCategory.mood,
-      inputType: MetricInputType.scale1to10,
-      isEnabled: true,
-      emoji: 'psychology',
-    ),
-    
-    // --- Health (Frequency: Morning) ---
-    MetricDefinition(
-      id: 'core_sleep_quality',
-      label: 'Sleep Quality',
-      category: EventCategory.health,
-      inputType: MetricInputType.scale1to10,
-      isEnabled: true,
-      emoji: 'bedtime',
-    ),
-
-    // --- Behavior & Wellbeing (Frequency: Evening Review) ---
-    MetricDefinition(
-      id: 'core_wellbeing',
-      label: 'General Wellbeing',
-      category: EventCategory.mood,
-      inputType: MetricInputType.scale1to10,
-      isEnabled: true,
-      emoji: 'star',
-    ),
-    MetricDefinition(
-      id: 'core_sport',
-      label: 'Physical Activity',
-      category: EventCategory.behavior,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'run',
-    ),
-    MetricDefinition(
-      id: 'core_meditation',
-      label: 'Mindfulness / Meditation',
-      category: EventCategory.behavior,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'meditation',
-    ),
-    MetricDefinition(
-      id: 'core_journaling',
-      label: 'Journaling',
-      category: EventCategory.behavior,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'edit',
-    ),
-    MetricDefinition(
-      id: 'core_good_deed',
-      label: 'Good Deed',
-      category: EventCategory.social,
-      inputType: MetricInputType.yesNo,
-      isEnabled: true,
-      emoji: 'favorite',
-    ),
-
-    // --- Optional/Secondary (Disabled by default to reduce clutter) ---
-    MetricDefinition(
-      id: 'core_focus',
-      label: 'Focus',
-      category: EventCategory.productivity,
-      inputType: MetricInputType.scale1to10,
-      isEnabled: false,
-      emoji: 'lightbulb',
-    ),
-    MetricDefinition(
-      id: 'core_anxiety',
-      label: 'Anxiety',
-      category: EventCategory.mood,
-      inputType: MetricInputType.scale1to10,
-      isEnabled: false,
-      emoji: 'psychology',
-    ),
-    MetricDefinition(
-      id: 'core_coffee_intake',
-      label: 'Coffee Intake',
-      category: EventCategory.nutrition,
-      inputType: MetricInputType.counter,
-      isEnabled: true,
-      emoji: 'coffee',
-      windowIds: ['homescreen'],
-    ),
-  ];
+  static List<MetricDefinition> get templates => MetricPresets.metricTemplates;
 
   // ---------------------------------------------------------------------------
   // Getters
@@ -239,35 +133,27 @@ class MetricService extends ChangeNotifier {
     final windowsSeeded = prefs.getBool('tracking_windows_seeded') ?? false;
     
     if (!windowsSeeded && existingWindows.isEmpty) {
-      final samples = [
-        ('Early Morning', 7, 0, 9, 0, 7, 0, true),
-        ('Late Morning', 10, 0, 12, 0, 10, 0, false),
-        ('Afternoon Sync', 14, 0, 16, 0, 14, 0, true),
-        ('Evening Review', 19, 0, 21, 0, 19, 0, false),
-        ('Night/Bedtime', 22, 0, 0, 0, 22, 0, true),
-      ];
-
-      for (final s in samples) {
+      for (final s in MetricPresets.windowPresets) {
         try {
           await _db.insertTrackingWindow(
             TrackingWindowsCompanion.insert(
-              label: s.$1,
-              startHour: s.$2,
-              startMinute: s.$3,
-              endHour: s.$4,
-              endMinute: s.$5,
+              label: s.label,
+              startHour: s.startHour,
+              startMinute: s.startMinute,
+              endHour: s.endHour,
+              endMinute: s.endMinute,
               isNotificationEnabled: const Value(true),
-              notificationHour: s.$6,
-              notificationMinute: s.$7,
-              isEnabled: Value(s.$8),
+              notificationHour: s.notificationHour ?? s.startHour,
+              notificationMinute: s.notificationMinute ?? s.startMinute,
+              isEnabled: Value(s.isEnabled),
             ),
           );
         } catch (e) {
-          debugPrint('[MetricService] Error seeding window ${s.$1}: $e');
+          debugPrint('[MetricService] Error seeding window ${s.label}: $e');
         }
       }
       await prefs.setBool('tracking_windows_seeded', true);
-      debugPrint('[MetricService] Seeded 5 sample tracking windows');
+      debugPrint('[MetricService] Seeded ${MetricPresets.windowPresets.length} sample tracking windows');
     } else if (!windowsSeeded) {
       // Handle restore scenario: Data exists but pref is false
       await prefs.setBool('tracking_windows_seeded', true);
