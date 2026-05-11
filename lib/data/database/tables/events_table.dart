@@ -16,7 +16,7 @@ class Events extends Table {
   TextColumn get category => textEnum<EventCategory>()();
 
   /// Specific metric name, e.g. 'Instagram', 'Steps', 'Good Deed', 'Fatigue'.
-  TextColumn get label => text().withLength(min: 1, max: 50)();
+  TextColumn get label => text().withLength(min: 1, max: 100)();
 
   /// The actual data value, stored as text for flexibility.
   TextColumn get value => text()();

@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
   
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -95,6 +95,11 @@ class AppDatabase extends _$AppDatabase {
         await customStatement("UPDATE events SET label = 'category_time:social' WHERE label = 'social_screen_time_minutes'");
         await customStatement("UPDATE events SET label = 'category_time:entertainment' WHERE label = 'entertainment_screen_time_minutes'");
         await customStatement("UPDATE events SET label = 'total_screen_time' WHERE label = 'total_screen_time_minutes'");
+      }
+      if (from < 13) {
+        // Migration to version 13: Increase label length in events table (Drift-side validation)
+        // SQLite doesn't enforce length, so no SQL is strictly needed here, 
+        // but we bump the version to trigger code regeneration and maintain schema history.
       }
     },
   );

@@ -16,6 +16,16 @@ import 'package:permission_handler/permission_handler.dart';
 /// Fatigue) to detect lagged effects (e.g., poor sleep → next-day fatigue).
 class HealthService {
   final Health _health = Health();
+  bool _configured = false;
+
+  /// Ensures the health plugin is configured before any API call.
+  /// Must be called once before permissions, data reads, or writes.
+  Future<void> _ensureConfigured() async {
+    if (!_configured) {
+      await _health.configure();
+      _configured = true;
+    }
+  }
 
   /// The data types we request from Health Connect / HealthKit.
   /// We include both SLEEP_SESSION and SLEEP_ASLEEP for maximum compatibility
@@ -36,7 +46,10 @@ class HealthService {
   /// Returns `true` if all permissions are granted, `false` otherwise.
   Future<bool> requestPermissions() async {
     try {
-      // Step 0: Check Health Connect SDK status (Android only).
+      // Step 0: Configure the health plugin (required since health 13.x).
+      await _ensureConfigured();
+
+      // Step 0b: Check Health Connect SDK status (Android only).
       if (defaultTargetPlatform == TargetPlatform.android) {
         final status = await _health.getHealthConnectSdkStatus();
         if (status != HealthConnectSdkStatus.sdkAvailable) {
@@ -81,6 +94,7 @@ class HealthService {
   /// ask" API. This method attempts a small data fetch as a proxy check.
   Future<bool> hasPermissions() async {
     try {
+      await _ensureConfigured();
       // hasPermissions returns null if status is indeterminate (treat as false).
       final result = await _health.hasPermissions(_readTypes);
       return result ?? false;
@@ -100,6 +114,7 @@ class HealthService {
   /// window. Returns `null` if no data is available or an error occurs.
   Future<double?> fetchSleepDurationHours({DateTime? startTime, DateTime? endTime}) async {
     try {
+      await _ensureConfigured();
       final now = DateTime.now();
       final effectiveEnd = endTime ?? now;
       final effectiveStart = startTime ?? now.subtract(const Duration(hours: 24));
@@ -115,21 +130,42 @@ class HealthService {
         return null;
       }
 
-      // Sum all sleep session durations (in minutes), then convert to hours.
-      // We use a Map to deduplicate overlapping points if both SESSION and ASLEEP exist.
-      double totalMinutes = 0;
-      for (final point in data) {
-        final durationMs =
-            point.dateTo.millisecondsSinceEpoch -
-            point.dateFrom.millisecondsSinceEpoch;
-        totalMinutes += durationMs / 1000 / 60;
+      // 1. Extract all intervals (start, end)
+      List<({DateTime start, DateTime end})> intervals =
+          data.map((p) => (start: p.dateFrom, end: p.dateTo)).toList();
+
+      // 2. Sort by start time
+      intervals.sort((a, b) => a.start.compareTo(b.start));
+
+      // 3. Merge overlapping intervals
+      List<({DateTime start, DateTime end})> merged = [];
+      if (intervals.isNotEmpty) {
+        var current = intervals[0];
+        for (int i = 1; i < intervals.length; i++) {
+          final next = intervals[i];
+          if (next.start.isBefore(current.end)) {
+            // Overlap: extend current interval to the later end time
+            if (next.end.isAfter(current.end)) {
+              current = (start: current.start, end: next.end);
+            }
+          } else {
+            // No overlap: save current and move to next
+            merged.add(current);
+            current = next;
+          }
+        }
+        merged.add(current);
       }
 
-      // Note: This is a simple summation. In a production app, we would use
-      // interval merging to handle overlaps, but for this thesis, summation
-      // of sessions or asleep points is usually sufficient.
+      // 4. Sum total unique minutes
+      double totalMinutes = 0;
+      for (final interval in merged) {
+        totalMinutes += interval.end.difference(interval.start).inSeconds / 60;
+      }
+
       final hours = totalMinutes / 60;
-      debugPrint('[HealthService] Sleep duration (aggregated): ${hours.toStringAsFixed(2)}h');
+      debugPrint(
+          '[HealthService] Sleep duration (merged/deduplicated): ${hours.toStringAsFixed(2)}h');
       return hours;
     } catch (e) {
       debugPrint('[HealthService] fetchSleepDurationHours error: $e');
@@ -143,6 +179,7 @@ class HealthService {
   /// avoids iterating individual data points. Returns `null` on error.
   Future<int?> fetchStepCount({DateTime? startTime, DateTime? endTime}) async {
     try {
+      await _ensureConfigured();
       final now = DateTime.now();
       final effectiveEnd = endTime ?? now;
       final effectiveStart = startTime ?? now.subtract(const Duration(hours: 24));

@@ -47,7 +47,7 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     false,
     additionalChecks: GeneratedColumn.checkTextLength(
       minTextLength: 1,
-      maxTextLength: 50,
+      maxTextLength: 100,
     ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
