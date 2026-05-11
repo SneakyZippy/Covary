@@ -4,6 +4,7 @@ import 'correlation_matrix_screen.dart';
 import 'interaction_screen.dart';
 import 'compliance_screen.dart';
 import 'lagged_trend_screen.dart';
+import 'metric_insights_screen.dart';
 import '../../ui/theme/design_system.dart';
 
 class AnalyticsScreen extends StatelessWidget {
@@ -93,6 +94,16 @@ class AnalyticsScreen extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const ComplianceScreen()),
+                    ),
+                  ),
+                  _AnalyticsCard(
+                    title: 'Metric Insights',
+                    description: 'Daily trends and circadian rhythms for individual metrics.',
+                    icon: Icons.show_chart_rounded,
+                    color: colorScheme.primaryContainer,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MetricInsightsScreen()),
                     ),
                   ),
                   _AnalyticsCard(

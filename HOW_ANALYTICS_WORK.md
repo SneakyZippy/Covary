@@ -111,3 +111,28 @@ A glassmorphic card renders a human-readable interpretation:
 *   **Color Coding**: Metric A uses the primary theme color (Aquamarine), Metric B uses the secondary color (Deep Violet).
 *   **Stats Cards**: "PEAK CORRELATION" (e.g., 0.82) and "OPTIMAL LAG" (e.g., 2 DAYS) are displayed with progress bars.
 
+---
+
+## 6. Metric Insights & Circadian Rhythms (`MetricInsightsScreen`)
+
+This screen provides high-resolution longitudinal and time-of-day analysis for individual metrics, answering critical EMA research questions (e.g., "At what hour is fatigue highest?").
+
+### Dual-Axis Modes
+Users can toggle between two primary views:
+*   **Daily Trend**: Aggregates data by day over a specified range (7, 14, 30 days).
+*   **Circadian Rhythm**: Aggregates data by the exact hour of the day (0:00 to 23:00) across the entire selected date range to form an "Average 24-Hour Profile."
+
+### Hourly Data Aggregation (`_aggregateByHour`)
+The backend calculates circadian rhythms differently depending on the metric type:
+*   **Subjective Scales (Mood, Fatigue)**: Groups all entries logged within a specific hour bucket across the entire date range, sums them, and divides by the total number of entries. If no data exists for a given hour, it is **omitted** (not zero-padded) to prevent extreme graph drops and ensure proper visual interpolation.
+*   **Behavior/Counters (Steps)**: Calculates the average volume for that specific hour across all unique days in the tracking period. If no steps were logged, it correctly inserts `0.0`.
+
+### Dual-Metric Overlay
+*   **Primary Metric**: The main metric being analyzed. If viewed alone, the Y-axis reflects its raw values (e.g., 0 to 10,000 steps).
+*   **Secondary Comparison**: Users can optionally select a second metric. When enabled, the engine applies **Min-Max Normalization** (0.0 to 1.0) to both metrics so they can be accurately overlaid and visually compared despite vast scale differences.
+
+### Natural-Language Insights
+A glassmorphic insight card interprets the charts:
+*   *Daily*: Reports the mathematical average over the selected time window.
+*   *Circadian*: Scans the hourly map for the global maximum (`maxVal`) and reports the specific peak hour. If two metrics are selected, it compares their peak hours to report whether they align or diverge.
+

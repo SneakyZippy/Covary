@@ -52,7 +52,8 @@ class PassiveSensingService {
   ///
   /// This method is safe to call from a WorkManager background isolate.
   Future<void> syncAll({DateTime? targetDate}) async {
-    final sessionId = const Uuid().v4();
+    final healthSessionId = const Uuid().v4();
+    final appUsageSessionId = const Uuid().v4();
     
     // Define the interval
     final DateTime start;
@@ -74,13 +75,13 @@ class PassiveSensingService {
       debugPrint('[PassiveSensingService] Targeting TODAY SO FAR');
     }
 
-    debugPrint('[PassiveSensingService] Syncing interval: $start to $end (Session: $sessionId)…');
+    debugPrint('[PassiveSensingService] Syncing interval: $start to $end…');
 
     // --- Health Connect data ---
-    await _syncHealth(sessionId, start, end, referenceTime);
+    await _syncHealth(healthSessionId, start, end, referenceTime);
 
     // --- App Usage data ---
-    await _syncAppUsage(sessionId, start, end, referenceTime);
+    await _syncAppUsage(appUsageSessionId, start, end, referenceTime);
 
     debugPrint('[PassiveSensingService] Sync cycle complete.');
   }

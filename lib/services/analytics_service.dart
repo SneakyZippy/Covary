@@ -89,6 +89,39 @@ class AnalyticsService {
     return daily.map((k, v) => MapEntry(k, (v - minVal) / range));
   }
 
+  /// Returns the hourly aggregated time series for a metric across the last N days,
+  /// optionally normalized to 0.0–1.0 range via min-max scaling.
+  /// 
+  /// The key is the hour of the day (0-23).
+  Future<Map<int, double>> getHourlyTimeSeries(
+    String label, {
+    bool normalize = false,
+    int lastNDays = 14,
+  }) async {
+    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final events = await _db.getEventsByLabel(label);
+    
+    // Filter to last N days
+    final filteredEvents = events.where((e) => e.timestamp.isAfter(cutoff)).toList();
+    if (filteredEvents.isEmpty) return {};
+
+    final hourly = _aggregateByHour(filteredEvents);
+
+    if (!normalize || hourly.isEmpty) return hourly;
+
+    // Min-max normalization
+    final values = hourly.values.toList();
+    final minVal = values.reduce(min);
+    final maxVal = values.reduce(max);
+    final range = maxVal - minVal;
+
+    if (range == 0) {
+      return hourly.map((k, _) => MapEntry(k, 0.5));
+    }
+
+    return hourly.map((k, v) => MapEntry(k, (v - minVal) / range));
+  }
+
   /// Sweeps lag 0–7 days and returns the lag with the highest |ρ|.
   ///
   /// Returns a record: `(bestLag, correlation, allCorrelations)`.
@@ -204,6 +237,69 @@ class AnalyticsService {
       } else {
         // Default: Sum for counters/behavior
         result[date] = vals.reduce((a, b) => a + b);
+      }
+    }
+
+    return result;
+  }
+
+  /// Aggregates events into an average 24-hour day.
+  /// 
+  /// For mood/scales, it calculates the average of all entries logged in that hour.
+  /// For behavior/counts, it calculates the average occurrence per day for that hour.
+  Map<int, double> _aggregateByHour(List<Event> events) {
+    final Map<int, List<double>> hourlyGroups = {};
+    final Set<String> uniqueDays = {};
+
+    for (final e in events) {
+      final hour = e.timestamp.hour;
+      uniqueDays.add('${e.timestamp.year}-${e.timestamp.month}-${e.timestamp.day}');
+      
+      double val;
+      if (e.value == 'true') {
+        val = 1.0;
+      } else if (e.value == 'false') {
+        val = 0.0;
+      } else {
+        val = double.tryParse(e.value) ?? 0.0;
+      }
+      
+      hourlyGroups.putIfAbsent(hour, () => []).add(val);
+    }
+
+    final int totalDays = max(1, uniqueDays.length);
+    final Map<int, double> result = {};
+    
+    if (events.isEmpty) return result;
+    final firstEvent = events.firstWhere((e) => e.label == events.first.label);
+
+    for (int i = 0; i < 24; i++) {
+      if (!hourlyGroups.containsKey(i)) {
+        if (firstEvent.category == EventCategory.mood || 
+            firstEvent.category == EventCategory.productivity ||
+            firstEvent.label.toLowerCase().contains('quality')) {
+          // Do not insert 0.0 for subjective scales, leave it missing to avoid graph drops
+          continue;
+        } else {
+          // For counters like steps, 0.0 is accurate
+          result[i] = 0.0;
+          continue;
+        }
+      }
+      
+      final vals = hourlyGroups[i]!;
+      
+      if (firstEvent.category == EventCategory.mood || 
+          firstEvent.category == EventCategory.productivity ||
+          firstEvent.label.toLowerCase().contains('quality')) {
+        // Average for scales and quality metrics
+        result[i] = vals.reduce((a, b) => a + b) / vals.length;
+      } else if (firstEvent.label == 'step_segment' || firstEvent.category == EventCategory.behavior) {
+        // Average amount per day for that specific hour
+        result[i] = vals.reduce((a, b) => a + b) / totalDays;
+      } else {
+        // Default: average per day
+        result[i] = vals.reduce((a, b) => a + b) / totalDays;
       }
     }
 
