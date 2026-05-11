@@ -192,4 +192,29 @@ class HealthService {
       return null;
     }
   }
+
+  /// Fetches individual step data segments (intervals) from the last 24 hours.
+  ///
+  /// This returns the raw data points (e.g., 30-minute buckets) as recorded by
+  /// Health Connect, allowing for high-resolution circadian/time-of-day analysis.
+  Future<List<HealthDataPoint>> fetchStepSegments({DateTime? startTime, DateTime? endTime}) async {
+    try {
+      await _ensureConfigured();
+      final now = DateTime.now();
+      final effectiveEnd = endTime ?? now;
+      final effectiveStart = startTime ?? now.subtract(const Duration(hours: 24));
+
+      final data = await _health.getHealthDataFromTypes(
+        startTime: effectiveStart,
+        endTime: effectiveEnd,
+        types: [HealthDataType.STEPS],
+      );
+      
+      debugPrint('[HealthService] Fetched ${data.length} step segments.');
+      return data;
+    } catch (e) {
+      debugPrint('[HealthService] fetchStepSegments error: $e');
+      return [];
+    }
+  }
 }

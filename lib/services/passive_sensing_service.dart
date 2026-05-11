@@ -2,6 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:health/health.dart';
+
 import '../data/database/app_database.dart';
 import '../data/models/enums.dart';
 import 'app_usage_service.dart';
@@ -105,7 +107,7 @@ class PassiveSensingService {
       debugPrint('[PassiveSensingService] Sleep sync error: $e');
     }
 
-    // Step count
+    // Step count (Daily total for existing analytics)
     try {
       final steps = await _health.fetchStepCount(startTime: start, endTime: end);
       if (steps != null) {
@@ -119,6 +121,30 @@ class PassiveSensingService {
       }
     } catch (e) {
       debugPrint('[PassiveSensingService] Step count sync error: $e');
+    }
+
+    // Step segments (High-resolution data for circadian analysis)
+    try {
+      final segments = await _health.fetchStepSegments(startTime: start, endTime: end);
+      for (final segment in segments) {
+        // Health package wraps the value in a HealthValue object
+        final val = segment.value;
+        if (val is NumericHealthValue) {
+          final steps = val.numericValue.toInt();
+          // Skip empty segments
+          if (steps > 0) {
+            await _logSegmentMetric(
+              category: EventCategory.health,
+              label: 'step_segment',
+              value: steps.toString(),
+              sessionId: sessionId,
+              timestamp: segment.dateFrom, // Use the actual start time of the segment
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[PassiveSensingService] Step segments sync error: $e');
     }
   }
 
@@ -220,6 +246,43 @@ class PassiveSensingService {
         ),
       );
       debugPrint('[PassiveSensingService] LOGGED → $label = $value for ${dayStart.toIso8601String().split('T')[0]}');
+    }
+  }
+
+  /// Logs a high-resolution metric (like a 30-minute step segment) while ensuring
+  /// we don't insert duplicate records for the exact same timestamp and label.
+  Future<void> _logSegmentMetric({
+    required EventCategory category,
+    required String label,
+    required String value,
+    required String sessionId,
+    required DateTime timestamp,
+  }) async {
+    // We check for exact timestamp matches. Health Connect segments have very
+    // precise timestamps, so this reliably prevents double-logging overlapping syncs.
+    final existing = await (_db.select(_db.events)
+          ..where((t) => t.category.equalsValue(category))
+          ..where((t) => t.label.equals(label))
+          ..where((t) => t.triggerSource.equalsValue(TriggerSource.system))
+          ..where((t) => t.timestamp.equals(timestamp))
+          ..limit(1))
+        .getSingleOrNull();
+
+    if (existing == null) {
+      // Insert new segment record
+      await _db.insertEvent(
+        EventsCompanion(
+          category: Value(category),
+          label: Value(label),
+          value: Value(value),
+          latencyMs: const Value(0),
+          triggerSource: const Value(TriggerSource.system),
+          interactionType: const Value(InteractionType.click),
+          sessionId: Value(sessionId),
+          timestamp: Value(timestamp),
+        ),
+      );
+      // Removed the debug print here to avoid flooding the console for users with hundreds of segments
     }
   }
 }
