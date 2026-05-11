@@ -149,6 +149,10 @@ class AppDatabase extends _$AppDatabase {
     return (delete(events)..where((t) => t.id.equals(id))).go();
   }
 
+  Future<int> updateEvent(String id, EventsCompanion companion) {
+    return (update(events)..where((t) => t.id.equals(id))).write(companion);
+  }
+
   Future<List<Event>> getUsageEvents(DateTime start, DateTime end) {
     return (select(events)
           ..where((t) => t.category.equalsValue(EventCategory.appUsage))

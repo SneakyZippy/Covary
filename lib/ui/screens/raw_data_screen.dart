@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
+import 'package:drift/drift.dart' hide Column;
+
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../services/metric_service.dart';
+import '../widgets/metric_input_card.dart';
 
 /// Screen showing all raw event data grouped by session and date.
 ///
@@ -169,6 +172,7 @@ class _SessionGroup {
     final source = events.first.triggerSource;
     if (source == TriggerSource.system) {
       if (events.any((e) => e.category == EventCategory.appUsage)) return 'App Usage Sync';
+      if (events.any((e) => e.category == EventCategory.health)) return 'Health Data Sync';
       return 'Passive Data Sync';
     }
     if (source == TriggerSource.notification) {
@@ -606,6 +610,23 @@ class _EventRow extends StatelessWidget {
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  _showEditDialog(context, event);
+                },
+                icon: const Icon(Icons.edit_rounded),
+                label: const Text('Edit Entry'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () async {
                    final db = context.read<AppDatabase>();
@@ -646,6 +667,78 @@ class _EventRow extends StatelessWidget {
             const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, Event event) {
+    final metricService = context.read<MetricService>();
+    final metricDef = metricService.allMetrics.where((m) => m.label == event.label).firstOrNull;
+    
+    String newValue = event.value;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Edit Entry'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (metricDef != null)
+                    MetricInputCard(
+                      metric: metricDef,
+                      initialValue: event.value,
+                      onChanged: (val) => setState(() => newValue = val),
+                    )
+                  else
+                    TextFormField(
+                      initialValue: newValue,
+                      onChanged: (val) => setState(() => newValue = val),
+                      decoration: const InputDecoration(labelText: 'New Value'),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: () async {
+                  if (newValue == event.value) {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                    return;
+                  }
+
+                  final db = ctx.read<AppDatabase>();
+                  
+                  // Update the actual event
+                  await db.updateEvent(event.id, EventsCompanion(value: Value(newValue)));
+                  
+                  // Insert a meta event tracking the change
+                  await db.insertEvent(EventsCompanion.insert(
+                    category: EventCategory.meta,
+                    label: 'data_edited',
+                    value: '${event.label}: ${event.value} -> $newValue',
+                    triggerSource: TriggerSource.manual,
+                    interactionType: InteractionType.click,
+                    sessionId: Value(event.sessionId),
+                    timestamp: Value(event.timestamp),
+                  ));
+
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx); // Close dialog
+                    Navigator.pop(context); // Close bottom sheet
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
