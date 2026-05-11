@@ -276,7 +276,14 @@ class _SessionCardState extends State<_SessionCard> {
       child: Column(
         children: [
           InkWell(
-            onTap: isMulti ? () => setState(() => _isExpanded = !_isExpanded) : null,
+            onTap: () {
+              if (isMulti) {
+                setState(() => _isExpanded = !_isExpanded);
+              } else {
+                // Using the widget method to reuse the bottom sheet UI logic
+                _EventRow(event: session.events.first)._showEventDetails(context);
+              }
+            },
             borderRadius: BorderRadius.circular(24),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -676,38 +683,72 @@ class _EventRow extends StatelessWidget {
     final metricDef = metricService.allMetrics.where((m) => m.label == event.label).firstOrNull;
     
     String newValue = event.value;
+    DateTime newTimestamp = event.timestamp;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) {
+          final timeStr = DateFormat('yyyy-MM-dd HH:mm').format(newTimestamp);
+
           return AlertDialog(
             title: const Text('Edit Entry'),
             content: SizedBox(
               width: MediaQuery.of(context).size.width * 0.8,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (metricDef != null)
-                    MetricInputCard(
-                      metric: metricDef,
-                      initialValue: event.value,
-                      onChanged: (val) => setState(() => newValue = val),
-                    )
-                  else
-                    TextFormField(
-                      initialValue: newValue,
-                      onChanged: (val) => setState(() => newValue = val),
-                      decoration: const InputDecoration(labelText: 'New Value'),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (metricDef != null)
+                      MetricInputCard(
+                        metric: metricDef,
+                        initialValue: event.value,
+                        onChanged: (val) => setState(() => newValue = val),
+                      )
+                    else
+                      TextFormField(
+                        initialValue: newValue,
+                        onChanged: (val) => setState(() => newValue = val),
+                        decoration: const InputDecoration(labelText: 'New Value'),
+                      ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.access_time_rounded),
+                      title: const Text('Occurrence Time'),
+                      subtitle: Text(timeStr),
+                      trailing: const Icon(Icons.edit_rounded, size: 16),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: newTimestamp,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (date != null && context.mounted) {
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.fromDateTime(newTimestamp),
+                          );
+                          if (time != null && context.mounted) {
+                            setState(() {
+                              newTimestamp = DateTime(
+                                date.year, date.month, date.day, time.hour, time.minute,
+                              );
+                            });
+                          }
+                        }
+                      },
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               FilledButton(
                 onPressed: () async {
-                  if (newValue == event.value) {
+                  if (newValue == event.value && newTimestamp.isAtSameMomentAs(event.timestamp)) {
                     Navigator.pop(ctx);
                     Navigator.pop(context);
                     return;
@@ -716,17 +757,20 @@ class _EventRow extends StatelessWidget {
                   final db = ctx.read<AppDatabase>();
                   
                   // Update the actual event
-                  await db.updateEvent(event.id, EventsCompanion(value: Value(newValue)));
+                  await db.updateEvent(event.id, EventsCompanion(
+                    value: Value(newValue),
+                    timestamp: Value(newTimestamp),
+                  ));
                   
                   // Insert a meta event tracking the change
                   await db.insertEvent(EventsCompanion.insert(
                     category: EventCategory.meta,
                     label: 'data_edited',
-                    value: '${event.label}: ${event.value} -> $newValue',
+                    value: '${event.label}: ${event.value} -> $newValue, time ${event.timestamp} -> $newTimestamp',
                     triggerSource: TriggerSource.manual,
                     interactionType: InteractionType.click,
                     sessionId: Value(event.sessionId),
-                    timestamp: Value(event.timestamp),
+                    timestamp: Value(DateTime.now()),
                   ));
 
                   if (ctx.mounted) {

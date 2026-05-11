@@ -102,6 +102,17 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _recordedAtMeta = const VerificationMeta(
+    'recordedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> recordedAt = GeneratedColumn<DateTime>(
+    'recorded_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -113,6 +124,7 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     triggerSource,
     interactionType,
     sessionId,
+    recordedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -161,6 +173,12 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
       context.handle(
         _sessionIdMeta,
         sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    }
+    if (data.containsKey('recorded_at')) {
+      context.handle(
+        _recordedAtMeta,
+        recordedAt.isAcceptableOrUnknown(data['recorded_at']!, _recordedAtMeta),
       );
     }
     return context;
@@ -214,6 +232,10 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
         DriftSqlType.string,
         data['${effectivePrefix}session_id'],
       ),
+      recordedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}recorded_at'],
+      ),
     );
   }
 
@@ -261,6 +283,10 @@ class Event extends DataClass implements Insertable<Event> {
 
   /// Optional grouping ID to correlate events that belong to the same session.
   final String? sessionId;
+
+  /// When the event was actually logged in the app (for HCI/compliance metrics).
+  /// Null for older data (meaning recordedAt == timestamp).
+  final DateTime? recordedAt;
   const Event({
     required this.id,
     required this.timestamp,
@@ -271,6 +297,7 @@ class Event extends DataClass implements Insertable<Event> {
     required this.triggerSource,
     required this.interactionType,
     this.sessionId,
+    this.recordedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -298,6 +325,9 @@ class Event extends DataClass implements Insertable<Event> {
     if (!nullToAbsent || sessionId != null) {
       map['session_id'] = Variable<String>(sessionId);
     }
+    if (!nullToAbsent || recordedAt != null) {
+      map['recorded_at'] = Variable<DateTime>(recordedAt);
+    }
     return map;
   }
 
@@ -314,6 +344,9 @@ class Event extends DataClass implements Insertable<Event> {
       sessionId: sessionId == null && nullToAbsent
           ? const Value.absent()
           : Value(sessionId),
+      recordedAt: recordedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recordedAt),
     );
   }
 
@@ -338,6 +371,7 @@ class Event extends DataClass implements Insertable<Event> {
         serializer.fromJson<String>(json['interactionType']),
       ),
       sessionId: serializer.fromJson<String?>(json['sessionId']),
+      recordedAt: serializer.fromJson<DateTime?>(json['recordedAt']),
     );
   }
   @override
@@ -359,6 +393,7 @@ class Event extends DataClass implements Insertable<Event> {
         $EventsTable.$converterinteractionType.toJson(interactionType),
       ),
       'sessionId': serializer.toJson<String?>(sessionId),
+      'recordedAt': serializer.toJson<DateTime?>(recordedAt),
     };
   }
 
@@ -372,6 +407,7 @@ class Event extends DataClass implements Insertable<Event> {
     TriggerSource? triggerSource,
     InteractionType? interactionType,
     Value<String?> sessionId = const Value.absent(),
+    Value<DateTime?> recordedAt = const Value.absent(),
   }) => Event(
     id: id ?? this.id,
     timestamp: timestamp ?? this.timestamp,
@@ -382,6 +418,7 @@ class Event extends DataClass implements Insertable<Event> {
     triggerSource: triggerSource ?? this.triggerSource,
     interactionType: interactionType ?? this.interactionType,
     sessionId: sessionId.present ? sessionId.value : this.sessionId,
+    recordedAt: recordedAt.present ? recordedAt.value : this.recordedAt,
   );
   Event copyWithCompanion(EventsCompanion data) {
     return Event(
@@ -398,6 +435,9 @@ class Event extends DataClass implements Insertable<Event> {
           ? data.interactionType.value
           : this.interactionType,
       sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      recordedAt: data.recordedAt.present
+          ? data.recordedAt.value
+          : this.recordedAt,
     );
   }
 
@@ -412,7 +452,8 @@ class Event extends DataClass implements Insertable<Event> {
           ..write('latencyMs: $latencyMs, ')
           ..write('triggerSource: $triggerSource, ')
           ..write('interactionType: $interactionType, ')
-          ..write('sessionId: $sessionId')
+          ..write('sessionId: $sessionId, ')
+          ..write('recordedAt: $recordedAt')
           ..write(')'))
         .toString();
   }
@@ -428,6 +469,7 @@ class Event extends DataClass implements Insertable<Event> {
     triggerSource,
     interactionType,
     sessionId,
+    recordedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -441,7 +483,8 @@ class Event extends DataClass implements Insertable<Event> {
           other.latencyMs == this.latencyMs &&
           other.triggerSource == this.triggerSource &&
           other.interactionType == this.interactionType &&
-          other.sessionId == this.sessionId);
+          other.sessionId == this.sessionId &&
+          other.recordedAt == this.recordedAt);
 }
 
 class EventsCompanion extends UpdateCompanion<Event> {
@@ -454,6 +497,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
   final Value<TriggerSource> triggerSource;
   final Value<InteractionType> interactionType;
   final Value<String?> sessionId;
+  final Value<DateTime?> recordedAt;
   final Value<int> rowid;
   const EventsCompanion({
     this.id = const Value.absent(),
@@ -465,6 +509,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     this.triggerSource = const Value.absent(),
     this.interactionType = const Value.absent(),
     this.sessionId = const Value.absent(),
+    this.recordedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   EventsCompanion.insert({
@@ -477,6 +522,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     required TriggerSource triggerSource,
     required InteractionType interactionType,
     this.sessionId = const Value.absent(),
+    this.recordedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : category = Value(category),
        label = Value(label),
@@ -493,6 +539,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     Expression<String>? triggerSource,
     Expression<String>? interactionType,
     Expression<String>? sessionId,
+    Expression<DateTime>? recordedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -505,6 +552,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
       if (triggerSource != null) 'trigger_source': triggerSource,
       if (interactionType != null) 'interaction_type': interactionType,
       if (sessionId != null) 'session_id': sessionId,
+      if (recordedAt != null) 'recorded_at': recordedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -519,6 +567,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     Value<TriggerSource>? triggerSource,
     Value<InteractionType>? interactionType,
     Value<String?>? sessionId,
+    Value<DateTime?>? recordedAt,
     Value<int>? rowid,
   }) {
     return EventsCompanion(
@@ -531,6 +580,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
       triggerSource: triggerSource ?? this.triggerSource,
       interactionType: interactionType ?? this.interactionType,
       sessionId: sessionId ?? this.sessionId,
+      recordedAt: recordedAt ?? this.recordedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -571,6 +621,9 @@ class EventsCompanion extends UpdateCompanion<Event> {
     if (sessionId.present) {
       map['session_id'] = Variable<String>(sessionId.value);
     }
+    if (recordedAt.present) {
+      map['recorded_at'] = Variable<DateTime>(recordedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -589,6 +642,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
           ..write('triggerSource: $triggerSource, ')
           ..write('interactionType: $interactionType, ')
           ..write('sessionId: $sessionId, ')
+          ..write('recordedAt: $recordedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1823,6 +1877,7 @@ typedef $$EventsTableCreateCompanionBuilder =
       required TriggerSource triggerSource,
       required InteractionType interactionType,
       Value<String?> sessionId,
+      Value<DateTime?> recordedAt,
       Value<int> rowid,
     });
 typedef $$EventsTableUpdateCompanionBuilder =
@@ -1836,6 +1891,7 @@ typedef $$EventsTableUpdateCompanionBuilder =
       Value<TriggerSource> triggerSource,
       Value<InteractionType> interactionType,
       Value<String?> sessionId,
+      Value<DateTime?> recordedAt,
       Value<int> rowid,
     });
 
@@ -1895,6 +1951,11 @@ class $$EventsTableFilterComposer
     column: $table.sessionId,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$EventsTableOrderingComposer
@@ -1950,6 +2011,11 @@ class $$EventsTableOrderingComposer
     column: $table.sessionId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$EventsTableAnnotationComposer
@@ -1993,6 +2059,11 @@ class $$EventsTableAnnotationComposer
 
   GeneratedColumn<String> get sessionId =>
       $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => column,
+  );
 }
 
 class $$EventsTableTableManager
@@ -2032,6 +2103,7 @@ class $$EventsTableTableManager
                 Value<TriggerSource> triggerSource = const Value.absent(),
                 Value<InteractionType> interactionType = const Value.absent(),
                 Value<String?> sessionId = const Value.absent(),
+                Value<DateTime?> recordedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => EventsCompanion(
                 id: id,
@@ -2043,6 +2115,7 @@ class $$EventsTableTableManager
                 triggerSource: triggerSource,
                 interactionType: interactionType,
                 sessionId: sessionId,
+                recordedAt: recordedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2056,6 +2129,7 @@ class $$EventsTableTableManager
                 required TriggerSource triggerSource,
                 required InteractionType interactionType,
                 Value<String?> sessionId = const Value.absent(),
+                Value<DateTime?> recordedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => EventsCompanion.insert(
                 id: id,
@@ -2067,6 +2141,7 @@ class $$EventsTableTableManager
                 triggerSource: triggerSource,
                 interactionType: interactionType,
                 sessionId: sessionId,
+                recordedAt: recordedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

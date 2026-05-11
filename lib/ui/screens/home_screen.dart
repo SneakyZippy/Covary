@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<TrackingWindow> _missedWindows = [];
   List<TrackingWindow> _activeWindows = [];
   Set<String> _completedWindowIds = {};
+  List<Event> _todayEvents = [];
   
   // Permission Banner State
   bool _healthMissing = false;
@@ -83,11 +84,10 @@ class _HomeScreenState extends State<HomeScreen> {
         .where((w) => metricService.isTimeInWindow(now, w))
         .toList();
 
-    final completedIds = allEvents
-        .where((e) =>
-            e.timestamp.isAfter(todayStart) &&
-            e.category == EventCategory.meta &&
-            e.label == 'SessionCompleted')
+    final todayEvents = allEvents.where((e) => e.timestamp.isAfter(todayStart)).toList();
+
+    final completedIds = todayEvents
+        .where((e) => e.category == EventCategory.meta && e.label == 'SessionCompleted')
         .map((e) => e.value)
         .toSet();
 
@@ -95,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _activeWindows = activeWindows;
         _completedWindowIds = completedIds;
+        _todayEvents = todayEvents;
       });
       _updateMissedSessions(allEvents);
       _checkPermissionsAndDismissal();
@@ -254,6 +255,11 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 32),
 
               _buildActionRow(colorScheme, textTheme),
+              const SizedBox(height: 32),
+
+              _buildTrackingSuggestions(activeMetrics, colorScheme, textTheme),
+
+              _buildTodayTimeline(colorScheme, textTheme),
               
               if (activeMetrics.isEmpty && quickMetrics.isEmpty)
                 Padding(
@@ -620,6 +626,171 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildTodayTimeline(ColorScheme colorScheme, TextTheme textTheme) {
+    // Filter to manual / user-logged events
+    final userEvents = _todayEvents.where((e) => e.triggerSource != TriggerSource.system && e.category != EventCategory.meta).toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Newest first
+
+    if (userEvents.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Text(
+          "Today's Timeline",
+          style: textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withAlpha(100),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colorScheme.outlineVariant.withAlpha(100)),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              ...userEvents.take(5).map((e) {
+                final timeStr = "${e.timestamp.hour.toString().padLeft(2, '0')}:${e.timestamp.minute.toString().padLeft(2, '0')}";
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        timeStr,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          e.label,
+                          style: textTheme.bodyMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        e.value == '1' && e.label.toLowerCase().contains('coffee') ? '☕' : (e.value == 'true' ? 'Yes' : (e.value == 'false' ? 'No' : e.value)),
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              if (userEvents.length > 5)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Center(
+                    child: Text(
+                      '+${userEvents.length - 5} more (See Detailed Records)',
+                      style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrackingSuggestions(List<MetricDefinition> activeMetrics, ColorScheme colorScheme, TextTheme textTheme) {
+    final userEvents = _todayEvents.where((e) => e.triggerSource != TriggerSource.system && e.category != EventCategory.meta).toList();
+    final trackedLabels = userEvents.map((e) => e.label).toSet();
+    
+    final untrackedMetrics = activeMetrics.where((m) => !trackedLabels.contains(m.label)).toList();
+
+    if (untrackedMetrics.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer.withAlpha(150),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.star_rounded, color: colorScheme.secondary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                "You're doing great! All active metrics have been tracked today.",
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Recommend the first untracked metric
+    final recommendation = untrackedMetrics.first;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.tertiaryContainer.withAlpha(150),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.tertiary.withAlpha(100)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: colorScheme.tertiary.withAlpha(40),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.lightbulb_outline_rounded, color: colorScheme.tertiary),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Tracking Suggestion",
+                  style: textTheme.labelMedium?.copyWith(
+                    color: colorScheme.tertiary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "You haven't tracked '${recommendation.label}' today. Want to log it now?",
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/metric_definition.dart';
+import '../../data/database/tables/table_utils.dart';
 import 'metric_input_card.dart';
 import 'metric_icon.dart';
 
@@ -24,28 +25,40 @@ class QuickTrackButton extends StatelessWidget {
     required this.onLogged,
   });
 
-  Future<void> _handleTap(BuildContext context) async {
+  Future<void> _handleTap(BuildContext context, {DateTime? customTime}) async {
     if (metric.inputType == MetricInputType.counter) {
       try {
         final db = context.read<AppDatabase>();
+        final eventId = uuid.v4();
+        final now = DateTime.now();
         await db.insertEvent(
           EventsCompanion(
+            id: Value(eventId),
             category: Value(metric.category),
             label: Value(metric.label),
             value: const Value('1'),
             latencyMs: const Value(0),
             triggerSource: const Value(TriggerSource.manual),
             interactionType: const Value(InteractionType.click),
-            timestamp: Value(DateTime.now()),
+            timestamp: Value(customTime ?? now),
+            recordedAt: Value(now),
           ),
         );
         if (context.mounted) {
           onLogged();
+          ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${metric.label} logged! ✓'),
               behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 1),
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'UNDO',
+                onPressed: () async {
+                  await db.deleteEvent(eventId);
+                  onLogged();
+                },
+              ),
             ),
           );
         }
@@ -53,11 +66,11 @@ class QuickTrackButton extends StatelessWidget {
         debugPrint('Error logging quick track: $e');
       }
     } else {
-      _showInputModal(context);
+      _showInputModal(context, customTime: customTime);
     }
   }
 
-  void _showInputModal(BuildContext context) {
+  void _showInputModal(BuildContext context, {DateTime? customTime}) {
     final openedAt = DateTime.now();
     showModalBottomSheet(
       context: context,
@@ -78,24 +91,37 @@ class QuickTrackButton extends StatelessWidget {
                 try {
                   final latency = DateTime.now().difference(openedAt).inMilliseconds;
                   final db = ctx.read<AppDatabase>();
+                  final eventId = uuid.v4();
+                  final now = DateTime.now();
                   await db.insertEvent(
                     EventsCompanion(
+                      id: Value(eventId),
                       category: Value(metric.category),
                       label: Value(metric.label),
                       value: Value(value),
                       latencyMs: Value(latency),
                       triggerSource: const Value(TriggerSource.manual),
                       interactionType: const Value(InteractionType.click),
-                      timestamp: Value(DateTime.now()),
+                      timestamp: Value(customTime ?? now),
+                      recordedAt: Value(now),
                     ),
                   );
                   if (ctx.mounted) {
                     Navigator.pop(ctx);
                     onLogged();
+                    ScaffoldMessenger.of(ctx).clearSnackBars();
                     ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
                         content: Text('${metric.label} logged!'),
                         behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 5),
+                        action: SnackBarAction(
+                          label: 'UNDO',
+                          onPressed: () async {
+                            await db.deleteEvent(eventId);
+                            onLogged();
+                          },
+                        ),
                       ),
                     );
                   }
@@ -128,6 +154,19 @@ class QuickTrackButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             onTap: () => _handleTap(context),
+            onLongPress: () async {
+              final now = DateTime.now();
+              final time = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay.now(),
+              );
+              if (time != null && context.mounted) {
+                final customTime = DateTime(
+                  now.year, now.month, now.day, time.hour, time.minute,
+                );
+                _handleTap(context, customTime: customTime);
+              }
+            },
             borderRadius: BorderRadius.circular(20),
             child: Padding(
               padding: const EdgeInsets.all(16.0),

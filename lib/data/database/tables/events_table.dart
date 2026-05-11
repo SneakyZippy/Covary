@@ -33,6 +33,10 @@ class Events extends Table {
   /// Optional grouping ID to correlate events that belong to the same session.
   TextColumn get sessionId => text().nullable()();
 
+  /// When the event was actually logged in the app (for HCI/compliance metrics).
+  /// Null for older data (meaning recordedAt == timestamp).
+  DateTimeColumn get recordedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

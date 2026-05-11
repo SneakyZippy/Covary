@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
   
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -100,6 +100,10 @@ class AppDatabase extends _$AppDatabase {
         // Migration to version 13: Increase label length in events table (Drift-side validation)
         // SQLite doesn't enforce length, so no SQL is strictly needed here, 
         // but we bump the version to trigger code regeneration and maintain schema history.
+      }
+      if (from < 14) {
+        // Add recordedAt column to events table to separate occurrence time from logging time.
+        await addColumnSafe(events, events.recordedAt);
       }
     },
   );

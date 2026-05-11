@@ -48,9 +48,9 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   late final PageController _pageController;
   int _currentPage = 0;
 
-  /// Holds the current session's answers and latencies in memory.
-  /// Format: { metricId: (value, latencyMs) }
-  final Map<String, (String, int)> _sessionData = {};
+  /// Holds the current session's answers, latencies, and custom occurrence times.
+  /// Format: { metricId: (value, latencyMs, customTime) }
+  final Map<String, (String, int, DateTime?)> _sessionData = {};
 
   /// Tracks when the current card became visible.
   DateTime _cardVisibleAt = DateTime.now();
@@ -195,30 +195,33 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                               final latency = DateTime.now()
                                   .difference(_cardVisibleAt)
                                   .inMilliseconds;
+                              final customTime = _sessionData[metric.id]?.$3;
 
-                              if (metric.inputType ==
-                                  MetricInputType.counter) {
-                                // Bug 2 fix: pass the card-visible timestamp
-                                // so latency is measured, not hardcoded to 0.
-                                _logCounterTap(metric, latency);
+                              if (metric.inputType == MetricInputType.counter) {
+                                _logCounterTap(metric, latency, customTime: customTime);
                                 setState(() {
-                                  _sessionData[metric.id] = ('1', latency);
+                                  _sessionData[metric.id] = ('1', latency, customTime);
                                 });
                               } else {
                                 setState(() {
-                                  _sessionData[metric.id] = (value, latency);
+                                  _sessionData[metric.id] = (value, latency, customTime);
                                 });
                               }
-                              // Auto-advance for all types (including sliders on release)
+                              // Auto-advance for all types
                               const shouldAutoAdvance = true;
                               if (shouldAutoAdvance && index < metrics.length) {
                                 _pageController.nextPage(
-                                  duration:
-                                      const Duration(milliseconds: 400),
+                                  duration: const Duration(milliseconds: 400),
                                   curve: Curves.easeInOut,
                                 );
                               }
                             },
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTimePickerButton(
+                            metric.id, 
+                            _sessionData[metric.id]?.$3 ?? widget.targetTime ?? DateTime.now(),
+                            colorScheme,
                           ),
                         ],
                       ),
@@ -241,6 +244,32 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTimePickerButton(String metricId, DateTime currentTime, ColorScheme colorScheme) {
+    final timeStr = "${currentTime.hour.toString().padLeft(2, '0')}:${currentTime.minute.toString().padLeft(2, '0')}";
+    return TextButton.icon(
+      onPressed: () async {
+        final time = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay.fromDateTime(currentTime),
+        );
+        if (time != null && mounted) {
+          final newTime = DateTime(
+            currentTime.year, currentTime.month, currentTime.day, time.hour, time.minute,
+          );
+          setState(() {
+            final existing = _sessionData[metricId];
+            _sessionData[metricId] = (existing?.$1 ?? '', existing?.$2 ?? 0, newTime);
+          });
+        }
+      },
+      icon: Icon(Icons.access_time_rounded, size: 16, color: colorScheme.onSurfaceVariant),
+      label: Text(
+        'Happened at $timeStr',
+        style: TextStyle(color: colorScheme.onSurfaceVariant),
+      ),
     );
   }
 
@@ -317,11 +346,10 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     );
   }
 
-  /// Bug 2 fix: [latencyMs] is now passed in from the caller so counter taps
-  /// record real response time instead of always being 0.
-  Future<void> _logCounterTap(MetricDefinition metric, int latencyMs) async {
+  Future<void> _logCounterTap(MetricDefinition metric, int latencyMs, {DateTime? customTime}) async {
     try {
       final db = context.read<AppDatabase>();
+      final now = DateTime.now();
       await db.insertEvent(
         EventsCompanion(
           category: Value(metric.category),
@@ -330,7 +358,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           latencyMs: Value(latencyMs),
           triggerSource: Value(widget.triggerSource),
           interactionType: const Value(InteractionType.click),
-          timestamp: Value(widget.targetTime ?? DateTime.now()),
+          timestamp: Value(customTime ?? widget.targetTime ?? now),
+          recordedAt: Value(now),
         ),
       );
       if (mounted) {
@@ -349,57 +378,89 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 
   void _showSingleMetricInput(MetricDefinition metric) {
     final openedAt = DateTime.now();
+    DateTime customTime = widget.targetTime ?? DateTime.now();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MetricInputCard(
-              metric: metric,
-            onChanged: (value) async {
-              try {
-                final latency = DateTime.now().difference(openedAt).inMilliseconds;
-                final db = context.read<AppDatabase>();
-                await db.insertEvent(
-                  EventsCompanion(
-                    category: Value(metric.category),
-                    label: Value(metric.label),
-                    value: Value(value),
-                    latencyMs: Value(latency),
-                    // Bug 3 fix: propagate the widget's triggerSource.
-                    triggerSource: Value(widget.triggerSource),
-                    interactionType: const Value(InteractionType.click),
-                    timestamp: Value(widget.targetTime ?? DateTime.now()),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final timeStr = "${customTime.hour.toString().padLeft(2, '0')}:${customTime.minute.toString().padLeft(2, '0')}";
+            
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MetricInputCard(
+                    metric: metric,
+                    onChanged: (value) async {
+                      try {
+                        final latency = DateTime.now().difference(openedAt).inMilliseconds;
+                        final db = context.read<AppDatabase>();
+                        final now = DateTime.now();
+                        await db.insertEvent(
+                          EventsCompanion(
+                            category: Value(metric.category),
+                            label: Value(metric.label),
+                            value: Value(value),
+                            latencyMs: Value(latency),
+                            triggerSource: Value(widget.triggerSource),
+                            interactionType: const Value(InteractionType.click),
+                            timestamp: Value(customTime),
+                            recordedAt: Value(now),
+                          ),
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${metric.label} logged!'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('Error logging metric: $e');
+                        if (context.mounted) Navigator.pop(context);
+                      }
+                    },
                   ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () async {
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(customTime),
                 );
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${metric.label} logged!'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                if (time != null && context.mounted) {
+                  setModalState(() {
+                    customTime = DateTime(
+                      customTime.year, customTime.month, customTime.day, time.hour, time.minute,
+                    );
+                  });
                 }
-              } catch (e) {
-                debugPrint('Error logging metric: $e');
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
+              },
+              icon: Icon(Icons.access_time_rounded, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              label: Text(
+                'Happened at $timeStr',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
             ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
+            const SizedBox(height: 8),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
   }
 
   Future<void> _submitSession(List<MetricDefinition> metrics) async {
@@ -413,17 +474,17 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 
       final data = _sessionData[metric.id];
       if (data != null) {
+        final now = DateTime.now();
         await db.insertEvent(
           EventsCompanion(
             category: Value(metric.category),
             label: Value(metric.label),
             value: Value(data.$1),
             latencyMs: Value(data.$2),
-            // Bug 3 fix: use widget.triggerSource so notification-launched
-            // sessions are distinguishable from manual opens in the data.
             triggerSource: Value(widget.triggerSource),
             interactionType: const Value(InteractionType.click),
-            timestamp: Value(widget.targetTime ?? DateTime.now()),
+            timestamp: Value(data.$3 ?? widget.targetTime ?? now),
+            recordedAt: Value(now),
             sessionId: Value(sessionId),
           ),
         );
@@ -515,7 +576,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 
 class _CheckinReviewCard extends StatelessWidget {
   final List<MetricDefinition> metrics;
-  final Map<String, (String, int)> sessionData;
+  final Map<String, (String, int, DateTime?)> sessionData;
   final ValueChanged<int> onJumpToPage;
   final VoidCallback onSubmit;
 
