@@ -125,6 +125,8 @@ class AnalyticsService {
     String label, {
     bool normalize = false,
     int lastNDays = 14,
+    double? minValue,
+    double? maxValue,
   }) async {
     final events = await _db.getEventsByLabel(label);
     if (events.isEmpty) return {};
@@ -136,20 +138,39 @@ class AnalyticsService {
     final cutoffDate = DateTime(cutoff.year, cutoff.month, cutoff.day);
     daily.removeWhere((date, _) => date.isBefore(cutoffDate));
 
-    if (!normalize || daily.isEmpty) return daily;
+    // Zero-fill for counters/behavior/nutrition (things that have a "none" state)
+    final firstEvent = events.first;
+    bool shouldZeroFill = firstEvent.category == EventCategory.nutrition || 
+                         firstEvent.category == EventCategory.behavior ||
+                         firstEvent.category == EventCategory.social;
+                         
+    Map<DateTime, double> result = shouldZeroFill ? _zeroFillDaily(daily, lastNDays) : daily;
 
-    // Min-max normalization
-    final values = daily.values.toList();
-    final minVal = values.reduce(min);
-    final maxVal = values.reduce(max);
-    final range = maxVal - minVal;
+    if (!normalize || result.isEmpty) return result;
+
+    final values = result.values.toList();
+    final actualMin = minValue ?? values.reduce(min);
+    final actualMax = maxValue ?? values.reduce(max);
+    final range = actualMax - actualMin;
 
     if (range == 0) {
-      // All values are identical — normalize to 0.5
-      return daily.map((k, _) => MapEntry(k, 0.5));
+      return result.map((k, _) => MapEntry(k, 0.5));
     }
 
-    return daily.map((k, v) => MapEntry(k, (v - minVal) / range));
+    return result.map((k, v) => MapEntry(k, ((v - actualMin) / range).clamp(0.0, 1.0)));
+  }
+
+  /// Fills gaps in a daily time series with 0.0.
+  Map<DateTime, double> _zeroFillDaily(Map<DateTime, double> data, int lastNDays) {
+    final Map<DateTime, double> filled = {};
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    for (int i = 0; i < lastNDays; i++) {
+      final date = today.subtract(Duration(days: i));
+      filled[date] = data[date] ?? 0.0;
+    }
+    return filled;
   }
 
   /// Returns the hourly aggregated time series for a metric across the last N days,
@@ -160,6 +181,8 @@ class AnalyticsService {
     String label, {
     bool normalize = false,
     int lastNDays = 14,
+    double? minValue,
+    double? maxValue,
   }) async {
     final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
     final events = await _db.getEventsByLabel(label);
@@ -174,15 +197,15 @@ class AnalyticsService {
 
     // Min-max normalization
     final values = hourly.values.toList();
-    final minVal = values.reduce(min);
-    final maxVal = values.reduce(max);
-    final range = maxVal - minVal;
+    final actualMin = minValue ?? values.reduce(min);
+    final actualMax = maxValue ?? values.reduce(max);
+    final range = actualMax - actualMin;
 
     if (range == 0) {
       return hourly.map((k, _) => MapEntry(k, 0.5));
     }
 
-    return hourly.map((k, v) => MapEntry(k, (v - minVal) / range));
+    return hourly.map((k, v) => MapEntry(k, ((v - actualMin) / range).clamp(0.0, 1.0)));
   }
 
   /// Returns a raw hourly timeline for a metric across the last N days.
@@ -191,6 +214,8 @@ class AnalyticsService {
     String label, {
     bool normalize = false,
     int lastNDays = 2,
+    double? minValue,
+    double? maxValue,
   }) async {
     final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
     final events = await _db.getEventsByLabel(label);
@@ -200,16 +225,38 @@ class AnalyticsService {
 
     final timeline = _aggregateByRawHour(filteredEvents);
 
-    if (!normalize || timeline.isEmpty) return timeline;
+    // Zero-fill for counters/behavior/nutrition
+    final firstEvent = events.first;
+    bool shouldZeroFill = firstEvent.category == EventCategory.nutrition || 
+                         firstEvent.category == EventCategory.behavior ||
+                         firstEvent.category == EventCategory.social;
+                         
+    Map<DateTime, double> result = shouldZeroFill ? _zeroFillHourly(timeline, lastNDays) : timeline;
+
+    if (!normalize || result.isEmpty) return result;
     
-    final values = timeline.values.toList();
-    final minVal = values.reduce(min);
-    final maxVal = values.reduce(max);
-    final range = maxVal - minVal;
+    final values = result.values.toList();
+    final actualMin = minValue ?? values.reduce(min);
+    final actualMax = maxValue ?? values.reduce(max);
+    final range = actualMax - actualMin;
 
-    if (range == 0) return timeline.map((k, _) => MapEntry(k, 0.5));
+    if (range == 0) return result.map((k, _) => MapEntry(k, 0.5));
 
-    return timeline.map((k, v) => MapEntry(k, (v - minVal) / range));
+    return result.map((k, v) => MapEntry(k, ((v - actualMin) / range).clamp(0.0, 1.0)));
+  }
+
+  /// Fills gaps in an hourly timeline with 0.0.
+  Map<DateTime, double> _zeroFillHourly(Map<DateTime, double> data, int lastNDays) {
+    final Map<DateTime, double> filled = {};
+    final now = DateTime.now();
+    final currentHour = DateTime(now.year, now.month, now.day, now.hour);
+    
+    final int totalHours = lastNDays * 24;
+    for (int i = 0; i < totalHours; i++) {
+      final date = currentHour.subtract(Duration(hours: i));
+      filled[date] = data[date] ?? 0.0;
+    }
+    return filled;
   }
 
   Map<DateTime, double> _aggregateByRawHour(List<Event> events) {
@@ -246,6 +293,11 @@ class AnalyticsService {
                  firstEvent.label.startsWith('app_segment:') ||
                  firstEvent.label.startsWith('category_segment:')) {
         // Segments are already hourly values, so we just take the sum (usually only 1 exists)
+        result[date] = vals.reduce((a, b) => a + b);
+      } else if (firstEvent.category == EventCategory.nutrition || 
+                 firstEvent.category == EventCategory.behavior ||
+                 firstEvent.category == EventCategory.social) {
+        // Counters and discrete behaviors should be SUMMED within the hour
         result[date] = vals.reduce((a, b) => a + b);
       } else {
         result[date] = vals.reduce(max);

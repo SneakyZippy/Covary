@@ -40,7 +40,6 @@ class _RawDataScreenState extends State<RawDataScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final db = context.watch<AppDatabase>();
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 

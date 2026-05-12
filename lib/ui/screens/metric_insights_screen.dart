@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
+import '../../data/models/enums.dart';
 import '../../ui/theme/design_system.dart';
 
 enum InsightViewMode { daily, circadian, timeline }
@@ -65,7 +66,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     final metricService = context.read<MetricService>();
     final subjective = metricService.allMetrics
         .where((m) => m.isEnabled)
-        .map((m) => _SelectableMetric(m.label, m.label, _emojiFor(m.emoji)))
+        .map((m) => _SelectableMetric(m.label, m.label, _emojiFor(m.emoji), inputType: m.inputType))
         .toList();
 
     setState(() {
@@ -94,19 +95,25 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     Map<dynamic, double> primaryData = {};
     Map<dynamic, double> secondaryData = {};
 
+    final (pMin, pMax) = _getMetricBounds(_primaryLabel!);
+    final (sMin, sMax) = _secondaryLabel != null ? _getMetricBounds(_secondaryLabel!) : (null, null);
+
     if (_viewMode == InsightViewMode.daily) {
-      primaryData = await analytics.getDailyTimeSeries(_primaryLabel!, normalize: shouldNormalize, lastNDays: _dayRange);
+      primaryData = await analytics.getDailyTimeSeries(_primaryLabel!, normalize: shouldNormalize, lastNDays: _dayRange, minValue: pMin, maxValue: pMax);
       if (_secondaryLabel != null) {
-        secondaryData = await analytics.getDailyTimeSeries(_secondaryLabel!, normalize: true, lastNDays: _dayRange);
+        secondaryData = await analytics.getDailyTimeSeries(_secondaryLabel!, normalize: true, lastNDays: _dayRange, minValue: sMin, maxValue: sMax);
       }
+    } else if (_viewMode == InsightViewMode.circadian) {
+      primaryData = await analytics.getHourlyTimeSeries(_primaryLabel!, normalize: shouldNormalize, lastNDays: _dayRange, minValue: pMin, maxValue: pMax);
       if (_secondaryLabel != null) {
-        secondaryData = await analytics.getHourlyTimeSeries(_secondaryLabel!, normalize: true, lastNDays: _dayRange);
+        secondaryData = await analytics.getHourlyTimeSeries(_secondaryLabel!, normalize: true, lastNDays: _dayRange, minValue: sMin, maxValue: sMax);
       }
     } else {
       // Timeline Mode (Hourly points)
-      primaryData = await analytics.getRawHourlyTimeline(_primaryLabel!, normalize: shouldNormalize, lastNDays: _dayRange == 30 ? 3 : (_dayRange == 14 ? 2 : 1));
+      final timelineDays = _dayRange == 30 ? 3 : (_dayRange == 14 ? 2 : 1);
+      primaryData = await analytics.getRawHourlyTimeline(_primaryLabel!, normalize: shouldNormalize, lastNDays: timelineDays, minValue: pMin, maxValue: pMax);
       if (_secondaryLabel != null) {
-        secondaryData = await analytics.getRawHourlyTimeline(_secondaryLabel!, normalize: true, lastNDays: _dayRange == 30 ? 3 : (_dayRange == 14 ? 2 : 1));
+        secondaryData = await analytics.getRawHourlyTimeline(_secondaryLabel!, normalize: true, lastNDays: timelineDays, minValue: sMin, maxValue: sMax);
       }
     }
 
@@ -118,6 +125,16 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       });
       _fadeController.forward(from: 0);
     }
+  }
+
+  (double?, double?) _getMetricBounds(String label) {
+    try {
+      final metric = _allMetrics.firstWhere((m) => m.label == label);
+      if (metric.inputType == MetricInputType.scale1to5) return (1.0, 5.0);
+      if (metric.inputType == MetricInputType.scale1to10) return (1.0, 10.0);
+      if (metric.inputType == MetricInputType.yesNo) return (0.0, 1.0);
+    } catch (_) {}
+    return (null, null);
   }
 
   String _displayName(String label) {
@@ -419,10 +436,21 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     const accentB = CovaryDesignSystem.secondary;
 
     // Y Axis scaling
+    final bool isCounter = _allMetrics.any((m) => m.label == _primaryLabel && m.inputType == MetricInputType.counter);
+    final bool isSecondaryCounter = isComparing && _allMetrics.any((m) => m.label == _secondaryLabel && m.inputType == MetricInputType.counter);
+    
     final maxY = isComparing ? 1.0 : (maxValA > 0 ? maxValA * 1.2 : 1.0);
     // X Axis scaling
     final minX = 0.0;
     final maxX = isCircadian ? 23.0 : (allKeys.isNotEmpty ? allKeys.length.toDouble() - 1 : 0.0);
+
+    // Calculate Y interval to avoid duplicate labels (0, 1, 1, 2, 2)
+    double yInterval = isComparing ? 0.5 : (maxY / 4);
+    if (!isComparing && isCounter && maxY < 6 && maxY > 0) {
+      yInterval = 1.0; 
+    } else if (!isComparing && maxY < 1 && maxY > 0) {
+      yInterval = 0.25;
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 20, 16, 12),
@@ -447,109 +475,173 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
           const SizedBox(height: 24),
           SizedBox(
             height: 220,
-            child: LineChart(
-              LineChartData(
-                minX: minX,
-                maxX: maxX,
-                minY: 0,
-                maxY: maxY,
-                gridData: FlGridData(
-                  show: true,
-                  horizontalInterval: isComparing ? 0.25 : (maxY / 4),
-                  getDrawingHorizontalLine: (_) => FlLine(color: Colors.white.withAlpha(15), strokeWidth: 0.5),
-                  drawVerticalLine: false,
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      interval: isComparing ? 0.5 : (maxY / 4),
-                      getTitlesWidget: (v, _) => Text(
-                        isComparing ? v.toStringAsFixed(1) : v.toStringAsFixed(0),
-                        style: TextStyle(fontSize: 9, color: Colors.white.withAlpha(80)),
+            child: (!isComparing && isCounter && (_viewMode == InsightViewMode.daily || _viewMode == InsightViewMode.timeline))
+              ? BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    maxY: maxY,
+                    barTouchData: BarTouchData(
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          final key = allKeys[group.x.toInt()];
+                          String timeStr = '';
+                          if (key is DateTime) timeStr = DateFormat('HH:mm').format(key);
+                          return BarTooltipItem(
+                            '${rod.toY.toStringAsFixed(0)}\n$timeStr',
+                            TextStyle(color: accentA, fontWeight: FontWeight.bold, fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+                    titlesData: _buildTitlesData(allKeys, isCircadian, isTimeline, yInterval, isComparing),
+                    gridData: FlGridData(
+                      show: true,
+                      horizontalInterval: yInterval,
+                      getDrawingHorizontalLine: (_) => FlLine(color: Colors.white.withAlpha(15), strokeWidth: 0.5),
+                      drawVerticalLine: false,
+                    ),
+                    borderData: FlBorderData(show: false),
+                    barGroups: spotsA.map((s) => BarChartGroupData(
+                      x: s.x.toInt(),
+                      barRods: [
+                        BarChartRodData(
+                          toY: s.y,
+                          color: accentA,
+                          width: 16,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                          backDrawRodData: BackgroundBarChartRodData(
+                            show: true,
+                            toY: maxY,
+                            color: accentA.withAlpha(10),
+                          ),
+                        ),
+                      ],
+                    )).toList(),
+                  ),
+                )
+              : LineChart(
+                  LineChartData(
+                    minX: minX,
+                    maxX: maxX,
+                    minY: 0,
+                    maxY: maxY,
+                    gridData: FlGridData(
+                      show: true,
+                      horizontalInterval: yInterval,
+                      getDrawingHorizontalLine: (_) => FlLine(color: Colors.white.withAlpha(15), strokeWidth: 0.5),
+                      drawVerticalLine: false,
+                    ),
+                    titlesData: _buildTitlesData(allKeys, isCircadian, isTimeline, yInterval, isComparing),
+                    borderData: FlBorderData(show: false),
+                    lineBarsData: [
+                      _lineBar(spotsA, accentA, isFilled: !isComparing, isStep: isCounter),
+                      if (isComparing) _lineBar(spotsB, accentB, isFilled: false, isStep: isSecondaryCounter),
+                    ],
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
+                        getTooltipItems: (spots) {
+                          final key = allKeys[spots.first.x.toInt()];
+                          String timeStr = '';
+                          if (key is DateTime) timeStr = DateFormat('HH:mm').format(key);
+                          
+                          return spots.map((s) {
+                            final color = s.barIndex == 0 ? accentA : accentB;
+                            final label = s.barIndex == 0 ? _displayName(_primaryLabel!) : _displayName(_secondaryLabel!);
+                            return LineTooltipItem(
+                              '$timeStr\n$label: ${s.y.toStringAsFixed(isComparing ? 2 : 1)}',
+                              TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                            );
+                          }).toList();
+                        },
                       ),
                     ),
                   ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      interval: isCircadian ? 4 : max(1, (allKeys.length / 5).ceilToDouble()),
-                      getTitlesWidget: (v, _) {
-                        if (isCircadian) {
-                          final hour = v.toInt();
-                          if (hour < 0 || hour > 23) return const SizedBox();
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text('${hour.toString().padLeft(2, '0')}:00', style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))),
-                          );
-                        } else if (isTimeline) {
-                          final idx = v.toInt();
-                          if (idx < 0 || idx >= allKeys.length) return const SizedBox();
-                          final key = allKeys[idx] as DateTime;
-                          if (idx % 6 != 0 && key.hour != 0) return const SizedBox();
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              key.hour == 0 ? DateFormat('E').format(key) : '${key.hour}h', 
-                              style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))
-                            ),
-                          );
-                        } else {
-                          final idx = v.toInt();
-                          if (idx < 0 || idx >= allKeys.length) return const SizedBox();
-                          final key = allKeys[idx];
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(DateFormat('d MMM').format(key as DateTime), style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeInOut,
                 ),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  _lineBar(spotsA, accentA, isFilled: !isComparing),
-                  if (isComparing) _lineBar(spotsB, accentB, isFilled: false),
-                ],
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
-                    getTooltipItems: (spots) => spots.map((s) {
-                      final color = s.barIndex == 0 ? accentA : accentB;
-                      return LineTooltipItem(
-                        s.y.toStringAsFixed(isComparing ? 2 : 1),
-                        TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.easeInOut,
-            ),
           ),
         ],
       ),
     );
   }
 
-  LineChartBarData _lineBar(List<FlSpot> spots, Color color, {required bool isFilled}) {
+  FlTitlesData _buildTitlesData(List<dynamic> allKeys, bool isCircadian, bool isTimeline, double yInterval, bool isComparing) {
+    return FlTitlesData(
+      leftTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 40,
+          interval: yInterval,
+          getTitlesWidget: (v, _) => Text(
+            isComparing ? v.toStringAsFixed(1) : v.toStringAsFixed(0),
+            style: TextStyle(fontSize: 9, color: Colors.white.withAlpha(80)),
+          ),
+        ),
+      ),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 28,
+          interval: isCircadian ? 4 : (isTimeline ? 4 : max(1, (allKeys.length / 5).ceilToDouble())),
+          getTitlesWidget: (v, _) {
+            if (isCircadian) {
+              final hour = v.toInt();
+              if (hour < 0 || hour > 23) return const SizedBox();
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('${hour.toString().padLeft(2, '0')}:00', style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))),
+              );
+            } else if (isTimeline) {
+              final idx = v.toInt();
+              if (idx < 0 || idx >= allKeys.length) return const SizedBox();
+              final key = allKeys[idx] as DateTime;
+              // Show every 4 hours, or at midnight
+              if (idx % 4 != 0 && key.hour != 0) return const SizedBox();
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  key.hour == 0 ? DateFormat('E').format(key) : '${key.hour}h', 
+                  style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))
+                ),
+              );
+            } else {
+              final idx = v.toInt();
+              if (idx < 0 || idx >= allKeys.length) return const SizedBox();
+              final key = allKeys[idx];
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(DateFormat('d MMM').format(key as DateTime), style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))),
+              );
+            }
+          },
+        ),
+      ),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+    );
+  }
+
+  LineChartBarData _lineBar(List<FlSpot> spots, Color color, {required bool isFilled, bool isStep = false}) {
     return LineChartBarData(
       spots: spots,
-      isCurved: true,
+      isCurved: !isStep,
+      isStepLineChart: false, // Switching to straight spikes for better event representation
       curveSmoothness: 0.35,
       color: color,
-      barWidth: 3,
+      barWidth: isStep ? 2 : 3, // Thinner lines for spikes
       isStrokeCapRound: true,
       dotData: FlDotData(
         show: true,
+        checkToShowDot: (spot, barData) {
+          // For events/counters, only show dots for the peaks to reduce clutter
+          if (isStep) return spot.y > 0;
+          // For continuous scales, show dots at intervals or all
+          return true;
+        },
         getDotPainter: (spot, xPercentage, bar, index) => FlDotCirclePainter(
-          radius: 3,
+          radius: isStep ? 3 : 2,
           color: color,
           strokeWidth: 0,
         ),
@@ -557,7 +649,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       belowBarData: BarAreaData(
         show: isFilled,
         gradient: LinearGradient(
-          colors: [color.withAlpha(50), color.withAlpha(0)],
+          colors: [color.withAlpha(isStep ? 80 : 50), color.withAlpha(0)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -580,7 +672,9 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
 
   Widget _buildInsightCard(ColorScheme colorScheme, TextTheme textTheme) {
     final isCircadian = _viewMode == InsightViewMode.circadian;
+    final isTimeline = _viewMode == InsightViewMode.timeline;
     final isComparing = _secondaryLabel != null;
+    final bool isCounter = _allMetrics.any((m) => m.label == _primaryLabel && m.inputType == MetricInputType.counter);
 
     String insightText = '';
     
@@ -610,6 +704,51 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         }
       } else {
         insightText = 'Your ${_displayName(_primaryLabel!).toLowerCase()} typically peaks around $peakHour:00.';
+      }
+    } else if (isTimeline && isCounter && _seriesPrimary.isNotEmpty) {
+      // Find hours with activity
+      final activeHours = _seriesPrimary.entries
+          .where((e) => e.value > 0)
+          .map((e) => (e.key as DateTime).hour)
+          .toSet()
+          .toList()
+        ..sort();
+      
+      if (activeHours.isEmpty) {
+        insightText = 'No activity recorded in the last $_dayRange days.';
+      } else {
+        final hoursStr = activeHours.map((h) => '$h:00').join(', ');
+        insightText = 'You typically log ${_displayName(_primaryLabel!).toLowerCase()} at: $hoursStr.';
+      }
+    } else if (isComparing && _seriesPrimary.isNotEmpty && _seriesSecondary.isNotEmpty) {
+      // Basic correlation check for comparison
+      // We look for alignment in peaks or general trend
+      double primaryAvg = _seriesPrimary.values.reduce((a, b) => a + b) / _seriesPrimary.length;
+      double secondaryAvg = _seriesSecondary.values.reduce((a, b) => a + b) / _seriesSecondary.length;
+      
+      int agreement = 0;
+      int total = 0;
+      
+      _seriesPrimary.forEach((k, v1) {
+        if (_seriesSecondary.containsKey(k)) {
+          final v2 = _seriesSecondary[k]!;
+          final pHigh = v1 > primaryAvg;
+          final sHigh = v2 > secondaryAvg;
+          if (pHigh == sHigh) agreement++;
+          total++;
+        }
+      });
+
+      final ratio = total > 0 ? agreement / total : 0.5;
+      final pName = _displayName(_primaryLabel!).toLowerCase();
+      final sName = _displayName(_secondaryLabel!).toLowerCase();
+
+      if (ratio > 0.7) {
+        insightText = 'There is a strong positive correlation between your $pName and $sName.';
+      } else if (ratio < 0.3) {
+        insightText = 'Your $pName and $sName seem to move in opposite directions.';
+      } else {
+        insightText = 'No clear immediate correlation between $pName and $sName in this window.';
       }
     } else {
       double avg = 0;
@@ -669,5 +808,6 @@ class _SelectableMetric {
   final String label;
   final String displayName;
   final String emoji;
-  const _SelectableMetric(this.label, this.displayName, this.emoji);
+  final MetricInputType? inputType;
+  const _SelectableMetric(this.label, this.displayName, this.emoji, {this.inputType});
 }
