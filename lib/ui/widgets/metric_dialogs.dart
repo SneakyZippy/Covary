@@ -558,6 +558,10 @@ class WindowCheckboxList extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
+    // A metric is "Quick Log Only" when it has no window assignments at all
+    final isQuickLogOnly = selectedIds.isEmpty ||
+        (selectedIds.length == 1 && selectedIds.first.isEmpty);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -566,6 +570,25 @@ class WindowCheckboxList extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
+            FilterChip(
+              label: const Text('Quick Log Only'),
+              selected: isQuickLogOnly,
+              onSelected: (val) {
+                if (val) {
+                  // Clear all windows — metric is only reachable via Quick Log
+                  onChanged([]);
+                } else {
+                  // Default back to "anytime" when unchecking Quick Log Only
+                  onChanged(['anytime']);
+                }
+              },
+              avatar: Icon(Icons.touch_app_outlined, 
+                  size: 18, 
+                  color: isQuickLogOnly ? colorScheme.onTertiaryContainer : colorScheme.tertiary),
+              selectedColor: colorScheme.tertiaryContainer,
+              checkmarkColor: colorScheme.onTertiaryContainer,
+              tooltip: 'Only accessible via the Quick Log grid on the dashboard',
+            ),
             FilterChip(
               label: const Text('Home Screen'),
               selected: selectedIds.contains('homescreen'),
@@ -603,8 +626,25 @@ class WindowCheckboxList extends StatelessWidget {
             ),
           ],
         ),
+
+        if (isQuickLogOnly)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 14, color: colorScheme.tertiary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'This metric won\'t appear in guided check-ins or on the home screen. Use the Quick Log button to track it.',
+                    style: textTheme.bodySmall?.copyWith(color: colorScheme.tertiary),
+                  ),
+                ),
+              ],
+            ),
+          ),
         
-        if (windows.isNotEmpty) ...[
+        if (windows.isNotEmpty && !isQuickLogOnly) ...[
           const SizedBox(height: 16),
           Text(
             'Specific Windows',

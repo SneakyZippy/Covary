@@ -74,7 +74,16 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     final metricService = context.watch<MetricService>();
 
     final currentTime = widget.targetTime ?? DateTime.now();
-    final activeMetrics = metricService.activeMetricsAt(currentTime);
+    
+    // Guided mode: only metrics assigned to the current time window.
+    // Manual/Quick Log mode: ALL enabled metrics (including "Quick Log Only"
+    // metrics that have no window assignments).
+    final List<MetricDefinition> metrics;
+    if (widget.mode == CheckinMode.manual) {
+      metrics = metricService.allMetrics.where((m) => m.isEnabled).toList();
+    } else {
+      metrics = metricService.activeMetricsAt(currentTime);
+    }
     
     return Scaffold(
       appBar: AppBar(
@@ -84,11 +93,11 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: activeMetrics.isEmpty
+        child: metrics.isEmpty
             ? _buildEmptyState(colorScheme, textTheme)
             : widget.mode == CheckinMode.guided
-                ? _buildGuidedFlow(activeMetrics, colorScheme, textTheme)
-                : _buildManualGrid(activeMetrics, colorScheme, textTheme),
+                ? _buildGuidedFlow(metrics, colorScheme, textTheme)
+                : _buildManualGrid(metrics, colorScheme, textTheme),
       ),
     );
   }

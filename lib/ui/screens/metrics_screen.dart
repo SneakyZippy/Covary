@@ -270,12 +270,34 @@ class _MetricTile extends StatelessWidget {
               color: metric.isEnabled ? colorScheme.onSurface : colorScheme.outline,
             ),
           ),
-          subtitle: Text(
-            metric.inputType.displayLabel,
-            style: TextStyle(
-              color: metric.isEnabled ? colorScheme.onSurfaceVariant : colorScheme.outline, 
-              fontSize: 12,
-            ),
+          subtitle: Row(
+            children: [
+              Text(
+                metric.inputType.displayLabel,
+                style: TextStyle(
+                  color: metric.isEnabled ? colorScheme.onSurfaceVariant : colorScheme.outline, 
+                  fontSize: 12,
+                ),
+              ),
+              if (metric.isEnabled && metric.windowIds.isEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Quick Log Only',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           trailing: Switch(
             value: metric.isEnabled,

@@ -19,6 +19,11 @@ const _kCoreMetricWindowPrefix = 'core_metric_window_';
 /// "retroReliableOverride not passed" from explicitly setting it to null.
 const _kUnset = Object();
 
+/// Serializes a list of window IDs for DB storage.
+/// An empty list becomes '_none_' (Quick Log Only sentinel).
+String _serializeWindowIds(List<String> ids) =>
+    ids.isEmpty ? '_none_' : ids.join(',');
+
 /// Service that manages all metric definitions (core + custom).
 ///
 /// Core metrics are hard-coded with their enabled/disabled state persisted
@@ -313,9 +318,17 @@ class MetricService extends ChangeNotifier {
     final customRows = await _db.getAllCustomMetrics();
     final customMetrics = customRows.map((row) {
       final rawWindows = row.windowIds;
-      final windowIds = (rawWindows.isEmpty) 
-          ? ['anytime'] 
-          : rawWindows.split(',').where((s) => s.isNotEmpty).toList();
+      // '_none_' is a sentinel stored in the DB to mean "Quick Log Only" — 
+      // the metric has no window assignments and only appears in manual Quick Log.
+      // An empty string is legacy data and defaults to 'anytime' for backward compat.
+      final List<String> windowIds;
+      if (rawWindows == '_none_') {
+        windowIds = [];
+      } else if (rawWindows.isEmpty) {
+        windowIds = ['anytime'];
+      } else {
+        windowIds = rawWindows.split(',').where((s) => s.isNotEmpty).toList();
+      }
 
       return MetricDefinition(
         id: row.id,
@@ -455,7 +468,7 @@ class MetricService extends ChangeNotifier {
     if (index == -1) return;
 
     final metric = _allMetrics[index];
-    final windowIdsString = windowIds.join(',');
+    final windowIdsString = _serializeWindowIds(windowIds);
 
     await _db.updateCustomMetricWindows(id, windowIdsString);
 
@@ -490,7 +503,7 @@ class MetricService extends ChangeNotifier {
         category: Value(category),
         inputType: Value(inputType),
         isEnabled: const Value(true),
-        windowIds: Value(windowIds.join(',')),
+        windowIds: Value(_serializeWindowIds(windowIds)),
         emoji: Value(emoji),
         isRetroReliable: Value(retroReliableOverride),
       ),
@@ -533,7 +546,7 @@ class MetricService extends ChangeNotifier {
         label: Value(label),
         category: Value(category),
         inputType: Value(inputType),
-        windowIds: Value(windowIds.join(',')),
+        windowIds: Value(_serializeWindowIds(windowIds)),
         emoji: Value(emoji),
         isRetroReliable: retroReliableOverride == _kUnset
             ? const Value.absent()
@@ -626,7 +639,7 @@ class MetricService extends ChangeNotifier {
         await _db.updateCustomMetric(
           m.id,
           CustomMetricsCompanion(
-            windowIds: Value(newWindowIds.join(',')),
+            windowIds: Value(_serializeWindowIds(newWindowIds)),
           ),
         );
       }
