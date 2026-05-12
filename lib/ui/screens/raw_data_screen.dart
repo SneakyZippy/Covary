@@ -13,8 +13,30 @@ import '../widgets/metric_input_card.dart';
 ///
 /// Users can see their data in context (e.g. all metrics from one check-in)
 /// and delete individual entries or entire sessions.
-class RawDataScreen extends StatelessWidget {
+class RawDataScreen extends StatefulWidget {
   const RawDataScreen({super.key});
+
+  @override
+  State<RawDataScreen> createState() => _RawDataScreenState();
+}
+
+class _RawDataScreenState extends State<RawDataScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  EventCategory? _selectedCategory;
+  bool _isSearching = false;
+  Stream<List<Event>>? _eventsStream;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _eventsStream ??= context.read<AppDatabase>().watchAllEvents();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,15 +47,31 @@ class RawDataScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: StreamBuilder<List<Event>>(
-        stream: db.watchAllEvents(),
+        stream: _eventsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final events = snapshot.data;
-          if (events == null || events.isEmpty) {
-            return _buildEmptyState(colorScheme, textTheme);
+          var events = snapshot.data ?? [];
+          
+          // Apply Filters
+          if (_searchController.text.isNotEmpty) {
+            final query = _searchController.text.toLowerCase();
+            events = events.where((e) {
+              final labelMatch = e.label.toLowerCase().contains(query);
+              final cleanLabelMatch = _cleanLabel(e.label).toLowerCase().contains(query);
+              final valueMatch = e.value.toLowerCase().contains(query);
+              return labelMatch || cleanLabelMatch || valueMatch;
+            }).toList();
+          }
+
+          if (_selectedCategory != null) {
+            events = events.where((e) => e.category == _selectedCategory).toList();
+          }
+
+          if (events.isEmpty) {
+            return _buildEmptyState(colorScheme, textTheme, isFiltered: _searchController.text.isNotEmpty || _selectedCategory != null);
           }
 
           final metricService = context.watch<MetricService>();
@@ -44,10 +82,38 @@ class RawDataScreen extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverAppBar.large(
-                title: const Text('Detailed Records'),
-                centerTitle: true,
+                title: _isSearching 
+                  ? TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Search labels or values...',
+                        border: InputBorder.none,
+                        hintStyle: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      style: textTheme.bodyLarge,
+                      onChanged: (_) => setState(() {}),
+                    )
+                  : const Text('Detailed Records'),
+                centerTitle: !_isSearching,
                 backgroundColor: colorScheme.surface,
                 scrolledUnderElevation: 0,
+                actions: [
+                  IconButton(
+                    icon: Icon(_isSearching ? Icons.close : Icons.search),
+                    onPressed: () {
+                      setState(() {
+                        if (_isSearching) {
+                          _searchController.clear();
+                        }
+                        _isSearching = !_isSearching;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              SliverToBoxAdapter(
+                child: _buildFilterChips(colorScheme),
               ),
               ...dayGroups.map((group) => _DaySection(group: group)),
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -58,24 +124,82 @@ class RawDataScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState(ColorScheme colorScheme, TextTheme textTheme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.dataset_outlined,
-            size: 64,
-            color: colorScheme.onSurfaceVariant.withAlpha(100),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No data recorded yet',
-            style: textTheme.titleLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+  Widget _buildFilterChips(ColorScheme colorScheme) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: EventCategory.values.where((c) => c != EventCategory.meta).map((category) {
+          final isSelected = _selectedCategory == category;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(category.name[0].toUpperCase() + category.name.substring(1)),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedCategory = selected ? category : null;
+                });
+              },
+              selectedColor: colorScheme.primaryContainer,
+              checkmarkColor: colorScheme.onPrimaryContainer,
+              labelStyle: TextStyle(
+                color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
             ),
-          ),
-        ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ColorScheme colorScheme, TextTheme textTheme, {bool isFiltered = false}) {
+    return Scaffold(
+      appBar: isFiltered ? AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            setState(() {
+              _searchController.clear();
+              _selectedCategory = null;
+              _isSearching = false;
+            });
+          },
+        ),
+      ) : null,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isFiltered ? Icons.search_off_rounded : Icons.dataset_outlined,
+              size: 64,
+              color: colorScheme.onSurfaceVariant.withAlpha(100),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isFiltered ? 'No matches found' : 'No data recorded yet',
+              style: textTheme.titleLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (isFiltered) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                    _selectedCategory = null;
+                  });
+                },
+                child: const Text('Clear all filters'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
