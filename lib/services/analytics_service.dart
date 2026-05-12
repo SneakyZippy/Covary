@@ -50,6 +50,69 @@ class AnalyticsService {
     return _computeSpearman(listA, listB);
   }
 
+  /// Calculates the Spearman Rank Correlation between two metrics at hourly resolution.
+  /// 
+  /// [lagHours] specifies the time offset in hours.
+  Future<double?> calculateSpearmanCorrelationHourly({
+    required String metricA,
+    required String metricB,
+    int lagHours = 0,
+    int lastNDays = 7,
+  }) async {
+    final eventsA = await _db.getEventsByLabel(metricA);
+    final eventsB = await _db.getEventsByLabel(metricB);
+
+    if (eventsA.isEmpty || eventsB.isEmpty) return null;
+
+    final Map<DateTime, double> hourlyA = _aggregateByRawHour(eventsA);
+    final Map<DateTime, double> hourlyB = _aggregateByRawHour(eventsB);
+
+    final List<double> listA = [];
+    final List<double> listB = [];
+
+    for (final dateA in hourlyA.keys) {
+      final dateB = dateA.add(Duration(hours: lagHours));
+      if (hourlyB.containsKey(dateB)) {
+        listA.add(hourlyA[dateA]!);
+        listB.add(hourlyB[dateB]!);
+      }
+    }
+
+    if (listA.length < 5) return null; 
+    return _computeSpearman(listA, listB);
+  }
+
+  /// Sweeps hourly lag 0–12 hours and returns the peak.
+  Future<({int bestLagHours, double correlation, Map<int, double?> allCorrelations})?>
+      findPeakLagCorrelationHourly({
+    required String metricA,
+    required String metricB,
+    int maxLagHours = 12,
+  }) async {
+    final Map<int, double?> all = {};
+    int bestLag = 0;
+    double bestAbs = -1;
+    double bestVal = 0;
+
+    for (int lag = 0; lag <= maxLagHours; lag++) {
+      final r = await calculateSpearmanCorrelationHourly(
+        metricA: metricA,
+        metricB: metricB,
+        lagHours: lag,
+      );
+      all[lag] = r;
+      if (r != null && r.abs() > bestAbs) {
+        bestAbs = r.abs();
+        bestVal = r;
+        bestLag = lag;
+      }
+    }
+
+    if (bestAbs < 0) return null;
+
+    return (bestLagHours: bestLag, correlation: bestVal, allCorrelations: all);
+  }
+
   // ---------------------------------------------------------------------------
   // Lagged Trend Analysis
   // ---------------------------------------------------------------------------
@@ -120,6 +183,76 @@ class AnalyticsService {
     }
 
     return hourly.map((k, v) => MapEntry(k, (v - minVal) / range));
+  }
+
+  /// Returns a raw hourly timeline for a metric across the last N days.
+  /// The key is the exact DateTime (truncated to hour).
+  Future<Map<DateTime, double>> getRawHourlyTimeline(
+    String label, {
+    bool normalize = false,
+    int lastNDays = 2,
+  }) async {
+    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final events = await _db.getEventsByLabel(label);
+    
+    final filteredEvents = events.where((e) => e.timestamp.isAfter(cutoff)).toList();
+    if (filteredEvents.isEmpty) return {};
+
+    final timeline = _aggregateByRawHour(filteredEvents);
+
+    if (!normalize || timeline.isEmpty) return timeline;
+    
+    final values = timeline.values.toList();
+    final minVal = values.reduce(min);
+    final maxVal = values.reduce(max);
+    final range = maxVal - minVal;
+
+    if (range == 0) return timeline.map((k, _) => MapEntry(k, 0.5));
+
+    return timeline.map((k, v) => MapEntry(k, (v - minVal) / range));
+  }
+
+  Map<DateTime, double> _aggregateByRawHour(List<Event> events) {
+    final Map<DateTime, List<double>> hourGroups = {};
+
+    for (final e in events) {
+      final date = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day, e.timestamp.hour);
+      
+      double val;
+      if (e.value == 'true') {
+        val = 1.0;
+      } else if (e.value == 'false') {
+        val = 0.0;
+      } else {
+        val = double.tryParse(e.value) ?? 0.0;
+      }
+      
+      hourGroups.putIfAbsent(date, () => []).add(val);
+    }
+
+    final Map<DateTime, double> result = {};
+    for (final date in hourGroups.keys) {
+      final vals = hourGroups[date]!;
+      if (vals.isEmpty) continue;
+      
+      final firstEvent = events.firstWhere((e) => true); // Simple label check
+
+      if (firstEvent.category == EventCategory.mood || 
+          firstEvent.category == EventCategory.productivity ||
+          firstEvent.label.toLowerCase().contains('quality')) {
+        result[date] = vals.reduce((a, b) => a + b) / vals.length;
+      } else if (firstEvent.label == 'step_segment' || 
+                 firstEvent.label == 'app_usage_segment' ||
+                 firstEvent.label.startsWith('app_segment:') ||
+                 firstEvent.label.startsWith('category_segment:')) {
+        // Segments are already hourly values, so we just take the sum (usually only 1 exists)
+        result[date] = vals.reduce((a, b) => a + b);
+      } else {
+        result[date] = vals.reduce(max);
+      }
+    }
+
+    return result;
   }
 
   /// Sweeps lag 0–7 days and returns the lag with the highest |ρ|.
@@ -294,7 +427,11 @@ class AnalyticsService {
           firstEvent.label.toLowerCase().contains('quality')) {
         // Average for scales and quality metrics
         result[i] = vals.reduce((a, b) => a + b) / vals.length;
-      } else if (firstEvent.label == 'step_segment' || firstEvent.category == EventCategory.behavior) {
+      } else if (firstEvent.label == 'step_segment' || 
+                 firstEvent.label == 'app_usage_segment' ||
+                 firstEvent.label.startsWith('app_segment:') ||
+                 firstEvent.label.startsWith('category_segment:') ||
+                 firstEvent.category == EventCategory.behavior) {
         // Average amount per day for that specific hour
         result[i] = vals.reduce((a, b) => a + b) / totalDays;
       } else {

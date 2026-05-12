@@ -65,7 +65,7 @@ void main() async {
     await Workmanager().registerPeriodicTask(
       kPassiveSyncTask,
       kPassiveSyncTask,
-      frequency: const Duration(hours: 4),
+      frequency: const Duration(hours: 2),
       constraints: Constraints(
         networkType: NetworkType.notRequired,
         requiresBatteryNotLow: false,
@@ -77,7 +77,9 @@ void main() async {
       backoffPolicyDelay: const Duration(minutes: 15),
     );
 
-    debugPrint('[Main] WorkManager periodic task registered: $kPassiveSyncTask');
+    debugPrint(
+      '[Main] WorkManager periodic task registered: $kPassiveSyncTask',
+    );
   } else {
     debugPrint('[Main] WorkManager skipped on non-Android platform.');
   }
@@ -132,10 +134,10 @@ class CovaryApp extends StatelessWidget {
       home: profileService.hasRestoredData
           ? const RestoreSelectionScreen()
           : !profileService.hasSeenOnboarding
-              ? const OnboardingScreen()
-              : profileService.isFirstLaunch
-                  ? const ProfileSetupScreen()
-                  : const AppShell(),
+          ? const OnboardingScreen()
+          : profileService.isFirstLaunch
+          ? const ProfileSetupScreen()
+          : const AppShell(),
     );
   }
 }

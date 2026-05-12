@@ -22,12 +22,8 @@ void callbackDispatcher() {
         appUsage: appUsageService,
       );
 
-      // Sync the full previous day to ensure completeness.
-      final yesterday = DateTime.now().subtract(const Duration(days: 1));
-      await sensingService.syncAll(targetDate: yesterday);
-      
-      // Also sync the last 24 hours for real-time data visibility today.
-      await sensingService.syncAll();
+      // Sync the last 2 days (Yesterday and Today) to ensure completeness.
+      await sensingService.syncAll(days: 2);
       
       debugPrint('[WorkManager] Passive sync for yesterday and today completed successfully.');
       return Future.value(true);

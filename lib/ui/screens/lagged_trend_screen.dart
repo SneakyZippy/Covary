@@ -8,6 +8,8 @@ import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../../ui/theme/design_system.dart';
 
+enum LagViewMode { daily, hourly }
+
 class LaggedTrendScreen extends StatefulWidget {
   const LaggedTrendScreen({super.key});
 
@@ -29,6 +31,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   Map<DateTime, double> _seriesB = {};
   int _bestLag = 0;
   double _peakCorrelation = 0.0;
+  LagViewMode _viewMode = LagViewMode.daily;
   bool _isLoading = true;
   bool _isAutoDetecting = false;
 
@@ -114,35 +117,39 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
 
     final analytics = context.read<AnalyticsService>();
 
-    // Fetch normalized time series
-    final seriesA = await analytics.getDailyTimeSeries(
-      _labelA!,
-      normalize: true,
-      lastNDays: _dayRange,
-    );
-    final seriesB = await analytics.getDailyTimeSeries(
-      _labelB!,
-      normalize: true,
-      lastNDays: _dayRange,
-    );
+    if (_viewMode == LagViewMode.daily) {
+      final seriesA = await analytics.getDailyTimeSeries(_labelA!, normalize: true, lastNDays: _dayRange);
+      final seriesB = await analytics.getDailyTimeSeries(_labelB!, normalize: true, lastNDays: _dayRange);
+      final lagResult = await analytics.findPeakLagCorrelation(metricA: _labelA!, metricB: _labelB!);
 
-    // Find peak lag
-    final lagResult = await analytics.findPeakLagCorrelation(
-      metricA: _labelA!,
-      metricB: _labelB!,
-    );
+      if (mounted) {
+        setState(() {
+          _seriesA = seriesA;
+          _seriesB = seriesB;
+          _bestLag = lagResult?.bestLag ?? 0;
+          _peakCorrelation = lagResult?.correlation ?? 0.0;
+          _isLoading = false;
+          _isAutoDetecting = false;
+        });
+      }
+    } else {
+      // Hourly mode
+      final seriesA = await analytics.getRawHourlyTimeline(_labelA!, normalize: true, lastNDays: 3);
+      final seriesB = await analytics.getRawHourlyTimeline(_labelB!, normalize: true, lastNDays: 3);
+      final lagResult = await analytics.findPeakLagCorrelationHourly(metricA: _labelA!, metricB: _labelB!);
 
-    if (mounted) {
-      setState(() {
-        _seriesA = seriesA;
-        _seriesB = seriesB;
-        _bestLag = lagResult?.bestLag ?? 0;
-        _peakCorrelation = lagResult?.correlation ?? 0.0;
-        _isLoading = false;
-        _isAutoDetecting = false;
-      });
-      _fadeController.forward(from: 0);
+      if (mounted) {
+        setState(() {
+          _seriesA = seriesA;
+          _seriesB = seriesB;
+          _bestLag = lagResult?.bestLagHours ?? 0;
+          _peakCorrelation = lagResult?.correlation ?? 0.0;
+          _isLoading = false;
+          _isAutoDetecting = false;
+        });
+      }
     }
+    _fadeController.forward(from: 0);
   }
 
   String _displayName(String label) {
@@ -208,10 +215,14 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                   child: ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     children: [
+                      _buildViewToggle(colorScheme, textTheme),
+                      const SizedBox(height: 16),
                       _buildMetricSelectors(colorScheme, textTheme),
                       const SizedBox(height: 16),
-                      _buildDayRangeSelector(colorScheme, textTheme),
-                      const SizedBox(height: 20),
+                      if (_viewMode == LagViewMode.daily) ...[
+                        _buildDayRangeSelector(colorScheme, textTheme),
+                        const SizedBox(height: 20),
+                      ],
                       _buildChartCard(colorScheme, textTheme),
                       const SizedBox(height: 16),
                       _buildInsightCard(colorScheme, textTheme),
@@ -224,7 +235,30 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     );
   }
 
-  // ─── Metric Selectors ─────────────────────────────────────────────────────
+  // ─── View Toggle ──────────────────────────────────────────────────────────
+
+  Widget _buildViewToggle(ColorScheme colorScheme, TextTheme textTheme) {
+    return SegmentedButton<LagViewMode>(
+      segments: const [
+        ButtonSegment(
+          value: LagViewMode.daily,
+          label: Text('Daily Lags'),
+          icon: Icon(Icons.calendar_view_day_rounded),
+        ),
+        ButtonSegment(
+          value: LagViewMode.hourly,
+          label: Text('Hourly Lags'),
+          icon: Icon(Icons.more_time_rounded),
+        ),
+      ],
+      selected: {_viewMode},
+      onSelectionChanged: (set) {
+        setState(() => _viewMode = set.first);
+        _loadData();
+      },
+      showSelectedIcon: false,
+    );
+  }
 
   Widget _buildMetricSelectors(ColorScheme colorScheme, TextTheme textTheme) {
     return Row(
@@ -447,9 +481,9 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                           style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 18)),
                       const SizedBox(height: 2),
                       Text(
-                        _bestLag == 0
-                            ? 'SAME-DAY ANALYSIS'
-                            : '$_bestLag-DAY DELTA ANALYSIS',
+                        _viewMode == LagViewMode.daily
+                            ? (_bestLag == 0 ? 'SAME-DAY ANALYSIS' : '$_bestLag-DAY DELTA ANALYSIS')
+                            : (_bestLag == 0 ? 'SAME-HOUR ANALYSIS' : '$_bestLag-HOUR DELTA ANALYSIS'),
                         style: textTheme.labelSmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 9,
@@ -507,10 +541,23 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                       getTitlesWidget: (v, _) {
                         final idx = v.toInt();
                         if (idx < 0 || idx >= allDates.length) return const SizedBox();
+                        final date = allDates[idx];
+                        
+                        if (_viewMode == LagViewMode.hourly) {
+                          if (idx % 6 != 0 && date.hour != 0) return const SizedBox();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              date.hour == 0 ? DateFormat('E').format(date) : '${date.hour}h',
+                              style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100)),
+                            ),
+                          );
+                        }
+
                         return Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            DateFormat('d MMM').format(allDates[idx]),
+                            DateFormat('d MMM').format(date),
                             style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100)),
                           ),
                         );
@@ -598,8 +645,8 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     final relationship = _peakCorrelation >= 0 ? 'high' : 'low';
 
     final insightText = _bestLag == 0
-        ? 'Your $nameB $direction on days with $relationship $nameA.'
-        : 'Your $nameB $direction $_bestLag ${_bestLag == 1 ? 'day' : 'days'} after $relationship $nameA.';
+        ? 'Your $nameB $direction on ${_viewMode == LagViewMode.daily ? 'days' : 'hours'} with $relationship $nameA.'
+        : 'Your $nameB $direction $_bestLag ${_viewMode == LagViewMode.daily ? (_bestLag == 1 ? 'day' : 'days') : (_bestLag == 1 ? 'hour' : 'hours')} after $relationship $nameA.';
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -640,7 +687,9 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                     children: [
                       const TextSpan(text: 'Lagged Window: '),
                       TextSpan(
-                        text: _bestLag == 0 ? 'same day' : '+$_bestLag ${_bestLag == 1 ? 'day' : 'days'}',
+                        text: _bestLag == 0 
+                            ? (_viewMode == LagViewMode.daily ? 'same day' : 'same hour') 
+                            : '+$_bestLag ${_viewMode == LagViewMode.daily ? (_bestLag == 1 ? 'day' : 'days') : (_bestLag == 1 ? 'hour' : 'hours')}',
                         style: TextStyle(
                           color: colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -674,8 +723,8 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
         const SizedBox(width: 12),
         Expanded(child: _buildStatCard(
           'OPTIMAL LAG',
-          '$_bestLag ${_bestLag == 1 ? 'DAY' : 'DAYS'}',
-          _bestLag / 7.0,
+          '$_bestLag ${_viewMode == LagViewMode.daily ? (_bestLag == 1 ? 'DAY' : 'DAYS') : (_bestLag == 1 ? 'HOUR' : 'HOURS')}',
+          _viewMode == LagViewMode.daily ? (_bestLag / 7.0) : (_bestLag / 12.0),
           CovaryDesignSystem.secondary,
           colorScheme,
           textTheme,

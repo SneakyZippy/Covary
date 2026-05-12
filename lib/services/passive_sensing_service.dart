@@ -45,45 +45,50 @@ class PassiveSensingService {
   // Public API
   // ---------------------------------------------------------------------------
 
-  /// Runs a full passive sync cycle.
+  /// Runs a passive sync cycle for a range of days.
   ///
-  /// [targetDate]: If provided, syncs the full 24h window for that date.
-  /// If null, syncs "Today so far" (from 00:00:00 until now).
+  /// [days]: Number of days to look back (default 1 = Today).
+  /// [targetDate]: If provided, syncs only that specific calendar day.
   ///
   /// This method is safe to call from a WorkManager background isolate.
-  Future<void> syncAll({DateTime? targetDate}) async {
+  Future<void> syncAll({int days = 1, DateTime? targetDate}) async {
+    if (targetDate != null) {
+      await _syncSpecificDay(targetDate);
+    } else {
+      // Sync a range of days ending today
+      final now = DateTime.now();
+      for (int i = days - 1; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        await _syncSpecificDay(date, isToday: i == 0);
+      }
+    }
+    debugPrint('[PassiveSensingService] Sync cycle complete for $days days.');
+  }
+
+  Future<void> _syncSpecificDay(DateTime date, {bool isToday = false}) async {
     final healthSessionId = const Uuid().v4();
     final appUsageSessionId = const Uuid().v4();
-    
-    // Define the interval
+
     final DateTime start;
     final DateTime end;
-    final DateTime referenceTime; // The timestamp we use for the event row
+    final DateTime referenceTime;
 
-    if (targetDate != null) {
-      // Full day sync (e.g. for Yesterday)
-      start = DateTime(targetDate.year, targetDate.month, targetDate.day, 0, 0, 0);
-      end = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59);
+    if (isToday) {
+      // Today so far
+      start = DateTime(date.year, date.month, date.day, 0, 0, 0);
+      end = DateTime.now();
       referenceTime = end;
-      debugPrint('[PassiveSensingService] Targeting FULL DAY: ${targetDate.toIso8601String().split('T')[0]}');
     } else {
-      // "Last 24 hours" sync (Manual trigger or periodic)
-      final now = DateTime.now();
-      start = now.subtract(const Duration(hours: 24));
-      end = now;
-      referenceTime = now;
-      debugPrint('[PassiveSensingService] Targeting TODAY SO FAR');
+      // Full calendar day
+      start = DateTime(date.year, date.month, date.day, 0, 0, 0);
+      end = DateTime(date.year, date.month, date.day, 23, 59, 59);
+      referenceTime = end;
     }
 
-    debugPrint('[PassiveSensingService] Syncing interval: $start to $end…');
+    debugPrint('[PassiveSensingService] Syncing ${date.toIso8601String().split('T')[0]} ($start to $end)…');
 
-    // --- Health Connect data ---
     await _syncHealth(healthSessionId, start, end, referenceTime);
-
-    // --- App Usage data ---
     await _syncAppUsage(appUsageSessionId, start, end, referenceTime);
-
-    debugPrint('[PassiveSensingService] Sync cycle complete.');
   }
 
   // ---------------------------------------------------------------------------
@@ -194,6 +199,71 @@ class PassiveSensingService {
     } catch (e) {
       debugPrint('[PassiveSensingService] Per-app time sync error: $e');
     }
+
+    // Hourly App Segments (High-resolution data)
+    try {
+      final hourlyApps = await _appUsage.fetchHourlyAppUsage(startTime: start, endTime: end);
+      if (hourlyApps != null) {
+        for (final hourEntry in hourlyApps.entries) {
+          final hour = hourEntry.key;
+          final apps = hourEntry.value;
+          
+          // Use the start of the specific hour as the timestamp
+          final hourTimestamp = DateTime(timestamp.year, timestamp.month, timestamp.day, hour);
+          
+          int totalHourMinutes = 0;
+          final Map<String, int> categoryTotals = {};
+
+          for (final appEntry in apps.entries) {
+            final pkg = appEntry.key;
+            final mins = appEntry.value;
+            if (mins > 0) {
+              totalHourMinutes += mins;
+              
+              // Log per-app segment
+              await _logSegmentMetric(
+                category: EventCategory.appUsage,
+                label: 'app_segment:$pkg',
+                value: mins.toString(),
+                sessionId: sessionId,
+                timestamp: hourTimestamp,
+              );
+              
+              // Accumulate category totals
+              for (final catEntry in _appUsage.categories.entries) {
+                if (catEntry.value.contains(pkg)) {
+                  categoryTotals[catEntry.key] = (categoryTotals[catEntry.key] ?? 0) + mins;
+                }
+              }
+            }
+          }
+
+          // Log category segments
+          for (final catEntry in categoryTotals.entries) {
+            await _logSegmentMetric(
+              category: EventCategory.appUsage,
+              label: 'category_segment:${catEntry.key}',
+              value: catEntry.value.toString(),
+              sessionId: sessionId,
+              timestamp: hourTimestamp,
+            );
+          }
+          
+          // Log total hourly segment
+          if (totalHourMinutes > 0) {
+            await _logSegmentMetric(
+              category: EventCategory.appUsage,
+              label: 'app_usage_segment',
+              value: totalHourMinutes.toString(),
+              sessionId: sessionId,
+              timestamp: hourTimestamp,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[PassiveSensingService] Hourly app segments sync error: $e');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -259,8 +329,8 @@ class PassiveSensingService {
     required String sessionId,
     required DateTime timestamp,
   }) async {
-    // We check for exact timestamp matches. Health Connect segments have very
-    // precise timestamps, so this reliably prevents double-logging overlapping syncs.
+    // Optimization: Check for existing records is fast enough for single-day syncs,
+    // but for deep syncs, we use the timestamp as a unique key in the DB query.
     final existing = await (_db.select(_db.events)
           ..where((t) => t.category.equalsValue(category))
           ..where((t) => t.label.equals(label))
@@ -270,7 +340,6 @@ class PassiveSensingService {
         .getSingleOrNull();
 
     if (existing == null) {
-      // Insert new segment record
       await _db.insertEvent(
         EventsCompanion(
           category: Value(category),
@@ -283,7 +352,6 @@ class PassiveSensingService {
           timestamp: Value(timestamp),
         ),
       );
-      // Removed the debug print here to avoid flooding the console for users with hundreds of segments
     }
   }
 }

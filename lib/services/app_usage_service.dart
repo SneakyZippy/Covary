@@ -318,6 +318,61 @@ class AppUsageService extends ChangeNotifier {
     }
   }
 
+  /// Returns a nested map of usage per hour per app for the given interval.
+  /// Result map: {hourIndex (0-23): {packageName: foregroundMinutes}}
+  Future<Map<int, Map<String, int>>?> fetchHourlyAppUsage({required DateTime startTime, required DateTime endTime}) async {
+    if (!Platform.isAndroid) return null;
+    
+    try {
+      final events = await UsageStats.queryEvents(startTime, endTime);
+      final Map<int, Map<String, int>> result = {};
+      final Map<String, int?> lastMoveToForeground = {};
+
+      for (final event in events) {
+        final pkg = event.packageName ?? '';
+        final timeMs = int.tryParse(event.timeStamp ?? '0') ?? 0;
+        final type = event.eventType;
+
+        if (type == '1') { // MOVE_TO_FOREGROUND
+          lastMoveToForeground[pkg] = timeMs;
+        } else if (type == '2') { // MOVE_TO_BACKGROUND
+          final startMs = lastMoveToForeground[pkg];
+          if (startMs != null) {
+            _addDurationToResult(result, pkg, startMs, timeMs);
+            lastMoveToForeground[pkg] = null;
+          }
+        }
+      }
+
+      // Convert MS to Minutes
+      return result.map((hour, appMap) => MapEntry(
+        hour, 
+        appMap.map((pkg, ms) => MapEntry(pkg, ms ~/ 60000))
+      ));
+    } catch (e) {
+      debugPrint('[AppUsageService] fetchHourlyAppUsage error: $e');
+      return null;
+    }
+  }
+
+  void _addDurationToResult(Map<int, Map<String, int>> result, String pkg, int startMs, int endMs) {
+    var currentMs = startMs;
+    while (currentMs < endMs) {
+      final currentDt = DateTime.fromMillisecondsSinceEpoch(currentMs);
+      final nextHourDt = DateTime(currentDt.year, currentDt.month, currentDt.day, currentDt.hour + 1);
+      final nextHourMs = nextHourDt.millisecondsSinceEpoch;
+      
+      final chunkEnd = (endMs < nextHourMs) ? endMs : nextHourMs;
+      final chunkDuration = chunkEnd - currentMs;
+      
+      final hour = currentDt.hour;
+      result.putIfAbsent(hour, () => {});
+      result[hour]![pkg] = (result[hour]![pkg] ?? 0) + chunkDuration;
+      
+      currentMs = chunkEnd;
+    }
+  }
+
   Future<Set<String>?> fetchInstalledPackages() async {
     if (!Platform.isAndroid) return null;
     try {

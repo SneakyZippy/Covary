@@ -9,7 +9,7 @@ import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../../ui/theme/design_system.dart';
 
-enum InsightViewMode { daily, circadian }
+enum InsightViewMode { daily, circadian, timeline }
 
 class MetricInsightsScreen extends StatefulWidget {
   const MetricInsightsScreen({super.key});
@@ -99,10 +99,14 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       if (_secondaryLabel != null) {
         secondaryData = await analytics.getDailyTimeSeries(_secondaryLabel!, normalize: true, lastNDays: _dayRange);
       }
-    } else {
-      primaryData = await analytics.getHourlyTimeSeries(_primaryLabel!, normalize: shouldNormalize, lastNDays: _dayRange);
       if (_secondaryLabel != null) {
         secondaryData = await analytics.getHourlyTimeSeries(_secondaryLabel!, normalize: true, lastNDays: _dayRange);
+      }
+    } else {
+      // Timeline Mode (Hourly points)
+      primaryData = await analytics.getRawHourlyTimeline(_primaryLabel!, normalize: shouldNormalize, lastNDays: _dayRange == 30 ? 3 : (_dayRange == 14 ? 2 : 1));
+      if (_secondaryLabel != null) {
+        secondaryData = await analytics.getRawHourlyTimeline(_secondaryLabel!, normalize: true, lastNDays: _dayRange == 30 ? 3 : (_dayRange == 14 ? 2 : 1));
       }
     }
 
@@ -183,8 +187,13 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         ),
         ButtonSegment(
           value: InsightViewMode.circadian,
-          label: Text('Circadian Rhythm'),
+          label: Text('Circadian'),
           icon: Icon(Icons.wb_sunny_rounded),
+        ),
+        ButtonSegment(
+          value: InsightViewMode.timeline,
+          label: Text('Timeline'),
+          icon: Icon(Icons.timeline_rounded),
         ),
       ],
       selected: {_viewMode},
@@ -342,7 +351,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
           return Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
-              label: Text('${d}d'),
+              label: Text(_viewMode == InsightViewMode.timeline ? '${d == 7 ? 24 : (d == 14 ? 48 : 72)}h' : '${d}d'),
               selected: isActive,
               onSelected: (_) {
                 setState(() => _dayRange = d);
@@ -367,9 +376,10 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
 
   Widget _buildChartCard(ColorScheme colorScheme, TextTheme textTheme) {
     final bool isCircadian = _viewMode == InsightViewMode.circadian;
+    final bool isTimeline = _viewMode == InsightViewMode.timeline;
     final bool isComparing = _secondaryLabel != null;
 
-    // Keys are either DateTime (daily) or int (circadian)
+    // Keys are either DateTime (daily/timeline) or int (circadian)
     final allKeys = <dynamic>{..._seriesPrimary.keys, ..._seriesSecondary.keys}.toList();
     
     if (isCircadian) {
@@ -473,6 +483,18 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                           return Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: Text('${hour.toString().padLeft(2, '0')}:00', style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))),
+                          );
+                        } else if (isTimeline) {
+                          final idx = v.toInt();
+                          if (idx < 0 || idx >= allKeys.length) return const SizedBox();
+                          final key = allKeys[idx] as DateTime;
+                          if (idx % 6 != 0 && key.hour != 0) return const SizedBox();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              key.hour == 0 ? DateFormat('E').format(key) : '${key.hour}h', 
+                              style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))
+                            ),
                           );
                         } else {
                           final idx = v.toInt();

@@ -102,7 +102,8 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
     setState(() => _isSyncing = true);
     try {
       final service = context.read<PassiveSensingService>();
-      await service.syncAll();
+      // Manual trigger does a "Deep Sync" (last 7 days) to ensure completeness
+      await service.syncAll(days: 7);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

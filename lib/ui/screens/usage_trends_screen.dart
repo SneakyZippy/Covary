@@ -34,7 +34,9 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
   List<_ChartSeries> _seriesData = [];
   List<DateTime> _xAxisDates = [];
   Map<int, int>? _hourlyData;
+  Map<int, Map<String, int>>? _hourlyAppBreakdown;
   DateTime? _selectedDayForHourly;
+  int? _selectedHourForDetails;
   double _maxY = 100;
   
   // Summary Stats
@@ -620,14 +622,54 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
                     ),
                   ),
                 ),
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (s) => colorScheme.surfaceContainerHigh,
+                  ),
+                  touchCallback: (event, response) {
+                    if (response != null && response.spot != null && event is FlTapUpEvent) {
+                      setState(() {
+                        _selectedHourForDetails = response.spot!.touchedBarGroup.x;
+                      });
+                    }
+                  },
+                ),
                 borderData: FlBorderData(show: false),
                 barGroups: _hourlyData!.entries.map((e) => BarChartGroupData(
                   x: e.key,
-                  barRods: [BarChartRodData(toY: e.value.toDouble(), color: colorScheme.primary, width: 4)],
+                  barRods: [
+                    BarChartRodData(
+                      toY: e.value.toDouble(), 
+                      color: _selectedHourForDetails == e.key ? colorScheme.primary : colorScheme.primary.withAlpha(100), 
+                      width: 8,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                    )
+                  ],
                 )).toList(),
               ),
             ),
           ),
+          if (_selectedHourForDetails != null && _hourlyAppBreakdown != null && _hourlyAppBreakdown![_selectedHourForDetails!] != null) ...[
+            const SizedBox(height: 20),
+            Text(
+              'Apps used at $_selectedHourForDetails:00',
+              style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.primary),
+            ),
+            const SizedBox(height: 12),
+            ...(_hourlyAppBreakdown![_selectedHourForDetails!]!.entries.toList()
+                  ..sort((a, b) => b.value.compareTo(a.value)))
+                .take(5)
+                .map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  children: [
+                    Text(AppUsageService.readableName(e.key), style: textTheme.bodySmall),
+                    const Spacer(),
+                    Text('${e.value}m', style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              )),
+          ],
         ],
       ),
     );
@@ -675,10 +717,18 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
   }
 
   Future<void> _loadHourlyData(DateTime date) async {
-    final data = await context.read<AppUsageService>().fetchHourlyUsage(date);
+    final service = context.read<AppUsageService>();
+    final data = await service.fetchHourlyUsage(date);
+    
+    final dayStart = DateTime(date.year, date.month, date.day, 0, 0, 0);
+    final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
+    final breakdown = await service.fetchHourlyAppUsage(startTime: dayStart, endTime: dayEnd);
+
     setState(() {
       _selectedDayForHourly = date;
       _hourlyData = data;
+      _hourlyAppBreakdown = breakdown;
+      _selectedHourForDetails = null; // Reset selection
     });
   }
 
