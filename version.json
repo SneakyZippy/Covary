@@ -1,7 +1,7 @@
 {
-    "latest_version":  "1.2.7",
-    "build_number":  25,
-    "build_timestamp":  "2026-05-13T10:47:44+02:00",
-    "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "🎉 First Public Beta!\n\nWelcome to Covary — a research tool for tracking behavioral patterns.\n\n- Guided onboarding with research presets\n- Morning/Afternoon/Evening check-in windows with smart notifications\n- Quick-track buttons and Today's Timeline\n- Metric Insights with dual-metric comparison\n- Correlation Matrix and Lagged Trend analysis\n- Health Connect integration (steps, sleep)\n- App Usage tracking (Android)\n- Full JSON data export/import\n- Automatic update notifications\n- Customizable themes and dark mode\n- Data Quality dashboard"
+    "latest_version": "1.2.8",
+    "build_number": 26,
+    "build_timestamp": "2026-05-15T21:04:00+02:00",
+    "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
+    "release_notes": "🚀 Release v1.2.8\n\n- **Enhanced Circadian Analytics**: Granular hourly tracking for steps and app usage data.\n- **Sleep Insights**: Automatic extraction of sleep start, wake-up times, and sleep midpoint from health data.\n- **Improved Onboarding**: New 'Research Presets' to quickly configure tracking priorities.\n- **Startup Optimization**: Significantly reduced app launch latency for faster event logging.\n- **Data Management**: Advanced filtering for raw event records and improved import/export compatibility.\n- **Compliance Tracking**: Refined visualization of check-in compliance and window-based logging."
 }
