@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../services/metric_service.dart';
+import 'activity_history_screen.dart';
 
 class ComplianceScreen extends StatefulWidget {
   const ComplianceScreen({super.key});
@@ -128,9 +129,15 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       elevation: 0,
       color: colorScheme.surfaceContainerHighest.withAlpha(150),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ActivityHistoryScreen()),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -187,6 +194,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

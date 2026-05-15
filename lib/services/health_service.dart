@@ -194,6 +194,71 @@ class HealthService {
     }
   }
 
+  /// Fetches sleep timing metrics (bedtime, wake-up, midpoint) from the last 24 hours.
+  /// 
+  /// Returns a record with numeric values representing hours since midnight.
+  /// For bedtime, values before noon are treated as the next day (e.g. 01:30 AM -> 25.5) 
+  /// to maintain a continuous linear scale for correlation calculations.
+  Future<({double bedtime, double wakeup, double midpoint})?> fetchSleepTimes({DateTime? startTime, DateTime? endTime}) async {
+    try {
+      await _ensureConfigured();
+      final now = DateTime.now();
+      final effectiveEnd = endTime ?? now;
+      final effectiveStart = startTime ?? now.subtract(const Duration(hours: 24));
+
+      final data = await _health.getHealthDataFromTypes(
+        startTime: effectiveStart,
+        endTime: effectiveEnd,
+        types: [HealthDataType.SLEEP_SESSION, HealthDataType.SLEEP_ASLEEP],
+      );
+
+      if (data.isEmpty) {
+        debugPrint('[HealthService] No sleep session data found for timing extraction.');
+        return null;
+      }
+
+      // Find the earliest start time (bedtime) and latest end time (wakeup)
+      DateTime? bedtime;
+      DateTime? wakeup;
+
+      for (final p in data) {
+        if (bedtime == null || p.dateFrom.isBefore(bedtime)) {
+          bedtime = p.dateFrom;
+        }
+        if (wakeup == null || p.dateTo.isAfter(wakeup)) {
+          wakeup = p.dateTo;
+        }
+      }
+
+      if (bedtime == null || wakeup == null) return null;
+
+      // Convert to numeric continuous values (hours since midnight)
+      // Wakeup is straightforward
+      double wakeupNumeric = wakeup.hour + (wakeup.minute / 60.0);
+      
+      // Bedtime needs normalization for the continuous scale
+      // If bedtime is after midnight but before noon (e.g. 01:00 AM),
+      // we consider it as part of the previous night's continuous sleep cycle, so we add 24.
+      double bedtimeNumeric = bedtime.hour + (bedtime.minute / 60.0);
+      if (bedtime.hour < 12) {
+        bedtimeNumeric += 24.0;
+      }
+      
+      double effectiveWakeup = wakeupNumeric;
+      if (effectiveWakeup < bedtimeNumeric && (bedtimeNumeric - effectiveWakeup) > 12) {
+        effectiveWakeup += 24.0;
+      }
+      
+      double midpointNumeric = (bedtimeNumeric + effectiveWakeup) / 2.0;
+
+      debugPrint('[HealthService] Sleep timings - Bedtime: $bedtimeNumeric, Wakeup: $wakeupNumeric, Midpoint: $midpointNumeric');
+      return (bedtime: bedtimeNumeric, wakeup: wakeupNumeric, midpoint: midpointNumeric);
+    } catch (e) {
+      debugPrint('[HealthService] fetchSleepTimes error: $e');
+      return null;
+    }
+  }
+
   /// Fetches total step count from the last 24 hours.
   ///
   /// Uses Health Connect's optimized [getTotalStepsInInterval] API, which

@@ -49,6 +49,9 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     _SelectableMetric('total_screen_time', 'Screen Time', '⌛'),
     _SelectableMetric('category_time:entertainment', 'Entertainment', '🎬'),
     _SelectableMetric('sleep_duration_hours', 'Sleep Duration', '🛌'),
+    _SelectableMetric('sleep_bedtime', 'Bedtime', '🛌'),
+    _SelectableMetric('sleep_wakeup', 'Wake-up Time', 'sunny'),
+    _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', 'star'),
     _SelectableMetric('step_count', 'Steps', '🏃'),
   ];
 

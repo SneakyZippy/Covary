@@ -16,6 +16,7 @@ import '../widgets/quick_track_button.dart';
 import 'daily_checkin_screen.dart';
 import 'compliance_screen.dart';
 import 'permission_shield_screen.dart';
+import 'activity_history_screen.dart';
 
 /// The primary Home view.
 ///
@@ -33,6 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
   List<TrackingWindow> _activeWindows = [];
   Set<String> _completedWindowIds = {};
   List<Event> _todayEvents = [];
+  
+  // Activity Overview
+  List<int> _activityLevels = List.filled(14, 0);
+  int _currentStreak = 0;
+  int _totalLogs = 0;
   
   // Permission Banner State
   bool _healthMissing = false;
@@ -91,11 +97,46 @@ class _HomeScreenState extends State<HomeScreen> {
         .map((e) => e.value)
         .toSet();
 
+    // Activity and Streak Computation
+    final userEvents = allEvents.where((e) => e.triggerSource != TriggerSource.system && e.category != EventCategory.meta).toList();
+    
+    final activityLevels = List<int>.filled(14, 0);
+    int currentStreak = 0;
+    int totalLogs = userEvents.length;
+
+    for (final e in userEvents) {
+      final eventDay = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
+      final diff = todayStart.difference(eventDay).inDays;
+      if (diff >= 0 && diff < 14) {
+        activityLevels[13 - diff]++; // Index 13 is today
+      }
+    }
+
+    for (int i = 0; i < 365; i++) {
+      final d = todayStart.subtract(Duration(days: i));
+      final hasActivity = userEvents.any((e) => 
+          e.timestamp.year == d.year && 
+          e.timestamp.month == d.month && 
+          e.timestamp.day == d.day);
+      
+      if (hasActivity) {
+        currentStreak++;
+      } else if (i == 0) {
+        // Allow today to have no activity yet without breaking the streak.
+        continue;
+      } else {
+        break;
+      }
+    }
+
     if (mounted) {
       setState(() {
         _activeWindows = activeWindows;
         _completedWindowIds = completedIds;
         _todayEvents = todayEvents;
+        _activityLevels = activityLevels;
+        _currentStreak = currentStreak;
+        _totalLogs = totalLogs;
       });
       _updateMissedSessions(allEvents);
       _checkPermissionsAndDismissal();
@@ -210,6 +251,20 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: colorScheme.onSurface,
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ActivityHistoryScreen()),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                            child: _buildActivityOverview(colorScheme, textTheme),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -276,6 +331,82 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildActivityOverview(ColorScheme colorScheme, TextTheme textTheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.local_fire_department_rounded, size: 16, color: Colors.orange.shade400),
+            const SizedBox(width: 4),
+            Text(
+              '$_currentStreak Day Streak',
+              style: textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Icon(Icons.data_usage_rounded, size: 16, color: colorScheme.primary),
+            const SizedBox(width: 4),
+            Text(
+              '$_totalLogs Total Logs',
+              style: textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(14, (index) {
+            final count = _activityLevels[index];
+            final daysAgo = 13 - index;
+            final date = DateTime.now().subtract(Duration(days: daysAgo));
+            
+            Color boxColor;
+            Border? border;
+            
+            if (count == 0) {
+              boxColor = colorScheme.surfaceContainerHighest.withAlpha(80);
+              border = Border.all(color: colorScheme.outlineVariant.withAlpha(150), width: 1);
+            } else if (count < 3) {
+              boxColor = colorScheme.primary.withAlpha(100);
+            } else if (count < 6) {
+              boxColor = colorScheme.primary.withAlpha(180);
+            } else {
+              boxColor = colorScheme.primary;
+            }
+            
+            return Tooltip(
+              message: '${date.month}/${date.day}: $count logs',
+              child: Container(
+                margin: const EdgeInsets.only(right: 4),
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: boxColor,
+                  border: border,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Last 14 Days Activity',
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant.withAlpha(150),
+            fontSize: 10,
+          ),
+        ),
+      ],
     );
   }
 

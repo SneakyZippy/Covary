@@ -136,3 +136,19 @@ A glassmorphic insight card interprets the charts:
 *   *Daily*: Reports the mathematical average over the selected time window.
 *   *Circadian*: Scans the hourly map for the global maximum (`maxVal`) and reports the specific peak hour. If two metrics are selected, it compares their peak hours to report whether they align or diverge.
 
+---
+
+## 7. Sleep Timing & Continuous Normalization
+
+To support advanced circadian rhythm research without requiring new permissions, the analytics engine extracts specific sleep timing metrics directly from the passive `SLEEP_SESSION` data:
+
+### Derived Metrics
+*   **Bedtime**: Extracted from the start time of the earliest sleep session.
+*   **Wake-up Time**: Extracted from the end time of the latest sleep session.
+*   **Sleep Midpoint**: The mathematical center between Bedtime and Wake-up time, acting as a proxy for chronotype.
+
+### Continuous Time Normalization
+For the Spearman's Rank Correlation engine to mathematically process time, clock times must be converted into a continuous numeric scale (hours since midnight).
+*   **Wake-up Time**: Maps cleanly to the current day (e.g., 07:15 AM = `7.25`).
+*   **Bedtime Normalization**: Since bedtimes often cross midnight (e.g., 01:30 AM), they are shifted by +24 hours to maintain a continuous linear scale relative to the previous day (e.g., 01:30 AM = `25.5`). This ensures that a 1:00 AM bedtime is correctly interpreted mathematically as being "later" than an 11:00 PM (`23.0`) bedtime, preserving the integrity of lagged correlation analysis.
+

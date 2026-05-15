@@ -45,6 +45,9 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     _SelectableMetric('total_screen_time', 'Total Screen Time', '⌛', inputType: MetricInputType.counter),
     _SelectableMetric('category_time:entertainment', 'Entertainment Time', '🎬', inputType: MetricInputType.counter),
     _SelectableMetric('sleep_duration_hours', 'Sleep Duration', '🛌'),
+    _SelectableMetric('sleep_bedtime', 'Bedtime', '🛌'),
+    _SelectableMetric('sleep_wakeup', 'Wake-up Time', 'sunny'),
+    _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', 'star'),
     _SelectableMetric('step_count', 'Daily Total Steps', '🏃', inputType: MetricInputType.counter),
     _SelectableMetric('step_segment', 'Hourly Steps', '👣', inputType: MetricInputType.counter),
   ];

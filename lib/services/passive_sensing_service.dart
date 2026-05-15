@@ -124,6 +124,36 @@ class PassiveSensingService {
       debugPrint('[PassiveSensingService] Sleep sync error: $e');
     }
 
+    // Sleep timings (Bedtime, Wakeup, Midpoint)
+    try {
+      final timings = await _health.fetchSleepTimes(startTime: start, endTime: end);
+      if (timings != null) {
+        await _logDailyMetric(
+          category: EventCategory.health,
+          label: 'sleep_bedtime',
+          value: timings.bedtime.toStringAsFixed(2),
+          sessionId: sessionId,
+          timestamp: timestamp,
+        );
+        await _logDailyMetric(
+          category: EventCategory.health,
+          label: 'sleep_wakeup',
+          value: timings.wakeup.toStringAsFixed(2),
+          sessionId: sessionId,
+          timestamp: timestamp,
+        );
+        await _logDailyMetric(
+          category: EventCategory.health,
+          label: 'sleep_midpoint',
+          value: timings.midpoint.toStringAsFixed(2),
+          sessionId: sessionId,
+          timestamp: timestamp,
+        );
+      }
+    } catch (e) {
+      debugPrint('[PassiveSensingService] Sleep timings sync error: $e');
+    }
+
     // Step count (Daily total for existing analytics)
     try {
       final steps = await _health.fetchStepCount(startTime: start, endTime: end);
