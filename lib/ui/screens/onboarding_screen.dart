@@ -555,70 +555,83 @@ class _PresetSelectionSlideState extends State<_PresetSelectionSlide> {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(height: 20),
-          Text(
-            'Research Focus',
-            style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text(
+                      'Research Focus',
+                      style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Choose a starting point for your research. You can still customize everything later.',
+                      style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    _PresetTile(
+                      title: 'Essential Focus',
+                      description: 'The core metrics: Mood, Energy, Sleep & Wellbeing.',
+                      icon: Icons.auto_awesome_rounded,
+                      color: Colors.amber,
+                      isSelected: _selected == ResearchPreset.essential,
+                      onTap: () => _handleSelect(ResearchPreset.essential),
+                    ),
+                    const SizedBox(height: 16),
+                    _PresetTile(
+                      title: 'Full Circadian Study',
+                      description: 'Advanced variables: Light, Meals, Naps, and Environment.',
+                      icon: Icons.biotech_rounded,
+                      color: colorScheme.primary,
+                      isSelected: _selected == ResearchPreset.fullCircadian,
+                      onTap: () => _handleSelect(ResearchPreset.fullCircadian),
+                    ),
+                    const SizedBox(height: 16),
+                    _PresetTile(
+                      title: 'Health & Habits',
+                      description: 'Focus on Physical Activity, Nutrition, and Health.',
+                      icon: Icons.favorite_rounded,
+                      color: Colors.teal,
+                      isSelected: _selected == ResearchPreset.healthHabits,
+                      onTap: () => _handleSelect(ResearchPreset.healthHabits),
+                    ),
+                    const SizedBox(height: 16),
+                    _PresetTile(
+                      title: 'Productivity Tracker',
+                      description: 'Track Focus, Bachelor Work, and Screen Time.',
+                      icon: Icons.lightbulb_rounded,
+                      color: Colors.lightBlue,
+                      isSelected: _selected == ResearchPreset.productivity,
+                      onTap: () => _handleSelect(ResearchPreset.productivity),
+                    ),
+                    const SizedBox(height: 16),
+                    _PresetTile(
+                      title: 'All-Inclusive Collector',
+                      description: 'Enable every single metric for maximum data depth.',
+                      icon: Icons.all_inclusive_rounded,
+                      color: Colors.deepPurple,
+                      isSelected: _selected == ResearchPreset.allInclusive,
+                      onTap: () => _handleSelect(ResearchPreset.allInclusive),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Choose a starting point for your research. You can still customize everything later.',
-            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          _PresetTile(
-            title: 'Essential Focus',
-            description: 'The core metrics: Mood, Energy, Sleep & Wellbeing.',
-            icon: Icons.auto_awesome_rounded,
-            color: Colors.amber,
-            isSelected: _selected == ResearchPreset.essential,
-            onTap: () => _handleSelect(ResearchPreset.essential),
-          ),
-          const SizedBox(height: 16),
-          _PresetTile(
-            title: 'Full Circadian Study',
-            description: 'Advanced variables: Light, Meals, Naps, and Environment.',
-            icon: Icons.biotech_rounded,
-            color: colorScheme.primary,
-            isSelected: _selected == ResearchPreset.fullCircadian,
-            onTap: () => _handleSelect(ResearchPreset.fullCircadian),
-          ),
-          const SizedBox(height: 16),
-          _PresetTile(
-            title: 'Health & Habits',
-            description: 'Focus on Physical Activity, Nutrition, and Health.',
-            icon: Icons.favorite_rounded,
-            color: Colors.teal,
-            isSelected: _selected == ResearchPreset.healthHabits,
-            onTap: () => _handleSelect(ResearchPreset.healthHabits),
-          ),
-          const SizedBox(height: 16),
-          _PresetTile(
-            title: 'Productivity Tracker',
-            description: 'Track Focus, Bachelor Work, and Screen Time.',
-            icon: Icons.lightbulb_rounded,
-            color: Colors.lightBlue,
-            isSelected: _selected == ResearchPreset.productivity,
-            onTap: () => _handleSelect(ResearchPreset.productivity),
-          ),
-          const SizedBox(height: 16),
-          _PresetTile(
-            title: 'All-Inclusive Collector',
-            description: 'Enable every single metric for maximum data depth.',
-            icon: Icons.all_inclusive_rounded,
-            color: Colors.deepPurple,
-            isSelected: _selected == ResearchPreset.allInclusive,
-            onTap: () => _handleSelect(ResearchPreset.allInclusive),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
