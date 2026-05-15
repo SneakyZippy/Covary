@@ -1,17 +1,15 @@
-🎉 First Public Beta!
+🚀 Release v1.2.8
 
-Welcome to Covary — a research tool for tracking behavioral patterns.
+This release focuses on granular behavioral analytics, improved onboarding, and significant performance optimizations for rapid data entry.
 
-- Guided onboarding with research presets (Essential, Circadian, Health, Productivity, All-Inclusive)
-- Morning/Afternoon/Evening check-in windows with smart notifications
-- Quick-track buttons for frequent metrics on the home screen
-- Today's Timeline and tracking suggestions
-- Metric Insights with dual-metric comparison and circadian rhythm visualization
-- Correlation Matrix and Lagged Trend analysis (1-7 day offsets)
-- Health Connect integration (steps, sleep) with hourly granularity
-- App Usage tracking with dynamic category management (Android)
-- Full JSON data export/import with UUID-based identity
-- Automatic update notifications via GitHub releases
-- Customizable themes (7 accent colors) and dark mode
-- Data Quality dashboard with compliance tracking
-- Retrospective editing and raw data management
+### 🌟 Key Improvements
+- **Enhanced Circadian Analytics**: Granular hourly tracking for steps and app usage data.
+- **Sleep Insights**: Automatic extraction of sleep start, wake-up times, and sleep midpoint from health data.
+- **Improved Onboarding**: New "Research Presets" to quickly configure tracking priorities.
+- **Startup Optimization**: Significantly reduced app launch latency for faster event logging.
+- **Data Management**: Advanced filtering for raw event records and improved import/export compatibility.
+- **Compliance Tracking**: Refined visualization of check-in compliance and window-based logging.
+
+---
+Current version: 1.2.8 (Build 26)
+Timestamp: 2026-05-15T21:04:00+02:00
