@@ -135,3 +135,17 @@ extension MetricInputTypeX on MetricInputType {
     }
   }
 }
+
+/// Presets for bulk-enabling metrics based on research goals.
+enum ResearchPreset {
+  /// Mood, Energy, Sleep, Wellbeing.
+  essential,
+  /// Everything related to circadian anchors and subjective state.
+  fullCircadian,
+  /// Focus, Bachelor work, and Screen habits.
+  productivity,
+  /// Physical activity, Nutrition, and Symptoms.
+  healthHabits,
+  /// Everything enabled.
+  allInclusive,
+}

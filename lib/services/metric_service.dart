@@ -707,4 +707,65 @@ class MetricService extends ChangeNotifier {
     
     debugPrint('[MetricService] Debug Reset: All metrics and windows cleared and re-seeded');
   }
+
+  /// Bulk-enables/disables metrics based on a research preset.
+  Future<void> applyPreset(ResearchPreset preset) async {
+    final Map<ResearchPreset, List<String>> presetMap = {
+      ResearchPreset.essential: [
+        'core_mood', 'core_energy', 'core_sleep_quality', 'core_wellbeing'
+      ],
+      ResearchPreset.fullCircadian: [
+        'core_mood', 'core_energy', 'core_stress', 'core_wellbeing',
+        'core_sleep_quality', 'core_nap_duration', 'core_light_exposure', 'core_meal_count',
+        'core_weather_rain', 'core_weather_sun', 'core_weather_wind', 'core_outside',
+        'core_prompt_burden'
+      ],
+      ResearchPreset.productivity: [
+        'core_focus', 'e4a45a3d-a994-4ec8-be8c-fdf0ad511910', 'core_screen_mindless', 'core_journaling'
+      ],
+      ResearchPreset.healthHabits: [
+        'core_sleep_quality', 'core_nap_duration', '3a4d43d5-7459-481e-bf3c-97e725fa3105',
+        'core_headache', 'core_toilet_urge', 'core_coffee_intake', 'core_water_intake',
+        'core_alcohol_intake', 'core_sport', 'core_meditation'
+      ],
+    };
+
+    final List<String> targetIds;
+    if (preset == ResearchPreset.allInclusive) {
+      targetIds = _allMetrics.map((m) => m.id).toList();
+    } else {
+      targetIds = presetMap[preset] ?? [];
+    }
+    
+    // 1. Disable all currently active metrics (to start from a clean slate)
+    for (var m in _allMetrics) {
+      if (m.isEnabled) {
+        await _db.setCustomMetricEnabled(m.id, false);
+      }
+    }
+
+    // 2. Enable target metrics
+    for (var id in targetIds) {
+      await _db.setCustomMetricEnabled(id, true);
+    }
+
+    // 3. Log the change as a meta event
+    try {
+      await _db.insertEvent(
+        EventsCompanion(
+          category: const Value(EventCategory.meta),
+          label: const Value('research_preset_applied'),
+          value: Value(preset.name),
+          triggerSource: const Value(TriggerSource.manual),
+          interactionType: const Value(InteractionType.click),
+          sessionId: Value(const Uuid().v4()),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[MetricService] Error logging research_preset_applied: $e');
+    }
+
+    await _reload();
+    debugPrint('[MetricService] Applied research preset: ${preset.name}');
+  }
 }

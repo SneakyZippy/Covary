@@ -79,6 +79,16 @@ IconData? getIconData(String identifier) {
       return Icons.air_rounded;
     case 'forest':
       return Icons.forest_rounded;
+    case 'hotel':
+      return Icons.hotel_rounded;
+    case 'wb_sunny':
+      return Icons.wb_sunny_rounded;
+    case 'phonelink_erase':
+      return Icons.phonelink_erase_rounded;
+    case 'announcement':
+      return Icons.campaign_rounded;
+    case 'liquor':
+      return Icons.liquor_rounded;
     default:
       return null;
   }
@@ -117,4 +127,9 @@ final List<String> curatedIcons = [
   'sunny',
   'air',
   'forest',
+  'hotel',
+  'wb_sunny',
+  'phonelink_erase',
+  'announcement',
+  'liquor',
 ];

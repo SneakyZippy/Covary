@@ -88,6 +88,23 @@ class _MetricsScreenState extends State<MetricsScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    TextButton(
+                      onPressed: () {
+                        for (var m in filteredMetrics) {
+                          if (!m.isEnabled) metricService.toggleMetric(m.id);
+                        }
+                      },
+                      child: const Text('All'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        for (var m in filteredMetrics) {
+                          if (m.isEnabled) metricService.toggleMetric(m.id);
+                        }
+                      },
+                      child: const Text('None'),
+                    ),
+                    const SizedBox(width: 8),
                     FilledButton.tonalIcon(
                       onPressed: () => _showAddMetricBottomSheet(context),
                       icon: const Icon(Icons.add_rounded, size: 18),

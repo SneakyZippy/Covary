@@ -4,6 +4,7 @@ import '../../services/profile_service.dart';
 import '../../services/metric_service.dart';
 import '../widgets/edit_window_dialog.dart';
 import '../widgets/metric_icon.dart';
+import '../../data/models/enums.dart';
 import 'profile_setup_screen.dart';
 import 'package:covary/ui/screens/app_shell.dart';
 
@@ -94,9 +95,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         icon: Icons.school_rounded,
         color: Colors.purple,
       ),
-      // 5. Window Configuration
+      // 5. Research Focus (Presets)
+      _PresetSelectionSlide(service: metricService),
+      // 6. Window Configuration
       _WindowSetupSlide(service: metricService),
-      // 6. Metric Selection
+      // 7. Metric Selection
       _MetricSetupSlide(service: metricService),
     ];
 
@@ -105,6 +108,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       Colors.orange,
       Colors.teal,
       colorScheme.secondary,
+      Colors.amber,
       Colors.indigo,
       Colors.cyan,
     ];
@@ -529,6 +533,169 @@ class _MetricSetupSlide extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+}
+
+class _PresetSelectionSlide extends StatefulWidget {
+  final MetricService service;
+
+  const _PresetSelectionSlide({required this.service});
+
+  @override
+  State<_PresetSelectionSlide> createState() => _PresetSelectionSlideState();
+}
+
+class _PresetSelectionSlideState extends State<_PresetSelectionSlide> {
+  ResearchPreset? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 20),
+          Text(
+            'Research Focus',
+            style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Choose a starting point for your research. You can still customize everything later.',
+            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          _PresetTile(
+            title: 'Essential Focus',
+            description: 'The core metrics: Mood, Energy, Sleep & Wellbeing.',
+            icon: Icons.auto_awesome_rounded,
+            color: Colors.amber,
+            isSelected: _selected == ResearchPreset.essential,
+            onTap: () => _handleSelect(ResearchPreset.essential),
+          ),
+          const SizedBox(height: 16),
+          _PresetTile(
+            title: 'Full Circadian Study',
+            description: 'Advanced variables: Light, Meals, Naps, and Environment.',
+            icon: Icons.biotech_rounded,
+            color: colorScheme.primary,
+            isSelected: _selected == ResearchPreset.fullCircadian,
+            onTap: () => _handleSelect(ResearchPreset.fullCircadian),
+          ),
+          const SizedBox(height: 16),
+          _PresetTile(
+            title: 'Health & Habits',
+            description: 'Focus on Physical Activity, Nutrition, and Health.',
+            icon: Icons.favorite_rounded,
+            color: Colors.teal,
+            isSelected: _selected == ResearchPreset.healthHabits,
+            onTap: () => _handleSelect(ResearchPreset.healthHabits),
+          ),
+          const SizedBox(height: 16),
+          _PresetTile(
+            title: 'Productivity Tracker',
+            description: 'Track Focus, Bachelor Work, and Screen Time.',
+            icon: Icons.lightbulb_rounded,
+            color: Colors.lightBlue,
+            isSelected: _selected == ResearchPreset.productivity,
+            onTap: () => _handleSelect(ResearchPreset.productivity),
+          ),
+          const SizedBox(height: 16),
+          _PresetTile(
+            title: 'All-Inclusive Collector',
+            description: 'Enable every single metric for maximum data depth.',
+            icon: Icons.all_inclusive_rounded,
+            color: Colors.deepPurple,
+            isSelected: _selected == ResearchPreset.allInclusive,
+            onTap: () => _handleSelect(ResearchPreset.allInclusive),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleSelect(ResearchPreset p) {
+    setState(() => _selected = p);
+    widget.service.applyPreset(p);
+  }
+}
+
+class _PresetTile extends StatelessWidget {
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _PresetTile({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        color: isSelected ? color.withAlpha(25) : colorScheme.surfaceContainerHighest.withAlpha(100),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSelected ? color : colorScheme.outlineVariant,
+          width: 2,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(30),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Icon(Icons.check_circle_rounded, color: color),
+            ],
+          ),
+        ),
       ),
     );
   }
