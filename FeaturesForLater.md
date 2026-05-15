@@ -1,3 +1,4 @@
+Features:
 
 appusage stündlich abfragen damit man mehr siehr
 catergories besser definieren?
@@ -21,3 +22,24 @@ sun hours
 
 
 correlationsmatrix in leicht verständlichen text welcher infos gibt
+
+
+
+kurze umfrage von user? welche apps werden verwendet und wie zufrieden, welche features fehlen bzw sind besser in anderen apps?
+
+wieso möchte ich diese app verwenden und welche zusammenhänge würde ich gerne sehen?
+
+abschlussfrage was war gut was schlecht, was kann man besser machen?
+
+
+im setup vllt ein paar abfragen M/W, Alter, Technische affinität, 
+
+before we start, wieso gewisse obgrogen relevant sein (vorollem fürn bachelor) und a 3min setup?
+
+
+
+
+
+userdaten irgendwo online vergleichen und dafür a kleine belohnung?
+
+
