@@ -88,19 +88,14 @@ class ProfileService extends ChangeNotifier {
   // Initialization
   // ---------------------------------------------------------------------------
 
-  /// Initializes the profile service.
+  /// Fast initialization — reads ONLY SharedPreferences (no DB queries).
   ///
-  /// 1. Reads or generates the [uuid] from [SharedPreferences].
-  /// 2. Reads the stored [nickname].
-  /// 3. If this is a first launch, logs a `first_launch` meta event.
-  ///
-  /// Must be called once at app startup before accessing any properties.
-  Future<void> init(AppDatabase db) async {
+  /// This is enough to determine the routing decision (onboarding vs app shell)
+  /// and should be called before [runApp] to minimize startup delay.
+  /// Call [initDeferred] after the first frame for the heavy DB work.
+  Future<void> initFast(AppDatabase db) async {
     _db = db;
     final prefs = await SharedPreferences.getInstance();
-    
-    // Check database to see if we have restored data
-    final allEvents = await _db.getAllEvents();
 
     // --- UUID ---
     final storedUuid = prefs.getString(_kUserUuid);
@@ -108,12 +103,10 @@ class ProfileService extends ChangeNotifier {
       _uuid = storedUuid;
       debugPrint('[ProfileService] Existing user: $_uuid');
     } else {
-      if (allEvents.isNotEmpty) {
-        _hasRestoredData = true;
-        debugPrint('[ProfileService] Restored database detected!');
-      } else {
-        await _generateNewIdentity(prefs);
-      }
+      // No UUID in prefs — could be first launch or restored backup.
+      // We can't check the DB here (too slow), so we defer it.
+      // For routing, this is fine: isFirstLaunch will be true (nickname empty)
+      // and initDeferred() will detect restored data and trigger re-route.
     }
 
     // --- Nickname ---
@@ -122,26 +115,56 @@ class ProfileService extends ChangeNotifier {
     // --- Onboarding ---
     _hasSeenOnboarding = prefs.getBool(_kHasSeenOnboarding) ?? false;
 
-    // --- First Launch Timestamp ---
+    // --- First Launch Timestamp (from prefs only) ---
     final storedLaunch = prefs.getString(_kFirstLaunchAt);
     if (storedLaunch != null) {
       _firstLaunchAt = DateTime.tryParse(storedLaunch);
     } else {
-      // If not in prefs, try to find the earliest event in DB to backfill
-      final allEvents = await _db.getAllEvents();
-      if (allEvents.isNotEmpty) {
-        final earliest = allEvents.reduce((a, b) => a.timestamp.isBefore(b.timestamp) ? a : b);
-        _firstLaunchAt = earliest.timestamp;
-      } else {
-        _firstLaunchAt = DateTime.now();
-      }
-      if (!_hasRestoredData) {
-        await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
-      }
+      _firstLaunchAt = DateTime.now();
     }
 
     _isInitialized = true;
     notifyListeners();
+  }
+
+  /// Deferred initialization — runs the heavy DB queries after the UI is showing.
+  ///
+  /// Handles restored-data detection, first-launch timestamp backfill, and
+  /// UUID generation for true first launches.
+  Future<void> initDeferred() async {
+    final prefs = await SharedPreferences.getInstance();
+    final allEvents = await _db.getAllEvents();
+
+    // --- Detect restored data (DB has events but no UUID in prefs) ---
+    if (_uuid.isEmpty) {
+      if (allEvents.isNotEmpty) {
+        _hasRestoredData = true;
+        debugPrint('[ProfileService] Restored database detected!');
+        notifyListeners(); // Triggers re-route to RestoreSelectionScreen
+        return;
+      } else {
+        await _generateNewIdentity(prefs);
+      }
+    }
+
+    // --- Backfill first launch timestamp from earliest event if needed ---
+    final storedLaunch = prefs.getString(_kFirstLaunchAt);
+    if (storedLaunch == null && allEvents.isNotEmpty) {
+      final earliest = allEvents.reduce(
+        (a, b) => a.timestamp.isBefore(b.timestamp) ? a : b,
+      );
+      _firstLaunchAt = earliest.timestamp;
+      await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
+    }
+
+    notifyListeners();
+  }
+
+  /// Legacy / full initialization — calls both fast and deferred in sequence.
+  /// Kept for compatibility with import service and restore flows.
+  Future<void> init(AppDatabase db) async {
+    await initFast(db);
+    await initDeferred();
   }
 
   Future<void> _generateNewIdentity(SharedPreferences prefs) async {
