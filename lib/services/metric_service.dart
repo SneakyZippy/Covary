@@ -254,7 +254,7 @@ class MetricService extends ChangeNotifier {
     }
 
     // --- SOFT MIGRATION: Inject missing core metrics for existing users ---
-    final syncKey = 'core_metrics_v2_sync';
+    final syncKey = 'core_metrics_v4_sync';
     if (!(prefs.getBool(syncKey) ?? false)) {
       final currentMetricIds = _allMetrics.map((m) => m.id).toSet();
       int addedCount = 0;
