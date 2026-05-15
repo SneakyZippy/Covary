@@ -154,6 +154,7 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
   late List<String> _selectedWindowIds;
   late String? _selectedEmoji;
   bool? _retroReliableOverride;
+  late bool _isActivityIndicator;
 
   @override
   void initState() {
@@ -172,6 +173,7 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
     _selectedWindowIds = List.from(widget.metric.windowIds);
     _selectedEmoji = widget.metric.emoji;
     _retroReliableOverride = widget.metric.retroReliableOverride;
+    _isActivityIndicator = widget.metric.isActivityIndicator;
   }
 
   bool get _isScaleChangeDangerous {
@@ -214,6 +216,7 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
       inputType: _selectedInputType,
       windowIds: _selectedWindowIds,
       emoji: _selectedEmoji,
+      isActivityIndicator: _isActivityIndicator,
       retroReliableOverride: _retroReliableOverride,
     );
     if (mounted) Navigator.of(context).pop();
@@ -296,6 +299,28 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
               WindowCheckboxList(
                 selectedIds: _selectedWindowIds,
                 onChanged: (ids) => setState(() => _selectedWindowIds = ids),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  title: Text(
+                    'Counts towards Activity Streak',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'If disabled, logging this metric is optional and will not color your activity heatmap.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  value: _isActivityIndicator,
+                  onChanged: (val) => setState(() => _isActivityIndicator = val),
+                ),
               ),
               const SizedBox(height: 16),
               ReliabilityToggle(
@@ -385,6 +410,7 @@ class _AddMetricDialogState extends State<AddMetricDialog> {
   List<String> _selectedWindowIds = ['anytime'];
   String _selectedEmoji = 'bolt';
   bool? _retroReliableOverride;
+  bool _isActivityIndicator = true;
 
   late final DateTime _dialogOpenedAt;
 
@@ -397,6 +423,7 @@ class _AddMetricDialogState extends State<AddMetricDialog> {
       _selectedCategory = widget.template!.category;
       _selectedInputType = widget.template!.inputType;
       _selectedEmoji = widget.template!.emoji ?? 'bolt';
+      _isActivityIndicator = widget.template!.isActivityIndicator;
     }
   }
 
@@ -424,6 +451,7 @@ class _AddMetricDialogState extends State<AddMetricDialog> {
       inputType: _selectedInputType,
       windowIds: _selectedWindowIds,
       emoji: _selectedEmoji,
+      isActivityIndicator: _isActivityIndicator,
       retroReliableOverride: _retroReliableOverride,
       latencyMs: _calculateLatencyMs(),
     );
@@ -508,6 +536,28 @@ class _AddMetricDialogState extends State<AddMetricDialog> {
               WindowCheckboxList(
                 selectedIds: _selectedWindowIds,
                 onChanged: (ids) => setState(() => _selectedWindowIds = ids),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  title: Text(
+                    'Counts towards Activity Streak',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'If disabled, logging this metric is optional and will not color your activity heatmap.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  value: _isActivityIndicator,
+                  onChanged: (val) => setState(() => _isActivityIndicator = val),
+                ),
               ),
               const SizedBox(height: 16),
               ReliabilityToggle(

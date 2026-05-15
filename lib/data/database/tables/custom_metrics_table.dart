@@ -31,6 +31,9 @@ class CustomMetrics extends Table {
   /// false → always unreliable (user explicitly marks a yesNo as subjective).
   BoolColumn get isRetroReliable => boolean().nullable()();
 
+  /// Whether logging this metric counts towards the Activity Heatmap and Streak.
+  BoolColumn get isActivityIndicator => boolean().withDefault(const Constant(true))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

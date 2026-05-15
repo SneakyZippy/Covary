@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../services/metric_service.dart';
-import 'activity_history_screen.dart';
 
 class ComplianceScreen extends StatefulWidget {
   const ComplianceScreen({super.key});
@@ -42,7 +41,18 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
 
     // Calculate Real-time vs Recall (excluding system data)
     final total = researchEvents.length;
-    final recall = researchEvents.where((e) => e.triggerSource == TriggerSource.manual).length;
+    final recall = researchEvents.where((e) {
+      if (e.recordedAt == null) {
+        // Fallback for older database versions without recordedAt
+        return e.triggerSource == TriggerSource.manual;
+      }
+      
+      // If the event was logged more than 15 minutes after the time it "happened"
+      // (e.g. user backdated it, or it was a missed window check-in), 
+      // then it is considered a retrospective recall.
+      final diff = e.recordedAt!.difference(e.timestamp).inMinutes.abs();
+      return diff > 15;
+    }).length;
     
     // Multi-shaded compliance map based on session completion
     final sessionEvents = events.where((e) => 
@@ -129,15 +139,9 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       elevation: 0,
       color: colorScheme.surfaceContainerHighest.withAlpha(150),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ActivityHistoryScreen()),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -194,7 +198,6 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
             ),
           ],
         ),
-      ),
       ),
     );
   }

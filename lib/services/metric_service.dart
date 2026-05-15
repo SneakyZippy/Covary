@@ -122,6 +122,41 @@ class MetricService extends ChangeNotifier {
     }
   }
 
+  /// Calculates the exact target time (midpoint) for a window, adjusting for overnight
+  /// and previous-day misses.
+  DateTime getWindowTargetTime(DateTime now, TrackingWindow window) {
+    int startMinutes = window.startHour * 60 + window.startMinute;
+    int endMinutes = window.endHour * 60 + window.endMinute;
+    
+    if (startMinutes <= endMinutes) {
+      // Normal window
+      final midHour = (window.startHour + window.endHour) ~/ 2;
+      final midMinute = (window.startMinute + window.endMinute) ~/ 2;
+      var target = now.copyWith(hour: midHour, minute: midMinute, second: 0, millisecond: 0, microsecond: 0);
+      
+      // If the target is in the future, it means the window we are referring to was yesterday.
+      if (target.isAfter(now)) {
+        target = target.subtract(const Duration(days: 1));
+      }
+      return target;
+    } else {
+      // Overnight window (e.g. 22:00 to 05:00)
+      // Duration = (24*60 - startMinutes) + endMinutes
+      int duration = (1440 - startMinutes) + endMinutes;
+      int midPointMinutes = startMinutes + (duration ~/ 2);
+      
+      int targetHour = (midPointMinutes ~/ 60) % 24;
+      int targetMinute = midPointMinutes % 60;
+      
+      var target = now.copyWith(hour: targetHour, minute: targetMinute, second: 0, millisecond: 0, microsecond: 0);
+      
+      if (target.isAfter(now)) {
+        target = target.subtract(const Duration(days: 1));
+      }
+      return target;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Initialization
   // ---------------------------------------------------------------------------
@@ -214,6 +249,7 @@ class MetricService extends ChangeNotifier {
               isEnabled: Value(enabled),
               windowIds: Value(windowIds.join(',')),
               emoji: Value(m.emoji),
+              isActivityIndicator: Value(m.isActivityIndicator),
             ),
           );
         } catch (e) {
@@ -271,6 +307,7 @@ class MetricService extends ChangeNotifier {
                 isEnabled: Value(template.isEnabled),
                 windowIds: Value(template.windowIds.join(',')),
                 emoji: Value(template.emoji),
+                isActivityIndicator: Value(template.isActivityIndicator),
               ),
             );
             addedCount++;
@@ -338,6 +375,7 @@ class MetricService extends ChangeNotifier {
         isEnabled: row.isEnabled,
         windowIds: windowIds,
         emoji: row.emoji,
+        isActivityIndicator: row.isActivityIndicator,
         retroReliableOverride: row.isRetroReliable,
       );
     }).toList();
@@ -441,6 +479,23 @@ class MetricService extends ChangeNotifier {
     notifyListeners();
     debugPrint('[MetricService] Toggled "${metric.label}" → $newEnabled');
   }
+
+  /// Sets whether a metric counts towards the activity streak.
+  Future<void> setMetricActivityIndicator(String id, bool isActivityIndicator) async {
+    final index = _allMetrics.indexWhere((m) => m.id == id);
+    if (index == -1) return;
+
+    final metric = _allMetrics[index];
+    
+    await _db.updateCustomMetric(
+      id,
+      CustomMetricsCompanion(isActivityIndicator: Value(isActivityIndicator)),
+    );
+
+    _allMetrics[index] = metric.copyWith(isActivityIndicator: isActivityIndicator);
+    notifyListeners();
+    debugPrint('[MetricService] Set activity indicator for "${metric.label}" → $isActivityIndicator');
+  }
  
   /// Enables or disables a tracking window by [id].
   Future<void> toggleTrackingWindow(String id) async {
@@ -491,6 +546,7 @@ class MetricService extends ChangeNotifier {
     required MetricInputType inputType,
     List<String> windowIds = const ['anytime'],
     String? emoji,
+    bool isActivityIndicator = true,
     bool? retroReliableOverride,
     int latencyMs = 0,
   }) async {
@@ -505,6 +561,7 @@ class MetricService extends ChangeNotifier {
         isEnabled: const Value(true),
         windowIds: Value(_serializeWindowIds(windowIds)),
         emoji: Value(emoji),
+        isActivityIndicator: Value(isActivityIndicator),
         isRetroReliable: Value(retroReliableOverride),
       ),
     );
@@ -538,6 +595,7 @@ class MetricService extends ChangeNotifier {
     required MetricInputType inputType,
     required List<String> windowIds,
     String? emoji,
+    bool? isActivityIndicator,
     Object? retroReliableOverride = _kUnset,
   }) async {
     await _db.updateCustomMetric(
@@ -548,6 +606,9 @@ class MetricService extends ChangeNotifier {
         inputType: Value(inputType),
         windowIds: Value(_serializeWindowIds(windowIds)),
         emoji: Value(emoji),
+        isActivityIndicator: isActivityIndicator == null 
+            ? const Value.absent()
+            : Value(isActivityIndicator),
         isRetroReliable: retroReliableOverride == _kUnset
             ? const Value.absent()
             : Value(retroReliableOverride as bool?),

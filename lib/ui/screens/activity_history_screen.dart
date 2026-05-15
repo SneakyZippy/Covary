@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
+import '../../services/metric_service.dart';
 
 class ActivityHistoryScreen extends StatefulWidget {
   const ActivityHistoryScreen({super.key});
@@ -24,9 +25,19 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
 
   Future<void> _loadAllActivity() async {
     final db = context.read<AppDatabase>();
+    final metricService = context.read<MetricService>();
     final allEvents = await db.getAllEvents();
 
-    final userEvents = allEvents.where((e) => e.triggerSource != TriggerSource.system && e.category != EventCategory.meta).toList();
+    final indicatorLabels = metricService.allMetrics
+        .where((m) => m.isActivityIndicator)
+        .map((m) => m.label)
+        .toSet();
+
+    final userEvents = allEvents.where((e) => 
+        e.triggerSource != TriggerSource.system && 
+        e.category != EventCategory.meta &&
+        indicatorLabels.contains(e.label)
+    ).toList();
     
     final Map<DateTime, int> tempMap = {};
     DateTime? earliest;

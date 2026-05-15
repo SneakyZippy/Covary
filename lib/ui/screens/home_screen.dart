@@ -98,7 +98,16 @@ class _HomeScreenState extends State<HomeScreen> {
         .toSet();
 
     // Activity and Streak Computation
-    final userEvents = allEvents.where((e) => e.triggerSource != TriggerSource.system && e.category != EventCategory.meta).toList();
+    final indicatorLabels = metricService.allMetrics
+        .where((m) => m.isActivityIndicator)
+        .map((m) => m.label)
+        .toSet();
+
+    final userEvents = allEvents.where((e) => 
+        e.triggerSource != TriggerSource.system && 
+        e.category != EventCategory.meta &&
+        indicatorLabels.contains(e.label)
+    ).toList();
     
     final activityLevels = List<int>.filled(14, 0);
     int currentStreak = 0;
@@ -168,30 +177,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _updateMissedSessions(List<Event> allEvents) {
     final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
     final metricService = context.read<MetricService>();
 
-    final windowsToCheck = <TrackingWindow>[];
+    final missed = <TrackingWindow>[];
+
     for (var window in metricService.allWindows) {
       if (metricService.hasWindowPassed(now, window)) {
-        windowsToCheck.add(window);
+        final targetTime = metricService.getWindowTargetTime(now, window);
+        
+        // Find if there's a completion/dismissal for THIS specific iteration of the window.
+        // We match by checking if the meta event timestamp falls on the same date as the targetTime.
+        final isCompleted = allEvents.any((e) => 
+            e.category == EventCategory.meta &&
+            (e.label == 'SessionCompleted' || e.label == 'SessionDismissed') &&
+            e.value == window.id &&
+            e.timestamp.year == targetTime.year &&
+            e.timestamp.month == targetTime.month &&
+            e.timestamp.day == targetTime.day
+        );
+
+        if (!isCompleted) {
+          missed.add(window);
+        }
       }
     }
-
-    if (windowsToCheck.isEmpty) {
-      if (mounted) setState(() => _missedWindows = []);
-      return;
-    }
-
-    final completedWindows = allEvents
-        .where((e) =>
-            e.timestamp.isAfter(todayStart) &&
-            e.category == EventCategory.meta &&
-            (e.label == 'SessionCompleted' || e.label == 'SessionDismissed'))
-        .map((e) => e.value)
-        .toSet();
-
-    final missed = windowsToCheck.where((w) => !completedWindows.contains(w.id)).toList();
 
     if (mounted) {
       setState(() {
@@ -499,9 +508,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final textTheme = Theme.of(context).textTheme;
     final metricService = context.read<MetricService>();
 
-    // Compute midpoint of the missed window for backdated logging.
-    final midHour = (window.startHour + window.endHour) ~/ 2;
-    final targetTime = DateTime.now().copyWith(hour: midHour, minute: 0);
+    // Compute exact target time (midpoint) of the missed window for backdated logging.
+    final targetTime = metricService.getWindowTargetTime(DateTime.now(), window);
 
     // Split metrics that belonged to this window by recall reliability.
     final windowMetrics = metricService.allMetrics.where((m) {

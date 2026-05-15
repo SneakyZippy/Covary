@@ -73,7 +73,17 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     final textTheme = Theme.of(context).textTheme;
     final metricService = context.watch<MetricService>();
 
-    final currentTime = widget.targetTime ?? DateTime.now();
+    DateTime currentTime = widget.targetTime ?? DateTime.now();
+    bool isMissedWindow = widget.targetTime != null;
+
+    if (widget.targetTime == null && widget.fulfilledSlotId != null) {
+      final window = metricService.allWindows.where((w) => w.id == widget.fulfilledSlotId).firstOrNull;
+      if (window != null && metricService.hasWindowPassed(DateTime.now(), window)) {
+        final midHour = (window.startHour + window.endHour) ~/ 2;
+        currentTime = DateTime.now().copyWith(hour: midHour, minute: 0);
+        isMissedWindow = true;
+      }
+    }
     
     // Guided mode: only metrics assigned to the current time window.
     // Manual/Quick Log mode: ALL enabled metrics (including "Quick Log Only"
@@ -96,8 +106,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         child: metrics.isEmpty
             ? _buildEmptyState(colorScheme, textTheme)
             : widget.mode == CheckinMode.guided
-                ? _buildGuidedFlow(metrics, colorScheme, textTheme)
-                : _buildManualGrid(metrics, colorScheme, textTheme),
+                ? _buildGuidedFlow(metrics, colorScheme, textTheme, isMissedWindow, currentTime)
+                : _buildManualGrid(metrics, colorScheme, textTheme, currentTime),
       ),
     );
   }
@@ -107,9 +117,10 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     List<MetricDefinition> metrics,
     ColorScheme colorScheme,
     TextTheme textTheme,
+    bool isMissedWindow,
+    DateTime effectiveTargetTime,
   ) {
     final totalPages = metrics.length + 1;
-    final isMissedWindow = widget.targetTime != null;
 
     return Column(
       children: [
@@ -229,7 +240,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                           const SizedBox(height: 16),
                           _buildTimePickerButton(
                             metric.id, 
-                            _sessionData[metric.id]?.$3 ?? widget.targetTime ?? DateTime.now(),
+                            _sessionData[metric.id]?.$3 ?? effectiveTargetTime,
                             colorScheme,
                           ),
                         ],
@@ -246,7 +257,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                     duration: const Duration(milliseconds: 500),
                     curve: Curves.easeInOut,
                   ),
-                  onSubmit: () => _submitSession(metrics),
+                  onSubmit: () => _submitSession(metrics, effectiveTargetTime),
                 );
               }
             },
@@ -265,9 +276,13 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           initialTime: TimeOfDay.fromDateTime(currentTime),
         );
         if (time != null && mounted) {
-          final newTime = DateTime(
-            currentTime.year, currentTime.month, currentTime.day, time.hour, time.minute,
+          final now = DateTime.now();
+          var newTime = DateTime(
+            now.year, now.month, now.day, time.hour, time.minute,
           );
+          if (newTime.isAfter(now)) {
+            newTime = newTime.subtract(const Duration(days: 1));
+          }
           setState(() {
             final existing = _sessionData[metricId];
             _sessionData[metricId] = (existing?.$1 ?? '', existing?.$2 ?? 0, newTime);
@@ -287,6 +302,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     List<MetricDefinition> metrics,
     ColorScheme colorScheme,
     TextTheme textTheme,
+    DateTime effectiveTargetTime,
   ) {
     return GridView.builder(
       padding: const EdgeInsets.all(24),
@@ -303,9 +319,9 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           onTap: () {
             if (metric.inputType == MetricInputType.counter) {
               final latency = DateTime.now().difference(_cardVisibleAt).inMilliseconds;
-              _logCounterTap(metric, latency);
+              _logCounterTap(metric, latency, effectiveTargetTime: effectiveTargetTime);
             } else {
-              _showSingleMetricInput(metric);
+              _showSingleMetricInput(metric, effectiveTargetTime);
             }
           },
           borderRadius: BorderRadius.circular(20),
@@ -355,7 +371,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     );
   }
 
-  Future<void> _logCounterTap(MetricDefinition metric, int latencyMs, {DateTime? customTime}) async {
+  Future<void> _logCounterTap(MetricDefinition metric, int latencyMs, {DateTime? customTime, DateTime? effectiveTargetTime}) async {
     try {
       final db = context.read<AppDatabase>();
       final now = DateTime.now();
@@ -367,7 +383,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           latencyMs: Value(latencyMs),
           triggerSource: Value(widget.triggerSource),
           interactionType: const Value(InteractionType.click),
-          timestamp: Value(customTime ?? widget.targetTime ?? now),
+          timestamp: Value(customTime ?? effectiveTargetTime ?? widget.targetTime ?? now),
           recordedAt: Value(now),
         ),
       );
@@ -385,9 +401,9 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     }
   }
 
-  void _showSingleMetricInput(MetricDefinition metric) {
+  void _showSingleMetricInput(MetricDefinition metric, DateTime effectiveTargetTime) {
     final openedAt = DateTime.now();
-    DateTime customTime = widget.targetTime ?? DateTime.now();
+    DateTime customTime = effectiveTargetTime;
 
     showModalBottomSheet(
       context: context,
@@ -450,9 +466,13 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                 );
                 if (time != null && context.mounted) {
                   setModalState(() {
+                    final now = DateTime.now();
                     customTime = DateTime(
-                      customTime.year, customTime.month, customTime.day, time.hour, time.minute,
+                      now.year, now.month, now.day, time.hour, time.minute,
                     );
+                    if (customTime.isAfter(now)) {
+                      customTime = customTime.subtract(const Duration(days: 1));
+                    }
                   });
                 }
               },
@@ -472,7 +492,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
       );
   }
 
-  Future<void> _submitSession(List<MetricDefinition> metrics) async {
+  Future<void> _submitSession(List<MetricDefinition> metrics, DateTime effectiveTargetTime) async {
     final db = context.read<AppDatabase>();
     final metricService = context.read<MetricService>();
     final colorScheme = Theme.of(context).colorScheme;
@@ -492,7 +512,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
             latencyMs: Value(data.$2),
             triggerSource: Value(widget.triggerSource),
             interactionType: const Value(InteractionType.click),
-            timestamp: Value(data.$3 ?? widget.targetTime ?? now),
+            timestamp: Value(data.$3 ?? effectiveTargetTime),
             recordedAt: Value(now),
             sessionId: Value(sessionId),
           ),
@@ -504,7 +524,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
       String? windowId = widget.fulfilledSlotId;
       
       if (windowId == null) {
-        final now = widget.targetTime ?? DateTime.now();
+        final now = effectiveTargetTime;
         final currentWindows = metricService.allWindows.where((w) {
           final nowMinutes = now.hour * 60 + now.minute;
           final startMinutes = w.startHour * 60 + w.startMinute;

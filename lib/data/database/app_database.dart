@@ -16,18 +16,18 @@ part 'app_database.g.dart';
 /// The main application database.
 @DriftDatabase(tables: [Events, CustomMetrics, TrackingWindows])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase._internal(super.e);
+  AppDatabase._(super.e);
 
   /// Singleton instance of the database.
   static AppDatabase? _instance;
 
   static AppDatabase getInstance() {
-    _instance ??= AppDatabase._internal(_openConnection());
+    _instance ??= AppDatabase._(_openConnection());
     return _instance!;
   }
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
   
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -104,6 +104,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 14) {
         // Add recordedAt column to events table to separate occurrence time from logging time.
         await addColumnSafe(events, events.recordedAt);
+      }
+      if (from < 15) {
+        // Add isActivityIndicator column to CustomMetrics table.
+        await addColumnSafe(customMetrics, customMetrics.isActivityIndicator);
       }
     },
   );

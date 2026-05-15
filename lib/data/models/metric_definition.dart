@@ -30,6 +30,9 @@ class MetricDefinition {
   /// Optional emoji or icon hint for the UI.
   final String? emoji;
 
+  /// Whether logging this metric counts towards the Activity Heatmap and Streak.
+  final bool isActivityIndicator;
+
   /// User-set override for retrospective recall reliability.
   /// - `null`  → auto-derived from [inputType].
   /// - `true`  → always treated as reliable (e.g. a scale the user knows is factual).
@@ -56,6 +59,7 @@ class MetricDefinition {
     required this.isEnabled,
     this.windowIds = const ['anytime'],
     this.emoji,
+    this.isActivityIndicator = true,
     this.retroReliableOverride,
   });
 
@@ -71,6 +75,7 @@ class MetricDefinition {
     bool? isEnabled,
     List<String>? windowIds,
     String? emoji,
+    bool? isActivityIndicator,
     Object? retroReliableOverride = _unset,
   }) {
     return MetricDefinition(
@@ -81,6 +86,7 @@ class MetricDefinition {
       isEnabled: isEnabled ?? this.isEnabled,
       windowIds: windowIds ?? this.windowIds,
       emoji: emoji ?? this.emoji,
+      isActivityIndicator: isActivityIndicator ?? this.isActivityIndicator,
       retroReliableOverride: retroReliableOverride == _unset
           ? this.retroReliableOverride
           : retroReliableOverride as bool?,

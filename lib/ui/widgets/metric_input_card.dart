@@ -73,12 +73,28 @@ class _MetricInputCardState extends State<MetricInputCard> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    widget.metric.label,
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurface,
-                    ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        widget.metric.label,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      if (!widget.metric.isActivityIndicator) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '(Optional)',
+                          style: textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurfaceVariant.withAlpha(150),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 // Selection indicator (hidden for counter type — each tap is discrete)

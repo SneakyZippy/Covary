@@ -88,21 +88,41 @@ class _MetricsScreenState extends State<MetricsScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    TextButton(
-                      onPressed: () {
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded),
+                      tooltip: 'Bulk Actions',
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'enable_all',
+                          child: Text('Enable All Tracking'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'disable_all',
+                          child: Text('Disable All Tracking'),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'require_all',
+                          child: Text('Make All Required'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'optional_all',
+                          child: Text('Make All Optional'),
+                        ),
+                      ],
+                      onSelected: (value) {
                         for (var m in filteredMetrics) {
-                          if (!m.isEnabled) metricService.toggleMetric(m.id);
+                          if (value == 'enable_all' && !m.isEnabled) {
+                            metricService.toggleMetric(m.id);
+                          } else if (value == 'disable_all' && m.isEnabled) {
+                            metricService.toggleMetric(m.id);
+                          } else if (value == 'require_all' && !m.isActivityIndicator) {
+                            metricService.setMetricActivityIndicator(m.id, true);
+                          } else if (value == 'optional_all' && m.isActivityIndicator) {
+                            metricService.setMetricActivityIndicator(m.id, false);
+                          }
                         }
                       },
-                      child: const Text('All'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        for (var m in filteredMetrics) {
-                          if (m.isEnabled) metricService.toggleMetric(m.id);
-                        }
-                      },
-                      child: const Text('None'),
                     ),
                     const SizedBox(width: 8),
                     FilledButton.tonalIcon(
@@ -296,6 +316,25 @@ class _MetricTile extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
+              if (metric.isEnabled && !metric.isActivityIndicator) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                  child: Text(
+                    'Optional',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
               if (metric.isEnabled && metric.windowIds.isEmpty) ...[
                 const SizedBox(width: 8),
                 Container(

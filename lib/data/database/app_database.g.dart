@@ -746,6 +746,20 @@ class $CustomMetricsTable extends CustomMetrics
       'CHECK ("is_retro_reliable" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _isActivityIndicatorMeta =
+      const VerificationMeta('isActivityIndicator');
+  @override
+  late final GeneratedColumn<bool> isActivityIndicator = GeneratedColumn<bool>(
+    'is_activity_indicator',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_activity_indicator" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -756,6 +770,7 @@ class $CustomMetricsTable extends CustomMetrics
     isEnabled,
     emoji,
     isRetroReliable,
+    isActivityIndicator,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -807,6 +822,15 @@ class $CustomMetricsTable extends CustomMetrics
         ),
       );
     }
+    if (data.containsKey('is_activity_indicator')) {
+      context.handle(
+        _isActivityIndicatorMeta,
+        isActivityIndicator.isAcceptableOrUnknown(
+          data['is_activity_indicator']!,
+          _isActivityIndicatorMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -852,6 +876,10 @@ class $CustomMetricsTable extends CustomMetrics
         DriftSqlType.bool,
         data['${effectivePrefix}is_retro_reliable'],
       ),
+      isActivityIndicator: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_activity_indicator'],
+      )!,
     );
   }
 
@@ -895,6 +923,9 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
   /// true  → always reliable (e.g. a scale metric the user knows is factual).
   /// false → always unreliable (user explicitly marks a yesNo as subjective).
   final bool? isRetroReliable;
+
+  /// Whether logging this metric counts towards the Activity Heatmap and Streak.
+  final bool isActivityIndicator;
   const CustomMetric({
     required this.id,
     required this.label,
@@ -904,6 +935,7 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
     required this.isEnabled,
     this.emoji,
     this.isRetroReliable,
+    required this.isActivityIndicator,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -928,6 +960,7 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
     if (!nullToAbsent || isRetroReliable != null) {
       map['is_retro_reliable'] = Variable<bool>(isRetroReliable);
     }
+    map['is_activity_indicator'] = Variable<bool>(isActivityIndicator);
     return map;
   }
 
@@ -945,6 +978,7 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
       isRetroReliable: isRetroReliable == null && nullToAbsent
           ? const Value.absent()
           : Value(isRetroReliable),
+      isActivityIndicator: Value(isActivityIndicator),
     );
   }
 
@@ -966,6 +1000,9 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
       isEnabled: serializer.fromJson<bool>(json['isEnabled']),
       emoji: serializer.fromJson<String?>(json['emoji']),
       isRetroReliable: serializer.fromJson<bool?>(json['isRetroReliable']),
+      isActivityIndicator: serializer.fromJson<bool>(
+        json['isActivityIndicator'],
+      ),
     );
   }
   @override
@@ -984,6 +1021,7 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
       'isEnabled': serializer.toJson<bool>(isEnabled),
       'emoji': serializer.toJson<String?>(emoji),
       'isRetroReliable': serializer.toJson<bool?>(isRetroReliable),
+      'isActivityIndicator': serializer.toJson<bool>(isActivityIndicator),
     };
   }
 
@@ -996,6 +1034,7 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
     bool? isEnabled,
     Value<String?> emoji = const Value.absent(),
     Value<bool?> isRetroReliable = const Value.absent(),
+    bool? isActivityIndicator,
   }) => CustomMetric(
     id: id ?? this.id,
     label: label ?? this.label,
@@ -1007,6 +1046,7 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
     isRetroReliable: isRetroReliable.present
         ? isRetroReliable.value
         : this.isRetroReliable,
+    isActivityIndicator: isActivityIndicator ?? this.isActivityIndicator,
   );
   CustomMetric copyWithCompanion(CustomMetricsCompanion data) {
     return CustomMetric(
@@ -1020,6 +1060,9 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
       isRetroReliable: data.isRetroReliable.present
           ? data.isRetroReliable.value
           : this.isRetroReliable,
+      isActivityIndicator: data.isActivityIndicator.present
+          ? data.isActivityIndicator.value
+          : this.isActivityIndicator,
     );
   }
 
@@ -1033,7 +1076,8 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
           ..write('windowIds: $windowIds, ')
           ..write('isEnabled: $isEnabled, ')
           ..write('emoji: $emoji, ')
-          ..write('isRetroReliable: $isRetroReliable')
+          ..write('isRetroReliable: $isRetroReliable, ')
+          ..write('isActivityIndicator: $isActivityIndicator')
           ..write(')'))
         .toString();
   }
@@ -1048,6 +1092,7 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
     isEnabled,
     emoji,
     isRetroReliable,
+    isActivityIndicator,
   );
   @override
   bool operator ==(Object other) =>
@@ -1060,7 +1105,8 @@ class CustomMetric extends DataClass implements Insertable<CustomMetric> {
           other.windowIds == this.windowIds &&
           other.isEnabled == this.isEnabled &&
           other.emoji == this.emoji &&
-          other.isRetroReliable == this.isRetroReliable);
+          other.isRetroReliable == this.isRetroReliable &&
+          other.isActivityIndicator == this.isActivityIndicator);
 }
 
 class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
@@ -1072,6 +1118,7 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
   final Value<bool> isEnabled;
   final Value<String?> emoji;
   final Value<bool?> isRetroReliable;
+  final Value<bool> isActivityIndicator;
   final Value<int> rowid;
   const CustomMetricsCompanion({
     this.id = const Value.absent(),
@@ -1082,6 +1129,7 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
     this.isEnabled = const Value.absent(),
     this.emoji = const Value.absent(),
     this.isRetroReliable = const Value.absent(),
+    this.isActivityIndicator = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CustomMetricsCompanion.insert({
@@ -1093,6 +1141,7 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
     this.isEnabled = const Value.absent(),
     this.emoji = const Value.absent(),
     this.isRetroReliable = const Value.absent(),
+    this.isActivityIndicator = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : label = Value(label),
        category = Value(category),
@@ -1106,6 +1155,7 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
     Expression<bool>? isEnabled,
     Expression<String>? emoji,
     Expression<bool>? isRetroReliable,
+    Expression<bool>? isActivityIndicator,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1117,6 +1167,8 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
       if (isEnabled != null) 'is_enabled': isEnabled,
       if (emoji != null) 'emoji': emoji,
       if (isRetroReliable != null) 'is_retro_reliable': isRetroReliable,
+      if (isActivityIndicator != null)
+        'is_activity_indicator': isActivityIndicator,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1130,6 +1182,7 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
     Value<bool>? isEnabled,
     Value<String?>? emoji,
     Value<bool?>? isRetroReliable,
+    Value<bool>? isActivityIndicator,
     Value<int>? rowid,
   }) {
     return CustomMetricsCompanion(
@@ -1141,6 +1194,7 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
       isEnabled: isEnabled ?? this.isEnabled,
       emoji: emoji ?? this.emoji,
       isRetroReliable: isRetroReliable ?? this.isRetroReliable,
+      isActivityIndicator: isActivityIndicator ?? this.isActivityIndicator,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1176,6 +1230,9 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
     if (isRetroReliable.present) {
       map['is_retro_reliable'] = Variable<bool>(isRetroReliable.value);
     }
+    if (isActivityIndicator.present) {
+      map['is_activity_indicator'] = Variable<bool>(isActivityIndicator.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1193,6 +1250,7 @@ class CustomMetricsCompanion extends UpdateCompanion<CustomMetric> {
           ..write('isEnabled: $isEnabled, ')
           ..write('emoji: $emoji, ')
           ..write('isRetroReliable: $isRetroReliable, ')
+          ..write('isActivityIndicator: $isActivityIndicator, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2176,6 +2234,7 @@ typedef $$CustomMetricsTableCreateCompanionBuilder =
       Value<bool> isEnabled,
       Value<String?> emoji,
       Value<bool?> isRetroReliable,
+      Value<bool> isActivityIndicator,
       Value<int> rowid,
     });
 typedef $$CustomMetricsTableUpdateCompanionBuilder =
@@ -2188,6 +2247,7 @@ typedef $$CustomMetricsTableUpdateCompanionBuilder =
       Value<bool> isEnabled,
       Value<String?> emoji,
       Value<bool?> isRetroReliable,
+      Value<bool> isActivityIndicator,
       Value<int> rowid,
     });
 
@@ -2241,6 +2301,11 @@ class $$CustomMetricsTableFilterComposer
     column: $table.isRetroReliable,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get isActivityIndicator => $composableBuilder(
+    column: $table.isActivityIndicator,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$CustomMetricsTableOrderingComposer
@@ -2291,6 +2356,11 @@ class $$CustomMetricsTableOrderingComposer
     column: $table.isRetroReliable,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isActivityIndicator => $composableBuilder(
+    column: $table.isActivityIndicator,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CustomMetricsTableAnnotationComposer
@@ -2325,6 +2395,11 @@ class $$CustomMetricsTableAnnotationComposer
 
   GeneratedColumn<bool> get isRetroReliable => $composableBuilder(
     column: $table.isRetroReliable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isActivityIndicator => $composableBuilder(
+    column: $table.isActivityIndicator,
     builder: (column) => column,
   );
 }
@@ -2368,6 +2443,7 @@ class $$CustomMetricsTableTableManager
                 Value<bool> isEnabled = const Value.absent(),
                 Value<String?> emoji = const Value.absent(),
                 Value<bool?> isRetroReliable = const Value.absent(),
+                Value<bool> isActivityIndicator = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CustomMetricsCompanion(
                 id: id,
@@ -2378,6 +2454,7 @@ class $$CustomMetricsTableTableManager
                 isEnabled: isEnabled,
                 emoji: emoji,
                 isRetroReliable: isRetroReliable,
+                isActivityIndicator: isActivityIndicator,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2390,6 +2467,7 @@ class $$CustomMetricsTableTableManager
                 Value<bool> isEnabled = const Value.absent(),
                 Value<String?> emoji = const Value.absent(),
                 Value<bool?> isRetroReliable = const Value.absent(),
+                Value<bool> isActivityIndicator = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CustomMetricsCompanion.insert(
                 id: id,
@@ -2400,6 +2478,7 @@ class $$CustomMetricsTableTableManager
                 isEnabled: isEnabled,
                 emoji: emoji,
                 isRetroReliable: isRetroReliable,
+                isActivityIndicator: isActivityIndicator,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
