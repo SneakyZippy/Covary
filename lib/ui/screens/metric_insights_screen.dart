@@ -803,6 +803,8 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         ),
       ),
     );
+  }
+
   String _formatTooltipKey(dynamic key, InsightViewMode mode) {
     if (mode == InsightViewMode.circadian) {
       final hour = (key as int);

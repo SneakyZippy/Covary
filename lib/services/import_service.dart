@@ -65,6 +65,7 @@ class ImportService {
             final int startM = _toInt(map['start_minute'], 0);
             
             map['is_notification_enabled'] = _toBool(map['is_notification_enabled'], false);
+            map['is_enabled'] = _toBool(map['is_enabled'], true);
             map['start_hour'] = startH;
             map['start_minute'] = startM;
             map['end_hour'] = _toInt(map['end_hour'], 23);

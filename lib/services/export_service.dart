@@ -21,24 +21,14 @@ class ExportService {
   /// triggers the share sheet, and logs the export as a meta event.
   Future<bool> exportData() async {
     try {
-      final uuid = profileService.uuid;
-      final nickname = profileService.nickname;
-
-      // Ensure we have a valid UUID to export
-      if (uuid.isEmpty) {
-        debugPrint('[ExportService] Cannot export: empty UUID.');
-        return false;
-      }
-
       final events = await db.getAllEvents();
       final customMetrics = await db.getAllCustomMetrics();
       final trackingWindows = await db.getAllTrackingWindows();
 
-      // Structure the final JSON for a complete backup/migration
       final data = {
         'profile': {
-          'uuid': uuid,
-          'nickname': nickname,
+          'uuid': profileService.uuid,
+          'nickname': profileService.nickname,
           'exported_at': DateTime.now().toIso8601String(),
         },
         'settings': {
@@ -50,14 +40,58 @@ class ExportService {
         },
       };
 
-      // Use indented format for human readability (thesis requirement)
+      return _performExport(data, 'all');
+    } catch (e) {
+      debugPrint('[ExportService] Export failed: $e');
+      return false;
+    }
+  }
+
+  Future<bool> exportWindows() async {
+    try {
+      final trackingWindows = await db.getAllTrackingWindows();
+      final data = {
+        'settings': {
+          'tracking_windows': trackingWindows.map((w) => w.toJson()).toList(),
+        },
+      };
+      return _performExport(data, 'windows');
+    } catch (e) {
+      debugPrint('[ExportService] Export windows failed: $e');
+      return false;
+    }
+  }
+
+  Future<bool> exportMetrics() async {
+    try {
+      final customMetrics = await db.getAllCustomMetrics();
+      final data = {
+        'research_data': {
+          'custom_metrics': customMetrics.map((h) => h.toJson()).toList(),
+        },
+      };
+      return _performExport(data, 'metrics');
+    } catch (e) {
+      debugPrint('[ExportService] Export metrics failed: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _performExport(Map<String, dynamic> data, String type) async {
+    try {
+      final uuid = profileService.uuid;
+      if (uuid.isEmpty) {
+        debugPrint('[ExportService] Cannot export: empty UUID.');
+        return false;
+      }
+
       final jsonString = const JsonEncoder.withIndent('  ').convert(data);
 
       final timestamp = DateTime.now()
           .toIso8601String()
           .replaceAll(':', '-')
           .replaceAll('.', '-');
-      final fileName = 'covary_data_${uuid}_$timestamp.json';
+      final fileName = 'covary_${type}_${uuid}_$timestamp.json';
 
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/$fileName');
@@ -67,7 +101,7 @@ class ExportService {
       await db.insertEvent(
         EventsCompanion.insert(
           category: EventCategory.meta,
-          label: 'data_exported',
+          label: 'data_exported_$type',
           value: 'true',
           triggerSource: TriggerSource.manual,
           interactionType: InteractionType.click,
@@ -75,7 +109,7 @@ class ExportService {
       );
 
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], text: 'Covary Data Export'),
+        ShareParams(files: [XFile(file.path)], text: 'Covary Data Export ($type)'),
       );
 
       return true;
