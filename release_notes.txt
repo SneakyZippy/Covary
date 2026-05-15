@@ -1,4 +1,17 @@
-- Fixed HCI interaction analytics: SwipeAway and Snooze events now correctly show in the dashboard
-- Accurate latency tracking: Counter metrics now measure real user response time
-- Improved data attribution: Correctly tag trigger source for sessions launched via notification
-- Enhanced UX: Fixed slider auto-advance bug during drag interaction
+🎉 First Public Beta!
+
+Welcome to Covary — a research tool for tracking behavioral patterns.
+
+- Guided onboarding with research presets (Essential, Circadian, Health, Productivity, All-Inclusive)
+- Morning/Afternoon/Evening check-in windows with smart notifications
+- Quick-track buttons for frequent metrics on the home screen
+- Today's Timeline and tracking suggestions
+- Metric Insights with dual-metric comparison and circadian rhythm visualization
+- Correlation Matrix and Lagged Trend analysis (1-7 day offsets)
+- Health Connect integration (steps, sleep) with hourly granularity
+- App Usage tracking with dynamic category management (Android)
+- Full JSON data export/import with UUID-based identity
+- Automatic update notifications via GitHub releases
+- Customizable themes (7 accent colors) and dark mode
+- Data Quality dashboard with compliance tracking
+- Retrospective editing and raw data management

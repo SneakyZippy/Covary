@@ -1,7 +1,7 @@
-﻿{
+{
     "latest_version":  "1.2.7",
     "build_number":  25,
     "build_timestamp":  "2026-05-13T10:47:44+02:00",
     "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "- Tracking: Implemented high-precision Event-Contingent EMA (Ecological Momentary Assessment).\n- UI: Added \"Today\u0027s Timeline\" and tracking suggestions to the Home Screen.\n- UX: Introduced Undo functionality and long-press time selection for Quick Track buttons.\n- Analytics: Added individual time pickers to Check-ins and editable timestamps in Detailed Records.\n- Data: Upgraded passive sensing to high-resolution chunked step data for circadian analysis.\n- Dashboard: Launched \"Metric Insights\" for dual-metric comparison and rhythm visualization."
+    "release_notes":  "🎉 First Public Beta!\n\nWelcome to Covary — a research tool for tracking behavioral patterns.\n\n- Guided onboarding with research presets\n- Morning/Afternoon/Evening check-in windows with smart notifications\n- Quick-track buttons and Today's Timeline\n- Metric Insights with dual-metric comparison\n- Correlation Matrix and Lagged Trend analysis\n- Health Connect integration (steps, sleep)\n- App Usage tracking (Android)\n- Full JSON data export/import\n- Automatic update notifications\n- Customizable themes and dark mode\n- Data Quality dashboard"
 }
