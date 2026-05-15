@@ -41,11 +41,12 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
   late Animation<double> _fadeAnim;
 
   static const _passiveLabels = <_SelectableMetric>[
-    _SelectableMetric('category_time:social', 'Social Media', '📱'),
-    _SelectableMetric('total_screen_time', 'Screen Time', '⌛'),
-    _SelectableMetric('category_time:entertainment', 'Entertainment', '🎬'),
+    _SelectableMetric('category_time:social', 'Social Media', '📱', inputType: MetricInputType.counter),
+    _SelectableMetric('total_screen_time', 'Total Screen Time', '⌛', inputType: MetricInputType.counter),
+    _SelectableMetric('category_time:entertainment', 'Entertainment Time', '🎬', inputType: MetricInputType.counter),
     _SelectableMetric('sleep_duration_hours', 'Sleep Duration', '🛌'),
-    _SelectableMetric('step_count', 'Steps', '🏃'),
+    _SelectableMetric('step_count', 'Daily Total Steps', '🏃', inputType: MetricInputType.counter),
+    _SelectableMetric('step_segment', 'Hourly Steps', '👣', inputType: MetricInputType.counter),
   ];
 
   @override
@@ -484,9 +485,10 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                       touchTooltipData: BarTouchTooltipData(
                         getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
                         getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                          final key = allKeys[group.x.toInt()];
-                          String timeStr = '';
-                          if (key is DateTime) timeStr = DateFormat('HH:mm').format(key);
+                          final int idx = group.x.toInt();
+                          if (idx < 0 || idx >= allKeys.length) return null;
+                          final key = allKeys[idx];
+                          String timeStr = _formatTooltipKey(key, _viewMode);
                           return BarTooltipItem(
                             '${rod.toY.toStringAsFixed(0)}\n$timeStr',
                             TextStyle(color: accentA, fontWeight: FontWeight.bold, fontSize: 10),
@@ -542,9 +544,10 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                       touchTooltipData: LineTouchTooltipData(
                         getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
                         getTooltipItems: (spots) {
-                          final key = allKeys[spots.first.x.toInt()];
-                          String timeStr = '';
-                          if (key is DateTime) timeStr = DateFormat('HH:mm').format(key);
+                          final int idx = spots.first.x.toInt();
+                          if (idx < 0 || idx >= allKeys.length) return [];
+                          final key = allKeys[idx];
+                          String timeStr = _formatTooltipKey(key, _viewMode);
                           
                           return spots.map((s) {
                             final color = s.barIndex == 0 ? accentA : accentB;
@@ -800,6 +803,16 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         ),
       ),
     );
+  String _formatTooltipKey(dynamic key, InsightViewMode mode) {
+    if (mode == InsightViewMode.circadian) {
+      final hour = (key as int);
+      return '${hour.toString().padLeft(2, '0')}:00';
+    } else if (mode == InsightViewMode.daily) {
+      return DateFormat('d MMM').format(key as DateTime);
+    } else {
+      // Timeline
+      return DateFormat('d MMM, HH:mm').format(key as DateTime);
+    }
   }
 }
 

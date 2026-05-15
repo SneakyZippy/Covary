@@ -45,27 +45,38 @@ class PassiveSensingService {
   // Public API
   // ---------------------------------------------------------------------------
 
-  /// Runs a passive sync cycle for a range of days.
-  ///
-  /// [days]: Number of days to look back (default 1 = Today).
-  /// [targetDate]: If provided, syncs only that specific calendar day.
-  ///
-  /// This method is safe to call from a WorkManager background isolate.
+  /// Runs a passive sync cycle for all metrics over a range of days.
   Future<void> syncAll({int days = 1, DateTime? targetDate}) async {
+    await _syncInternal(days: days, targetDate: targetDate, health: true, usage: true);
+    debugPrint('[PassiveSensingService] Sync cycle complete for $days days.');
+  }
+
+  /// Runs a passive sync cycle for health metrics only.
+  Future<void> syncHealth({int days = 1, DateTime? targetDate}) async {
+    await _syncInternal(days: days, targetDate: targetDate, health: true, usage: false);
+    debugPrint('[PassiveSensingService] Health sync complete for $days days.');
+  }
+
+  /// Runs a passive sync cycle for app usage metrics only.
+  Future<void> syncAppUsage({int days = 1, DateTime? targetDate}) async {
+    await _syncInternal(days: days, targetDate: targetDate, health: false, usage: true);
+    debugPrint('[PassiveSensingService] App usage sync complete for $days days.');
+  }
+
+  Future<void> _syncInternal({required int days, DateTime? targetDate, required bool health, required bool usage}) async {
     if (targetDate != null) {
-      await _syncSpecificDay(targetDate);
+      await _syncSpecificDay(targetDate, health: health, usage: usage);
     } else {
       // Sync a range of days ending today
       final now = DateTime.now();
       for (int i = days - 1; i >= 0; i--) {
         final date = now.subtract(Duration(days: i));
-        await _syncSpecificDay(date, isToday: i == 0);
+        await _syncSpecificDay(date, isToday: i == 0, health: health, usage: usage);
       }
     }
-    debugPrint('[PassiveSensingService] Sync cycle complete for $days days.');
   }
 
-  Future<void> _syncSpecificDay(DateTime date, {bool isToday = false}) async {
+  Future<void> _syncSpecificDay(DateTime date, {bool isToday = false, required bool health, required bool usage}) async {
     final healthSessionId = const Uuid().v4();
     final appUsageSessionId = const Uuid().v4();
 
@@ -85,10 +96,10 @@ class PassiveSensingService {
       referenceTime = end;
     }
 
-    debugPrint('[PassiveSensingService] Syncing ${date.toIso8601String().split('T')[0]} ($start to $end)…');
+    debugPrint('[PassiveSensingService] Syncing ${date.toIso8601String().split('T')[0]} ($start to $end) [Health: $health, Usage: $usage]…');
 
-    await _syncHealth(healthSessionId, start, end, referenceTime);
-    await _syncAppUsage(appUsageSessionId, start, end, referenceTime);
+    if (health) await _syncHealth(healthSessionId, start, end, referenceTime);
+    if (usage) await _syncAppUsage(appUsageSessionId, start, end, referenceTime);
   }
 
   // ---------------------------------------------------------------------------

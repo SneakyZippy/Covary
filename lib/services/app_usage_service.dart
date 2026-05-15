@@ -260,13 +260,21 @@ class AppUsageService extends ChangeNotifier {
       final stats = await _queryStats(startTime: startTime, endTime: endTime);
       if (stats == null) return null;
 
-      final result = <String, int>{};
+      final Map<String, int> msResult = {};
       for (final stat in stats) {
         final pkg = stat.packageName ?? '';
         if (pkg.isEmpty) continue;
         final ms = int.tryParse(stat.totalTimeInForeground ?? '0') ?? 0;
         if (ms > 0) {
-          result[pkg] = (result[pkg] ?? 0) + (ms ~/ 60000);
+          msResult[pkg] = (msResult[pkg] ?? 0) + ms;
+        }
+      }
+
+      final result = <String, int>{};
+      for (final entry in msResult.entries) {
+        final mins = entry.value ~/ 60000;
+        if (mins > 0) {
+          result[entry.key] = mins;
         }
       }
       return result;

@@ -416,9 +416,14 @@ class AnalyticsService {
         result[date] = vals.reduce((a, b) => a + b) / vals.length;
       } else if (firstEvent.category == EventCategory.appUsage || 
                  firstEvent.category == EventCategory.health) {
-        // Take MAX for daily totals (steps, screen time, sleep duration)
-        // This ensures that if we have multiple syncs, we take the most complete one.
-        result[date] = vals.reduce(max);
+        if (firstEvent.label.contains('segment')) {
+          // Segments (e.g. step_segment, app_segment) should be SUMMED to get the daily total
+          result[date] = vals.reduce((a, b) => a + b);
+        } else {
+          // Daily totals (e.g. step_count, sleep_duration_hours) should use MAX 
+          // to pick the latest/most complete sync record for that day.
+          result[date] = vals.reduce(max);
+        }
       } else {
         // Default: Sum for counters/behavior
         result[date] = vals.reduce((a, b) => a + b);

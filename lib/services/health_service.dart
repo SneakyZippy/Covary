@@ -32,6 +32,7 @@ class HealthService {
   /// across different Android devices (some report sessions, others individual points).
   static const List<HealthDataType> _readTypes = [
     HealthDataType.SLEEP_SESSION,
+    HealthDataType.SLEEP_ASLEEP,
     HealthDataType.STEPS,
   ];
 
@@ -130,12 +131,32 @@ class HealthService {
         return null;
       }
 
-      // 1. Extract all intervals (start, end)
-      List<({DateTime start, DateTime end})> intervals =
-          data.map((p) => (start: p.dateFrom, end: p.dateTo)).toList();
+      // 1. Extract and clip all intervals to the requested window
+      // We force UTC comparison to avoid timezone-related clipping failures.
+      final windowStartUtc = effectiveStart.toUtc();
+      final windowEndUtc = effectiveEnd.toUtc();
+
+      debugPrint('[HealthService] Sync Window (Local): $effectiveStart to $effectiveEnd');
+
+      List<({DateTime start, DateTime end})> intervals = data.map((p) {
+        final pStartUtc = p.dateFrom.toUtc();
+        final pEndUtc = p.dateTo.toUtc();
+
+        final clipStartUtc =
+            pStartUtc.isBefore(windowStartUtc) ? windowStartUtc : pStartUtc;
+        final clipEndUtc =
+            pEndUtc.isAfter(windowEndUtc) ? windowEndUtc : pEndUtc;
+
+        return (start: clipStartUtc.toLocal(), end: clipEndUtc.toLocal());
+      }).where((i) => i.end.isAfter(i.start)).toList();
 
       // 2. Sort by start time
       intervals.sort((a, b) => a.start.compareTo(b.start));
+
+      debugPrint('[HealthService] Clipped sleep intervals before merge:');
+      for (final i in intervals) {
+        debugPrint('  - ${i.start} to ${i.end} (${i.end.difference(i.start).inMinutes} min)');
+      }
 
       // 3. Merge overlapping intervals
       List<({DateTime start, DateTime end})> merged = [];

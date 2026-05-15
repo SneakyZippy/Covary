@@ -41,7 +41,9 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
   bool _batteryIgnored = false;
 
   // Whether a sync is currently in progress (for the loading indicator).
-  bool _isSyncing = false;
+  bool _isSyncingAll = false;
+  bool _isSyncingHealth = false;
+  bool _isSyncingUsage = false;
 
   bool get _usageGranted => _usageStatus == AppUsagePermissionStatus.granted;
 
@@ -93,41 +95,72 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
   }
 
 
-  /// Triggers an immediate passive sync cycle.
-  ///
-  /// This gives the user instant feedback that the permissions are working and
-  /// gives the researcher an early baseline data point. Latency is logged as 0
-  /// since this is a system-triggered operation.
+  /// Triggers an immediate passive sync cycle for all metrics.
   Future<void> _runSyncNow() async {
-    setState(() => _isSyncing = true);
+    setState(() => _isSyncingAll = true);
     try {
       final service = context.read<PassiveSensingService>();
       // Manual trigger does a "Deep Sync" (last 7 days) to ensure completeness
       await service.syncAll(days: 7);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('✅ Sync complete! Data saved locally.'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      _showSyncSuccess('✅ Full Sync complete!');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sync error: $e'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Theme.of(context).colorScheme.errorContainer,
-        ),
-      );
+      _showSyncError(e);
     } finally {
-      if (mounted) setState(() => _isSyncing = false);
+      if (mounted) setState(() => _isSyncingAll = false);
     }
+  }
+
+  /// Triggers an immediate health data sync.
+  Future<void> _runHealthSync() async {
+    setState(() => _isSyncingHealth = true);
+    try {
+      final service = context.read<PassiveSensingService>();
+      await service.syncHealth(days: 7);
+      _showSyncSuccess('✅ Health Sync complete!');
+    } catch (e) {
+      _showSyncError(e);
+    } finally {
+      if (mounted) setState(() => _isSyncingHealth = false);
+    }
+  }
+
+  /// Triggers an immediate app usage sync.
+  Future<void> _runUsageSync() async {
+    setState(() => _isSyncingUsage = true);
+    try {
+      final service = context.read<PassiveSensingService>();
+      await service.syncAppUsage(days: 7);
+      _showSyncSuccess('✅ Usage Sync complete!');
+    } catch (e) {
+      _showSyncError(e);
+    } finally {
+      if (mounted) setState(() => _isSyncingUsage = false);
+    }
+  }
+
+  void _showSyncSuccess(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  void _showSyncError(Object e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Sync error: $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Theme.of(context).colorScheme.errorContainer,
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -191,6 +224,8 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
                     
                     await _checkPermissions();
                   },
+            onSync: _healthGranted ? _runHealthSync : null,
+            isSyncing: _isSyncingHealth,
           ),
 
           const SizedBox(height: 12),
@@ -227,6 +262,8 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
                         await service.openPermissionSettings();
                         // Permission check will re-run in didChangeAppLifecycleState.
                       },
+                onSync: _usageGranted ? _runUsageSync : null,
+                isSyncing: _isSyncingUsage,
               ),
           ] else
             _PermissionCard(
@@ -334,10 +371,10 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
             child: FilledButton.icon(
               onPressed:
                   (_healthGranted || _usageGranted || _notificationsGranted) &&
-                      !_isSyncing
+                      !_isSyncingAll
                   ? _runSyncNow
                   : null,
-              icon: _isSyncing
+              icon: _isSyncingAll
                   ? const SizedBox(
                       width: 18,
                       height: 18,
@@ -347,7 +384,7 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
                       ),
                     )
                   : const Icon(Icons.sync_rounded),
-              label: Text(_isSyncing ? 'Syncing…' : 'Sync Data Now'),
+              label: Text(_isSyncingAll ? 'Syncing…' : 'Sync All Data Now'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(
@@ -471,6 +508,8 @@ class _PermissionCard extends StatelessWidget {
   final bool isGranted;
   final String buttonLabel;
   final VoidCallback? onGrant;
+  final VoidCallback? onSync;
+  final bool isSyncing;
 
   const _PermissionCard({
     required this.icon,
@@ -481,6 +520,8 @@ class _PermissionCard extends StatelessWidget {
     required this.isGranted,
     required this.buttonLabel,
     required this.onGrant,
+    this.onSync,
+    this.isSyncing = false,
   });
 
   @override
@@ -565,23 +606,50 @@ class _PermissionCard extends StatelessWidget {
             const SizedBox(height: 16),
 
             // --- Grant button ---
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.tonal(
-                onPressed: onGrant,
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: onGrant,
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      backgroundColor: isGranted
+                          ? Colors.green.withAlpha(30)
+                          : colorScheme.secondaryContainer,
+                      foregroundColor: isGranted
+                          ? Colors.green
+                          : colorScheme.onSecondaryContainer,
+                    ),
+                    child: Text(buttonLabel),
                   ),
-                  backgroundColor: isGranted
-                      ? Colors.green.withAlpha(30)
-                      : colorScheme.secondaryContainer,
-                  foregroundColor: isGranted
-                      ? Colors.green
-                      : colorScheme.onSecondaryContainer,
                 ),
-                child: Text(buttonLabel),
-              ),
+                if (onSync != null) ...[
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 40,
+                    child: IconButton.filledTonal(
+                      onPressed: isSyncing ? null : onSync,
+                      icon: isSyncing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.sync_rounded),
+                      tooltip: 'Sync Now',
+                      style: IconButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
