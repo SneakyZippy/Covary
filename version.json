@@ -1,7 +1,7 @@
 {
-    "latest_version": "1.2.8",
-    "build_number": 26,
-    "build_timestamp": "2026-05-15T21:04:00+02:00",
+    "latest_version": "1.2.9",
+    "build_number": 27,
+    "build_timestamp": "2026-05-16T10:36:20+02:00",
     "download_url": "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes": "🚀 Release v1.2.8\n\n- **Enhanced Circadian Analytics**: Granular hourly tracking for steps and app usage data.\n- **Sleep Insights**: Automatic extraction of sleep start, wake-up times, and sleep midpoint from health data.\n- **Improved Onboarding**: New 'Research Presets' to quickly configure tracking priorities.\n- **Startup Optimization**: Significantly reduced app launch latency for faster event logging.\n- **Data Management**: Advanced filtering for raw event records and improved import/export compatibility.\n- **Compliance Tracking**: Refined visualization of check-in compliance and window-based logging."
+    "release_notes": "🚀 Release v1.2.9\n\n- **Research Protocol Sync**: All 5 tracking windows are now enabled by default to ensure maximum data fidelity.\n- **Stability Pass**: Fixed critical type errors in metric management and improved database seeding reliability.\n- **Auto-Migration**: Implemented a soft migration system to automatically update existing installations to the new tracking window defaults.\n- **Refined UX**: Fixed SnackBar persistence and added Undo support for rapid logging."
 }
