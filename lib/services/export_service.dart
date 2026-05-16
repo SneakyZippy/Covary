@@ -47,6 +47,41 @@ class ExportService {
     }
   }
 
+  /// Exports all data and prepares it for submission to the researcher.
+  Future<bool> submitToResearcher() async {
+    try {
+      final events = await db.getAllEvents();
+      final customMetrics = await db.getAllCustomMetrics();
+      final trackingWindows = await db.getAllTrackingWindows();
+
+      final data = {
+        'profile': {
+          'uuid': profileService.uuid,
+          'nickname': profileService.nickname,
+          'exported_at': DateTime.now().toIso8601String(),
+        },
+        'settings': {
+          'tracking_windows': trackingWindows.map((w) => w.toJson()).toList(),
+        },
+        'research_data': {
+          'events': events.map((e) => e.toJson()).toList(),
+          'custom_metrics': customMetrics.map((h) => h.toJson()).toList(),
+        },
+      };
+
+      return _performExport(
+        data, 
+        'submission', 
+        shareText: 'Covary Research Submission from ${profileService.nickname}\n\n'
+                  'To: felix.zoeggeler@edu.fh-joanneum.at\n'
+                  'Attached: JSON export file.'
+      );
+    } catch (e) {
+      debugPrint('[ExportService] Submission failed: $e');
+      return false;
+    }
+  }
+
   Future<bool> exportWindows() async {
     try {
       final trackingWindows = await db.getAllTrackingWindows();
@@ -77,7 +112,7 @@ class ExportService {
     }
   }
 
-  Future<bool> _performExport(Map<String, dynamic> data, String type) async {
+  Future<bool> _performExport(Map<String, dynamic> data, String type, {String? shareText}) async {
     try {
       final uuid = profileService.uuid;
       if (uuid.isEmpty) {
@@ -109,7 +144,10 @@ class ExportService {
       );
 
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], text: 'Covary Data Export ($type)'),
+        ShareParams(
+          files: [XFile(file.path)], 
+          text: shareText ?? 'Covary Data Export ($type)',
+        ),
       );
 
       return true;

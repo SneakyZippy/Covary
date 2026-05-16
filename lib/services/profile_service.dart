@@ -74,6 +74,10 @@ class ProfileService extends ChangeNotifier {
   /// Whether the user has seen the onboarding slider.
   bool get hasSeenOnboarding => _hasSeenOnboarding;
 
+  /// The timestamp of the user's first app launch. Used to suppress
+  /// "missed window" cards for windows that ended before setup.
+  DateTime? get firstLaunchAt => _firstLaunchAt;
+
   /// Returns the current day of the study (Day 1, Day 2, etc.)
   int get studyDay {
     if (_firstLaunchAt == null) return 1;

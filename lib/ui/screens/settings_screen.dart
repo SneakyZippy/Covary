@@ -347,6 +347,117 @@ class SettingsScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
+                        Icons.send_rounded,
+                        color: colorScheme.onPrimaryContainer,
+                        size: 20,
+                      ),
+                    ),
+                    title: const Text('Submit to Researcher'),
+                    subtitle: const Text('Email full export to Felix Z.'),
+                    trailing: FilledButton(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            icon: Icon(Icons.mark_as_unread_rounded, color: colorScheme.primary, size: 32),
+                            title: const Text('Ready to Submit?'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'In the next step, please select your Email app (e.g., Gmail, Outlook).',
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'The researcher\'s email address will be included in the message text — just copy and paste it into the "To" field.',
+                                  textAlign: TextAlign.center,
+                                  style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(height: 20),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primaryContainer.withAlpha(80),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: colorScheme.primary.withAlpha(100)),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        'Researcher Email:',
+                                        style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const SelectableText(
+                                        'felix.zoeggeler@edu.fh-joanneum.at',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'The data export is automatically attached as a JSON file.',
+                                  style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Continue to Email'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true) {
+                          if (!context.mounted) return;
+                          final exportService = context.read<ExportService>();
+                          final success = await exportService.submitToResearcher();
+                          if (context.mounted && success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Opening share sheet... Please pick your Email app.'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Submit'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
                         Icons.download_rounded,
                         color: colorScheme.onPrimaryContainer,
                         size: 20,
@@ -354,7 +465,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     title: const Text('Export Data (JSON)'),
                     subtitle: const Text('Download all local records'),
-                    trailing: FilledButton(
+                    trailing: FilledButton.tonal(
                       onPressed: () async {
                         final exportService = context.read<ExportService>();
                         final success = await exportService.exportData();
