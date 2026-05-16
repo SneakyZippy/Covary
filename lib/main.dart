@@ -122,6 +122,7 @@ class CovaryApp extends StatelessWidget {
     final themeService = context.watch<ThemeService>();
 
     return MaterialApp(
+      key: ValueKey('${profileService.hasSeenOnboarding}_${profileService.hasRestoredData}_${profileService.isFirstLaunch}'),
       navigatorKey: NotificationService.navigatorKey,
       title: 'Covary',
       debugShowCheckedModeBanner: false,

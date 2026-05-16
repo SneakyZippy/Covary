@@ -91,7 +91,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // 4. Contribution
       const OnboardingStaticSlide(
         title: 'Support Science',
-        description: 'By participating, you are contributing directly to a Bachelor\'s Thesis research project exploring the intersection of human behavior and technology.',
+        description: 'If you would like to participate in the research, you can contribute by manually exporting and sending your data to me at the end of the study period.',
         icon: Icons.school_rounded,
         color: Colors.purple,
       ),

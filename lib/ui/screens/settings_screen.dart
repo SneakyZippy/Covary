@@ -16,6 +16,7 @@ import '../../services/notification_service.dart';
 
 import 'metrics_screen.dart';
 import 'tracking_windows_screen.dart';
+import 'onboarding_screen.dart';
 
 /// Settings screen for managing profile, notifications, and data.
 class SettingsScreen extends StatelessWidget {
@@ -566,6 +567,12 @@ class SettingsScreen extends StatelessWidget {
                       );
                       if (confirm == true) {
                         await profileService.resetOnboarding();
+                        if (context.mounted) {
+                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                            (route) => false,
+                          );
+                        }
                       }
                     },
                   ),
