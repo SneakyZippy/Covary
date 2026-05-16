@@ -84,16 +84,19 @@ class _MetricInputCardState extends State<MetricInputCard> {
                           color: colorScheme.onSurface,
                         ),
                       ),
-                      if (!widget.metric.isActivityIndicator) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          '(Optional)',
-                          style: textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurfaceVariant.withAlpha(150),
+                      Tooltip(
+                        message: widget.metric.isActivityIndicator ? 'Activity Required' : 'Optional',
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: widget.metric.isActivityIndicator
+                                ? colorScheme.primary
+                                : colorScheme.outlineVariant,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),

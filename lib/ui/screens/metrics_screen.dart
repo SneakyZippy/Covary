@@ -316,21 +316,18 @@ class _MetricTile extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
-              if (metric.isEnabled && !metric.isActivityIndicator) ...[
+              if (metric.isEnabled) ...[
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: colorScheme.outlineVariant),
-                  ),
-                  child: Text(
-                    'Optional',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurfaceVariant,
+                Tooltip(
+                  message: metric.isActivityIndicator ? 'Activity Required' : 'Optional',
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: metric.isActivityIndicator
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),

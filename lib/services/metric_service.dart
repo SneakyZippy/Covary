@@ -177,6 +177,9 @@ class MetricService extends ChangeNotifier {
         try {
           await _db.insertTrackingWindow(
             TrackingWindowsCompanion.insert(
+              // Use the stable UUID from the preset so metrics can reference it
+              // before the DB is seeded (the preset list defines canonical IDs).
+              id: s.id != null ? Value(s.id!) : const Value.absent(),
               label: s.label,
               startHour: s.startHour,
               startMinute: s.startMinute,
@@ -265,38 +268,26 @@ class MetricService extends ChangeNotifier {
     // Note: We no longer auto-re-insert missing core metrics here.
     // This allows the user to delete any metric permanently, treating
     // "core" and "custom" metrics as equal entities.
-    // Syncing of categories/reliability is also removed to respect user edits.
-    
-    // --- Final Polish: Distribute metrics if this was a fresh seed ---
-    if (!hasSeeded && !windowsSeeded) {
-      try {
-        final windows = await _db.getAllTrackingWindows();
-        final morningId = windows.firstWhere((w) => w.label.contains('Early Morning')).id;
-        final eveningId = windows.firstWhere((w) => w.label.contains('Evening Review')).id;
-        final nightId = windows.firstWhere((w) => w.label.contains('Night/Bedtime')).id;
 
-        // Assign Sleep to Morning
-        await _db.updateCustomMetric('core_sleep_quality', CustomMetricsCompanion(windowIds: Value(morningId)));
-        
-        // Assign Reflection/Habits to Evening & Night
-        final reflectionMetrics = ['core_wellbeing', 'core_sport', 'core_meditation', 'core_journaling', 'core_good_deed'];
-        for (final mId in reflectionMetrics) {
-          await _db.updateCustomMetric(mId, CustomMetricsCompanion(windowIds: Value('$eveningId,$nightId')));
-        }
-        debugPrint('[MetricService] Research-Ready distribution applied to metrics');
-      } catch (e) {
-        debugPrint('[MetricService] Could not auto-distribute metrics: $e');
-      }
-    }
-
-    // --- SOFT MIGRATION: Inject missing core metrics for existing users ---
-    final syncKey = 'core_metrics_v4_sync';
+    // --- SOFT MIGRATION v5: Inject missing metrics + sync inputType/isActivityIndicator ---
+    //
+    // v5 bumped because:
+    //   - All scale1to5 metrics upgraded to scale1to10
+    //   - isActivityIndicator defaults refined across the board
+    //
+    // Safety rules:
+    //   - isEnabled and windowIds are NEVER overwritten (user owns those)
+    //   - Only inputType and isActivityIndicator are synced (research-critical fields)
+    final syncKey = 'core_metrics_v5_sync';
     if (!(prefs.getBool(syncKey) ?? false)) {
+      await _reload(); // Ensure _allMetrics is populated before we check IDs
       final currentMetricIds = _allMetrics.map((m) => m.id).toSet();
       int addedCount = 0;
+      int updatedCount = 0;
       
       for (final template in templates) {
         if (!currentMetricIds.contains(template.id)) {
+          // Insert brand-new metrics
           try {
             await _db.insertCustomMetric(
               CustomMetricsCompanion.insert(
@@ -305,21 +296,36 @@ class MetricService extends ChangeNotifier {
                 category: template.category,
                 inputType: template.inputType,
                 isEnabled: Value(template.isEnabled),
-                windowIds: Value(template.windowIds.join(',')),
+                windowIds: Value(template.windowIds.isEmpty ? '_none_' : template.windowIds.join(',')),
                 emoji: Value(template.emoji),
                 isActivityIndicator: Value(template.isActivityIndicator),
+                isRetroReliable: Value(template.retroReliableOverride),
               ),
             );
             addedCount++;
           } catch (e) {
             debugPrint('[MetricService] Error injecting missing metric ${template.id}: $e');
           }
+        } else {
+          // Sync research-critical fields that changed in v5
+          try {
+            await _db.updateCustomMetric(
+              template.id,
+              CustomMetricsCompanion(
+                inputType: Value(template.inputType),
+                isActivityIndicator: Value(template.isActivityIndicator),
+              ),
+            );
+            updatedCount++;
+          } catch (e) {
+            debugPrint('[MetricService] Error syncing metric ${template.id}: $e');
+          }
         }
       }
       
-      if (addedCount > 0) {
-        debugPrint('[MetricService] Soft Migration: Injected $addedCount new research metrics');
-        await _reload(); // Refresh to include new metrics
+      if (addedCount > 0 || updatedCount > 0) {
+        debugPrint('[MetricService] Soft Migration v5: +$addedCount new, ~$updatedCount updated');
+        await _reload();
       }
       await prefs.setBool(syncKey, true);
     }

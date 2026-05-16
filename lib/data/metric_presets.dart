@@ -17,6 +17,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'sentiment_satisfied',
+      isActivityIndicator: true,
     ),
     MetricDefinition(
       id: 'core_energy',
@@ -26,6 +27,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'bolt',
+      isActivityIndicator: true,
     ),
     MetricDefinition(
       id: 'core_stress',
@@ -35,6 +37,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'psychology',
+      isActivityIndicator: true,
     ),
     MetricDefinition(
       id: 'core_wellbeing',
@@ -44,6 +47,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'star',
+      isActivityIndicator: true,
     ),
     MetricDefinition(
       id: 'core_anxiety',
@@ -53,6 +57,7 @@ class MetricPresets {
       isEnabled: false,
       windowIds: ['anytime'],
       emoji: 'psychology',
+      isActivityIndicator: false,
     ),
 
     // --- Circadian Anchors & Sleep ---
@@ -62,26 +67,30 @@ class MetricPresets {
       category: EventCategory.health,
       inputType: MetricInputType.scale1to10,
       isEnabled: true,
-      windowIds: ['9fb76442-59ad-49cb-8d93-77904690e6ef'], // Morning window
+      // Morning + Late Morning windows
+      windowIds: ['9fb76442-59ad-49cb-8d93-77904690e6ef', 'e31d345d-e7f9-4c96-b8b5-f5e9e72a9d60'],
       emoji: 'bedtime',
+      isActivityIndicator: true,
     ),
     MetricDefinition(
       id: 'core_nap_duration',
       label: 'Daytime Nap?',
       category: EventCategory.health,
-      inputType: MetricInputType.scale1to5,
-      isEnabled: true,
+      inputType: MetricInputType.yesNo,
+      isEnabled: false,
       windowIds: ['anytime'],
       emoji: 'hotel',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_light_exposure',
       label: 'Recent Light Exposure',
       category: EventCategory.weather,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'wb_sunny',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_meal_count',
@@ -91,6 +100,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['homescreen'],
       emoji: 'restaurant',
+      isActivityIndicator: false,
     ),
 
     // --- Health & Symptoms ---
@@ -102,6 +112,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'favorite',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_headache',
@@ -111,6 +122,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'psychology',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_sick',
@@ -120,15 +132,17 @@ class MetricPresets {
       isEnabled: false,
       windowIds: ['anytime'],
       emoji: 'sick',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_digestion',
       label: 'Digestion Quality',
       category: EventCategory.health,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: false,
       windowIds: ['anytime'],
       emoji: 'restaurant',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_toilet_urge',
@@ -138,6 +152,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['homescreen'],
       emoji: 'wc',
+      isActivityIndicator: false,
       retroReliableOverride: false,
     ),
 
@@ -150,6 +165,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'lightbulb',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'e4a45a3d-a994-4ec8-be8c-fdf0ad511910',
@@ -159,6 +175,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['homescreen'],
       emoji: 'book',
+      isActivityIndicator: false,
       retroReliableOverride: false,
     ),
     MetricDefinition(
@@ -169,6 +186,8 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'phonelink_erase',
+      isActivityIndicator: false,
+      retroReliableOverride: false,
     ),
 
     // --- Behavior & Habits ---
@@ -178,8 +197,10 @@ class MetricPresets {
       category: EventCategory.behavior,
       inputType: MetricInputType.yesNo,
       isEnabled: true,
-      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba'],
+      // Afternoon + Evening windows
+      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba', 'ce3317fd-5fa3-41d9-a729-4e94539a8e23'],
       emoji: 'run',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_meditation',
@@ -187,8 +208,9 @@ class MetricPresets {
       category: EventCategory.behavior,
       inputType: MetricInputType.yesNo,
       isEnabled: true,
-      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba'],
+      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba', 'ce3317fd-5fa3-41d9-a729-4e94539a8e23'],
       emoji: 'meditation',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_journaling',
@@ -196,8 +218,10 @@ class MetricPresets {
       category: EventCategory.behavior,
       inputType: MetricInputType.yesNo,
       isEnabled: true,
-      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba'],
+      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba', 'ce3317fd-5fa3-41d9-a729-4e94539a8e23'],
       emoji: 'edit',
+      isActivityIndicator: false,
+      retroReliableOverride: false,
     ),
     MetricDefinition(
       id: 'core_outside',
@@ -205,8 +229,9 @@ class MetricPresets {
       category: EventCategory.behavior,
       inputType: MetricInputType.yesNo,
       isEnabled: true,
-      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba'],
+      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba', 'ce3317fd-5fa3-41d9-a729-4e94539a8e23'],
       emoji: 'forest',
+      isActivityIndicator: true,
     ),
 
     // --- Social Interactions ---
@@ -216,8 +241,10 @@ class MetricPresets {
       category: EventCategory.social,
       inputType: MetricInputType.yesNo,
       isEnabled: true,
-      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba'],
+      windowIds: [], // Quick Log Only
       emoji: 'favorite',
+      isActivityIndicator: false,
+      retroReliableOverride: false,
     ),
     MetricDefinition(
       id: 'c2f69108-3834-4b29-ba98-fae24d85124d',
@@ -225,18 +252,20 @@ class MetricPresets {
       category: EventCategory.social,
       inputType: MetricInputType.counter,
       isEnabled: true,
-      windowIds: [],
+      windowIds: [], // Quick Log Only
       emoji: 'bolt',
+      isActivityIndicator: false,
       retroReliableOverride: false,
     ),
     MetricDefinition(
       id: '4d86d597-6772-4aa0-a4b8-ba9befce1d7a',
       label: 'Spent time with SO',
       category: EventCategory.social,
-      inputType: MetricInputType.counter,
+      inputType: MetricInputType.yesNo,
       isEnabled: true,
-      windowIds: [],
+      windowIds: ['ce3317fd-5fa3-41d9-a729-4e94539a8e23'], // Evening only
       emoji: 'favorite',
+      isActivityIndicator: false,
       retroReliableOverride: false,
     ),
 
@@ -249,6 +278,8 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['homescreen'],
       emoji: 'coffee',
+      isActivityIndicator: false,
+      retroReliableOverride: false,
     ),
     MetricDefinition(
       id: 'core_water_intake',
@@ -258,6 +289,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['homescreen'],
       emoji: 'water_drop',
+      isActivityIndicator: false,
       retroReliableOverride: false,
     ),
     MetricDefinition(
@@ -268,6 +300,8 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['homescreen'],
       emoji: 'liquor',
+      isActivityIndicator: false,
+      retroReliableOverride: false,
     ),
 
     // --- Biological ---
@@ -275,10 +309,11 @@ class MetricPresets {
       id: 'core_period_flow',
       label: 'Period Flow',
       category: EventCategory.biological,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: false,
       windowIds: ['anytime'],
       emoji: 'water_drop',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_period_desire',
@@ -288,6 +323,7 @@ class MetricPresets {
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'favorite',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_period_cramps',
@@ -297,35 +333,39 @@ class MetricPresets {
       isEnabled: false,
       windowIds: ['anytime'],
       emoji: 'personal_injury',
+      isActivityIndicator: false,
     ),
 
     // --- Environment & Context ---
     MetricDefinition(
       id: 'core_weather_rain',
-      label: 'Is it Raining?',
+      label: 'Rain Intensity',
       category: EventCategory.weather,
-      inputType: MetricInputType.yesNo,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'umbrella',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_weather_sun',
-      label: 'Is it Sunny?',
+      label: 'Sun Intensity',
       category: EventCategory.weather,
-      inputType: MetricInputType.yesNo,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'sunny',
+      isActivityIndicator: false,
     ),
     MetricDefinition(
       id: 'core_weather_wind',
       label: 'Wind Strength',
       category: EventCategory.weather,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'air',
+      isActivityIndicator: false,
     ),
 
     // --- Research Quality (HCI Thesis) ---
@@ -333,16 +373,22 @@ class MetricPresets {
       id: 'core_prompt_burden',
       label: 'How annoying were the prompts?',
       category: EventCategory.meta,
-      inputType: MetricInputType.scale1to5,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
-      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba'], // Evening/Night only
+      // Afternoon + Evening windows
+      windowIds: ['4c62fdff-7942-4848-8140-3c483a54daba', 'ce3317fd-5fa3-41d9-a729-4e94539a8e23'],
       emoji: 'announcement',
+      isActivityIndicator: true,
     ),
   ];
 
   /// Standard tracking windows to seed on first launch.
+  ///
+  /// Stable UUIDs are used so they can be safely referenced by metrics in
+  /// [metricTemplates] above — even before the database is seeded.
   static const List<WindowPreset> windowPresets = [
     WindowPreset(
+      id: '9fb76442-59ad-49cb-8d93-77904690e6ef',
       label: 'Early Morning',
       startHour: 7,
       startMinute: 0,
@@ -351,6 +397,7 @@ class MetricPresets {
       isEnabled: true,
     ),
     WindowPreset(
+      id: 'e31d345d-e7f9-4c96-b8b5-f5e9e72a9d60',
       label: 'Late Morning',
       startHour: 10,
       startMinute: 0,
@@ -359,6 +406,7 @@ class MetricPresets {
       isEnabled: false,
     ),
     WindowPreset(
+      id: '4c62fdff-7942-4848-8140-3c483a54daba',
       label: 'Afternoon Sync',
       startHour: 14,
       startMinute: 0,
@@ -367,14 +415,16 @@ class MetricPresets {
       isEnabled: true,
     ),
     WindowPreset(
+      id: 'ce3317fd-5fa3-41d9-a729-4e94539a8e23',
       label: 'Evening Review',
       startHour: 19,
       startMinute: 0,
       endHour: 21,
       endMinute: 0,
-      isEnabled: false,
+      isEnabled: true,
     ),
     WindowPreset(
+      id: 'b7e1f2a3-4c5d-6e7f-8a9b-0c1d2e3f4a5b',
       label: 'Night/Bedtime',
       startHour: 22,
       startMinute: 0,
@@ -387,6 +437,7 @@ class MetricPresets {
 
 /// Simple model for window seeding data.
 class WindowPreset {
+  final String? id;
   final String label;
   final int startHour;
   final int startMinute;
@@ -397,6 +448,7 @@ class WindowPreset {
   final int? notificationMinute;
 
   const WindowPreset({
+    this.id,
     required this.label,
     required this.startHour,
     required this.startMinute,
