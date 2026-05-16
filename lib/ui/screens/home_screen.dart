@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTodayStats();
+    _waitForInitAndLoad();
     // Refresh every minute to ensure window transitions are smooth
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) _loadTodayStats();
@@ -72,6 +72,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshTimer?.cancel();
     _eventSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _waitForInitAndLoad() async {
+    final metricService = context.read<MetricService>();
+    while (!metricService.isInitialized) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
+    _loadTodayStats();
   }
 
   Future<void> _loadTodayStats() async {
@@ -178,12 +187,28 @@ class _HomeScreenState extends State<HomeScreen> {
   void _updateMissedSessions(List<Event> allEvents) {
     final now = DateTime.now();
     final metricService = context.read<MetricService>();
+    final profileService = context.read<ProfileService>();
+    final firstLaunch = profileService.firstLaunchAt;
 
     final missed = <TrackingWindow>[];
 
     for (var window in metricService.allWindows) {
+      // Skip disabled windows — they shouldn't show missed cards.
+      if (!window.isEnabled) continue;
+
       if (metricService.hasWindowPassed(now, window)) {
         final targetTime = metricService.getWindowTargetTime(now, window);
+
+        // Don't show "missed" cards for windows that ended before the user
+        // first launched the app. On the first day, windows that already
+        // passed before setup shouldn't count as missed.
+        if (firstLaunch != null) {
+          final windowEndToday = DateTime(
+            now.year, now.month, now.day,
+            window.endHour, window.endMinute,
+          );
+          if (windowEndToday.isBefore(firstLaunch)) continue;
+        }
         
         // Find if there's a completion/dismissal for THIS specific iteration of the window.
         // We match by checking if the meta event timestamp falls on the same date as the targetTime.

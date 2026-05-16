@@ -403,7 +403,7 @@ class MetricPresets {
       startMinute: 0,
       endHour: 12,
       endMinute: 0,
-      isEnabled: false,
+      isEnabled: true,
     ),
     WindowPreset(
       id: '4c62fdff-7942-4848-8140-3c483a54daba',

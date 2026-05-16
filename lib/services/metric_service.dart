@@ -41,6 +41,9 @@ class MetricService extends ChangeNotifier {
   /// User-defined tracking windows.
   List<TrackingWindow> _allWindows = [];
 
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
   // ---------------------------------------------------------------------------
   // Core metric templates (from the research methodology)
   // ---------------------------------------------------------------------------
@@ -161,7 +164,6 @@ class MetricService extends ChangeNotifier {
   // Initialization
   // ---------------------------------------------------------------------------
 
-  /// Loads core metric toggle states from SharedPreferences and
   /// Initializes the service by loading and seeding (if necessary) windows and 
   /// metrics from the Drift database, then merges them.
   Future<void> init(AppDatabase db) async {
@@ -172,34 +174,96 @@ class MetricService extends ChangeNotifier {
     final existingWindows = await _db.getAllTrackingWindows();
     final windowsSeeded = prefs.getBool('tracking_windows_seeded') ?? false;
     
-    if (!windowsSeeded && existingWindows.isEmpty) {
-      for (final s in MetricPresets.windowPresets) {
-        try {
-          await _db.insertTrackingWindow(
-            TrackingWindowsCompanion.insert(
-              // Use the stable UUID from the preset so metrics can reference it
-              // before the DB is seeded (the preset list defines canonical IDs).
-              id: s.id != null ? Value(s.id!) : const Value.absent(),
-              label: s.label,
-              startHour: s.startHour,
-              startMinute: s.startMinute,
-              endHour: s.endHour,
-              endMinute: s.endMinute,
-              isNotificationEnabled: const Value(true),
-              notificationHour: s.notificationHour ?? s.startHour,
-              notificationMinute: s.notificationMinute ?? s.startMinute,
-              isEnabled: Value(s.isEnabled),
-            ),
-          );
-        } catch (e) {
-          debugPrint('[MetricService] Error seeding window ${s.label}: $e');
+    // Seeding logic: Only runs if the 'tracking_windows_seeded' flag is false.
+    // If the flag is false but windows already exist (e.g. from an old version), 
+    // we still mark as seeded but also rely on the soft migration below to 
+    // inject any new default windows.
+    if (!windowsSeeded) {
+      if (existingWindows.isEmpty) {
+        for (final s in MetricPresets.windowPresets) {
+          try {
+            await _db.insertTrackingWindow(
+              TrackingWindowsCompanion.insert(
+                // Use the stable UUID from the preset so metrics can reference it
+                // before the DB is seeded (the preset list defines canonical IDs).
+                id: s.id != null ? Value(s.id!) : const Value.absent(),
+                label: s.label,
+                startHour: s.startHour,
+                startMinute: s.startMinute,
+                endHour: s.endHour,
+                endMinute: s.endMinute,
+                isNotificationEnabled: const Value(true),
+                notificationHour: s.notificationHour ?? s.startHour,
+                notificationMinute: s.notificationMinute ?? s.startMinute,
+                isEnabled: Value(s.isEnabled),
+              ),
+            );
+          } catch (e) {
+            debugPrint('[MetricService] Error seeding window ${s.label}: $e');
+          }
         }
       }
       await prefs.setBool('tracking_windows_seeded', true);
       debugPrint('[MetricService] Seeded ${MetricPresets.windowPresets.length} sample tracking windows');
-    } else if (!windowsSeeded) {
-      // Handle restore scenario: Data exists but pref is false
-      await prefs.setBool('tracking_windows_seeded', true);
+    }
+
+    // --- SOFT MIGRATION: Sync Tracking Windows (v2) ---
+    //
+    // v2 bumped because:
+    //   - Added stable UUIDs to all window presets
+    //   - "Evening Review" and "Late Morning" now enabled by default
+    //
+    // This ensures that existing users get any newly added windows and
+    // have their core research windows enabled correctly.
+    final windowSyncKey = 'tracking_windows_v2_sync';
+    if (!(prefs.getBool(windowSyncKey) ?? false)) {
+      final currentWindows = await _db.getAllTrackingWindows();
+      final currentWindowIds = currentWindows.map((w) => w.id).toSet();
+      int addedCount = 0;
+      int updatedCount = 0;
+
+      for (final s in MetricPresets.windowPresets) {
+        if (s.id != null && !currentWindowIds.contains(s.id)) {
+          // Insert missing window
+          try {
+            await _db.insertTrackingWindow(
+              TrackingWindowsCompanion.insert(
+                id: Value(s.id!),
+                label: s.label,
+                startHour: s.startHour,
+                startMinute: s.startMinute,
+                endHour: s.endHour,
+                endMinute: s.endMinute,
+                isNotificationEnabled: const Value(true),
+                notificationHour: s.notificationHour ?? s.startHour,
+                notificationMinute: s.notificationMinute ?? s.startMinute,
+                isEnabled: Value(s.isEnabled),
+              ),
+            );
+            addedCount++;
+          } catch (e) {
+            debugPrint('[MetricService] Error injecting missing window ${s.label}: $e');
+          }
+        } else if (s.id != null) {
+          // Force enable research-critical windows if they were disabled by default before
+          try {
+            await _db.updateTrackingWindow(
+              s.id!,
+              TrackingWindowsCompanion(
+                isEnabled: Value(s.isEnabled),
+              ),
+            );
+            updatedCount++;
+          } catch (e) {
+            debugPrint('[MetricService] Error syncing window ${s.label}: $e');
+          }
+        }
+      }
+
+      if (addedCount > 0 || updatedCount > 0) {
+        debugPrint('[MetricService] Window Soft Migration v2: +$addedCount new, $updatedCount synced');
+      }
+      await prefs.setBool(windowSyncKey, true);
     }
 
     // --- MIGRATION: Sync existing windows notification time ---
@@ -265,19 +329,7 @@ class MetricService extends ChangeNotifier {
       await prefs.setBool('core_metrics_seeded', true);
     }
 
-    // Note: We no longer auto-re-insert missing core metrics here.
-    // This allows the user to delete any metric permanently, treating
-    // "core" and "custom" metrics as equal entities.
-
     // --- SOFT MIGRATION v5: Inject missing metrics + sync inputType/isActivityIndicator ---
-    //
-    // v5 bumped because:
-    //   - All scale1to5 metrics upgraded to scale1to10
-    //   - isActivityIndicator defaults refined across the board
-    //
-    // Safety rules:
-    //   - isEnabled and windowIds are NEVER overwritten (user owns those)
-    //   - Only inputType and isActivityIndicator are synced (research-critical fields)
     final syncKey = 'core_metrics_v5_sync';
     if (!(prefs.getBool(syncKey) ?? false)) {
       await _reload(); // Ensure _allMetrics is populated before we check IDs
@@ -335,6 +387,7 @@ class MetricService extends ChangeNotifier {
       '[MetricService] Initialized with ${_allMetrics.length} metrics '
       '(${activeMetrics.length} active)',
     );
+    _isInitialized = true;
     notifyListeners();
   }
 
@@ -361,9 +414,6 @@ class MetricService extends ChangeNotifier {
     final customRows = await _db.getAllCustomMetrics();
     final customMetrics = customRows.map((row) {
       final rawWindows = row.windowIds;
-      // '_none_' is a sentinel stored in the DB to mean "Quick Log Only" — 
-      // the metric has no window assignments and only appears in manual Quick Log.
-      // An empty string is legacy data and defaults to 'anytime' for backward compat.
       final List<String> windowIds;
       if (rawWindows == '_none_') {
         windowIds = [];
@@ -403,7 +453,6 @@ class MetricService extends ChangeNotifier {
     notifyListeners();
   }
 
-
   // ---------------------------------------------------------------------------
   // Sorting
   // ---------------------------------------------------------------------------
@@ -422,23 +471,18 @@ class MetricService extends ChangeNotifier {
       _allMetrics.removeAt(oldIndex);
       _allMetrics.insert(newIndex, item);
     } else {
-      // Filtered reorder: Move item in global list relative to its neighbors in the filtered list
       _allMetrics.remove(item);
 
       if (newIndex < listToReorder.length) {
         final targetItem = listToReorder[newIndex];
         final targetGlobalIdx = _allMetrics.indexOf(targetItem);
         
-        // If moving down (oldIndex < original newIndex), place it AFTER the target
-        // If moving up (oldIndex > original newIndex), place it BEFORE the target
-        // Note: targetGlobalIdx is already shifted because we removed 'item'
         if (oldIndex < newIndex) {
           _allMetrics.insert(targetGlobalIdx + 1, item);
         } else {
           _allMetrics.insert(targetGlobalIdx, item);
         }
       } else {
-        // Fallback for end of list
         final lastItem = listToReorder.last;
         final lastGlobalIdx = _allMetrics.indexOf(lastItem);
         _allMetrics.insert(lastGlobalIdx + 1, item);
@@ -559,11 +603,11 @@ class MetricService extends ChangeNotifier {
     final metricId = id ?? const Uuid().v4();
 
     await _db.insertCustomMetric(
-      CustomMetricsCompanion(
+      CustomMetricsCompanion.insert(
         id: Value(metricId),
-        label: Value(label),
-        category: Value(category),
-        inputType: Value(inputType),
+        label: label,
+        category: category,
+        inputType: inputType,
         isEnabled: const Value(true),
         windowIds: Value(_serializeWindowIds(windowIds)),
         emoji: Value(emoji),
@@ -572,7 +616,6 @@ class MetricService extends ChangeNotifier {
       ),
     );
 
-    // Log the creation as a meta event for HCI research.
     try {
       await _db.insertEvent(
         EventsCompanion(
@@ -731,7 +774,6 @@ class MetricService extends ChangeNotifier {
     debugPrint('[MetricService] Deleting metric: "${metric.label}" (ID: $id)');
     await _db.deleteCustomMetric(id);
 
-    // Log the deletion as a meta event.
     try {
       await _db.insertEvent(
         EventsCompanion(
@@ -755,21 +797,17 @@ class MetricService extends ChangeNotifier {
   /// clears seeding flags, and re-initializes with defaults.
   Future<void> debugResetMetrics() async {
     debugPrint('[MetricService] DANGER: debugResetMetrics() called. Wiping ALL definitions.');
-    // 1. Clear database tables
     await _db.clearAllMetrics();
     await _db.clearAllTrackingWindows();
 
-    // 2. Clear SharedPreferences flags and sort orders
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('tracking_windows_seeded');
     await prefs.remove('core_metrics_seeded');
     await prefs.remove('metric_sort_order');
     await prefs.remove('tracking_windows_sort_order');
+    await prefs.remove('tracking_windows_v2_sync'); // Clear sync flag too
     
-    // 3. Re-initialize
     await init(_db);
-
-    // 4. Reschedule notifications
     await NotificationService.scheduleDailyReminders();
     
     debugPrint('[MetricService] Debug Reset: All metrics and windows cleared and re-seeded');
@@ -804,19 +842,16 @@ class MetricService extends ChangeNotifier {
       targetIds = presetMap[preset] ?? [];
     }
     
-    // 1. Disable all currently active metrics (to start from a clean slate)
     for (var m in _allMetrics) {
       if (m.isEnabled) {
         await _db.setCustomMetricEnabled(m.id, false);
       }
     }
 
-    // 2. Enable target metrics
     for (var id in targetIds) {
       await _db.setCustomMetricEnabled(id, true);
     }
 
-    // 3. Log the change as a meta event
     try {
       await _db.insertEvent(
         EventsCompanion(

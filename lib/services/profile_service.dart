@@ -11,6 +11,7 @@ const _kUserUuid = 'user_uuid';
 const _kNickname = 'nickname';
 const _kFirstLaunchAt = 'first_launch_at';
 const _kHasSeenOnboarding = 'has_seen_onboarding';
+const _kIsDeveloperMode = 'is_developer_mode';
 
 /// Service responsible for user identity and profile management.
 ///
@@ -48,6 +49,9 @@ class ProfileService extends ChangeNotifier {
   /// Whether the user has completed the initial tutorial/onboarding.
   bool _hasSeenOnboarding = false;
 
+  /// Whether the user has enabled developer mode.
+  bool _isDeveloperMode = false;
+
   /// Reference to the database for logging meta events.
   late final AppDatabase _db;
 
@@ -73,6 +77,9 @@ class ProfileService extends ChangeNotifier {
 
   /// Whether the user has seen the onboarding slider.
   bool get hasSeenOnboarding => _hasSeenOnboarding;
+
+  /// Whether developer mode is enabled.
+  bool get isDeveloperMode => _isDeveloperMode;
 
   /// The timestamp of the user's first app launch. Used to suppress
   /// "missed window" cards for windows that ended before setup.
@@ -119,12 +126,16 @@ class ProfileService extends ChangeNotifier {
     // --- Onboarding ---
     _hasSeenOnboarding = prefs.getBool(_kHasSeenOnboarding) ?? false;
 
+    // --- Developer Mode ---
+    _isDeveloperMode = prefs.getBool(_kIsDeveloperMode) ?? false;
+
     // --- First Launch Timestamp (from prefs only) ---
     final storedLaunch = prefs.getString(_kFirstLaunchAt);
     if (storedLaunch != null) {
       _firstLaunchAt = DateTime.tryParse(storedLaunch);
     } else {
       _firstLaunchAt = DateTime.now();
+      await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
     }
 
     _isInitialized = true;
@@ -341,6 +352,15 @@ class ProfileService extends ChangeNotifier {
     _hasSeenOnboarding = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kHasSeenOnboarding, false);
+    notifyListeners();
+  }
+
+  /// Toggles developer mode and persists it.
+  Future<void> setDeveloperMode(bool value) async {
+    if (_isDeveloperMode == value) return;
+    _isDeveloperMode = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kIsDeveloperMode, value);
     notifyListeners();
   }
 }

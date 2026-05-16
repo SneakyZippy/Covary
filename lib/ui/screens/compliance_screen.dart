@@ -60,7 +60,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       e.label == 'SessionCompleted'
     ).toList();
 
-    final totalWindows = metricService.allWindows.length;
+    final totalWindows = metricService.allWindows.where((w) => w.isEnabled).length;
 
     final Map<DateTime, double> tempMap = {};
     for (int i = 0; i < 14; i++) {

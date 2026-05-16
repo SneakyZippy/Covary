@@ -384,10 +384,10 @@ class NotificationService {
 
 
     for (var window in windows) {
-      if (!window.isNotificationEnabled) continue;
+      if (!window.isNotificationEnabled || !window.isEnabled) continue;
 
       // Generate a stable integer ID from the UUID hash
-      final notificationId = window.id.hashCode.abs() % 100000;
+      final notificationId = window.id.hashCode.abs() % 2147483647;
       
       try {
         await AwesomeNotifications().createNotification(
@@ -467,7 +467,7 @@ class NotificationService {
     // or fallback to 100 if no window_id is present.
     final windowId = payload?['window_id'];
     final notificationId = windowId != null 
-        ? (windowId.hashCode.abs() % 100000) 
+        ? (windowId.hashCode.abs() % 2147483647) 
         : 100;
 
     try {

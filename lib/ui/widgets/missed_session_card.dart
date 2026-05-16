@@ -343,10 +343,12 @@ class MissedMetricChip extends StatelessWidget {
                     if (ctx.mounted) {
                       Navigator.pop(ctx);
                       onLogged();
+                      ScaffoldMessenger.of(ctx).clearSnackBars();
                       ScaffoldMessenger.of(ctx).showSnackBar(
                         SnackBar(
                           content: Text('${metric.label} logged!'),
                           behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 3),
                         ),
                       );
                     }

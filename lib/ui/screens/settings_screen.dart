@@ -19,8 +19,15 @@ import 'tracking_windows_screen.dart';
 import 'onboarding_screen.dart';
 
 /// Settings screen for managing profile, notifications, and data.
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  int _devTapCount = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -692,44 +699,46 @@ class SettingsScreen extends StatelessWidget {
             ),
 
             // --- Developer Section ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'Developer',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+            if (profileService.isDeveloperMode) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                  child: Text(
+                    'Developer',
+                    style: textTheme.titleSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    leading: Icon(Icons.bug_report_rounded, color: colorScheme.primary),
-                    title: const Text('Debug Tools'),
-                    subtitle: const Text('Internal diagnostics and logs'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const DebugScreen(),
-                        ),
-                      );
-                    },
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Card(
+                    elevation: 0,
+                    color: colorScheme.surfaceContainerHighest,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: ListTile(
+                      leading: Icon(Icons.bug_report_rounded, color: colorScheme.primary),
+                      title: const Text('Debug Tools'),
+                      subtitle: const Text('Internal diagnostics and logs'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DebugScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
             
             // --- About Section ---
             SliverToBoxAdapter(
@@ -769,6 +778,27 @@ class SettingsScreen extends StatelessWidget {
                     trailing: const Icon(Icons.refresh_rounded),
                     onTap: () {
                       UpdateService.checkAndPrompt(context, silent: false);
+                      setState(() {
+                        if (!profileService.isDeveloperMode) {
+                          _devTapCount++;
+                          if (_devTapCount >= 7) {
+                            profileService.setDeveloperMode(true);
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Developer mode enabled!')),
+                            );
+                          } else if (_devTapCount >= 3) {
+                            final remaining = 7 - _devTapCount;
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('You are $remaining steps away from being a developer.'),
+                                duration: const Duration(milliseconds: 1500),
+                              ),
+                            );
+                          }
+                        }
+                      });
                     },
                   ),
                 ),

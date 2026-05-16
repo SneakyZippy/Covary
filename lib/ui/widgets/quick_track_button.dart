@@ -49,16 +49,23 @@ class QuickTrackButton extends StatelessWidget {
           ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${metric.label} logged! ✓'),
+              content: Row(
+                children: [
+                  Expanded(child: Text('${metric.label} logged! ✓')),
+                  TextButton(
+                    onPressed: () async {
+                      await db.deleteEvent(eventId);
+                      if (context.mounted) {
+                        onLogged();
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      }
+                    },
+                    child: Text('UNDO', style: TextStyle(color: Theme.of(context).colorScheme.inversePrimary)),
+                  ),
+                ],
+              ),
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 5),
-              action: SnackBarAction(
-                label: 'UNDO',
-                onPressed: () async {
-                  await db.deleteEvent(eventId);
-                  onLogged();
-                },
-              ),
             ),
           );
         }
@@ -89,7 +96,9 @@ class QuickTrackButton extends StatelessWidget {
               metric: metric,
               onChanged: (value) async {
                 try {
-                  final latency = DateTime.now().difference(openedAt).inMilliseconds;
+                  final latency = DateTime.now()
+                      .difference(openedAt)
+                      .inMilliseconds;
                   final db = ctx.read<AppDatabase>();
                   final eventId = uuid.v4();
                   final now = DateTime.now();
@@ -112,16 +121,23 @@ class QuickTrackButton extends StatelessWidget {
                     ScaffoldMessenger.of(ctx).clearSnackBars();
                     ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
-                        content: Text('${metric.label} logged!'),
+                        content: Row(
+                          children: [
+                            Expanded(child: Text('${metric.label} logged!')),
+                            TextButton(
+                              onPressed: () async {
+                                await db.deleteEvent(eventId);
+                                if (ctx.mounted) {
+                                  onLogged();
+                                  ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+                                }
+                              },
+                              child: Text('UNDO', style: TextStyle(color: Theme.of(ctx).colorScheme.inversePrimary)),
+                            ),
+                          ],
+                        ),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 5),
-                        action: SnackBarAction(
-                          label: 'UNDO',
-                          onPressed: () async {
-                            await db.deleteEvent(eventId);
-                            onLogged();
-                          },
-                        ),
                       ),
                     );
                   }
@@ -162,7 +178,11 @@ class QuickTrackButton extends StatelessWidget {
               );
               if (time != null && context.mounted) {
                 final customTime = DateTime(
-                  now.year, now.month, now.day, time.hour, time.minute,
+                  now.year,
+                  now.month,
+                  now.day,
+                  time.hour,
+                  time.minute,
                 );
                 _handleTap(context, customTime: customTime);
               }
@@ -172,10 +192,7 @@ class QuickTrackButton extends StatelessWidget {
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  MetricIcon(
-                    iconName: metric.emoji,
-                    size: 32,
-                  ),
+                  MetricIcon(iconName: metric.emoji, size: 32),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
