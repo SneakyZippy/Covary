@@ -433,6 +433,7 @@ class MetricService extends ChangeNotifier {
         emoji: row.emoji,
         isActivityIndicator: row.isActivityIndicator,
         retroReliableOverride: row.isRetroReliable,
+        description: MetricPresets.getMetricDescription(row.id),
       );
     }).toList();
 

@@ -77,18 +77,22 @@ class _MetricInputCardState extends State<MetricInputCard> {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(
-                        widget.metric.label,
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
+                      Flexible(
+                        child: Text(
+                          widget.metric.label,
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 6),
                       Tooltip(
                         message: widget.metric.isActivityIndicator ? 'Activity Required' : 'Optional',
                         child: Container(
-                          width: 10,
-                          height: 10,
+                          width: 8,
+                          height: 8,
                           decoration: BoxDecoration(
                             color: widget.metric.isActivityIndicator
                                 ? colorScheme.primary
@@ -100,6 +104,21 @@ class _MetricInputCardState extends State<MetricInputCard> {
                     ],
                   ),
                 ),
+                if (widget.metric.description != null) ...[
+                  IconButton(
+                    icon: Icon(
+                      Icons.info_outline_rounded,
+                      size: 20,
+                      color: colorScheme.onSurfaceVariant.withAlpha(200),
+                    ),
+                    onPressed: () => _showHelpDialog(context, widget.metric),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  if (_selectedValue != null && widget.metric.inputType != MetricInputType.counter)
+                    const SizedBox(width: 8),
+                ],
                 // Selection indicator (hidden for counter type — each tap is discrete)
                 if (_selectedValue != null && widget.metric.inputType != MetricInputType.counter)
                   Icon(
@@ -321,6 +340,81 @@ class _MetricInputCardState extends State<MetricInputCard> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showHelpDialog(BuildContext context, MetricDefinition metric) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          backgroundColor: colorScheme.surface,
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          title: Row(
+            children: [
+              MetricIcon(
+                iconName: metric.emoji,
+                size: 32,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  metric.label,
+                  style: textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TRACKING GUIDELINES',
+                style: textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Text(
+                    metric.description ?? '',
+                    style: textTheme.bodyLarge?.copyWith(
+                      height: 1.5,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -24,11 +24,11 @@ class MetricDefinition {
   /// If empty or contains "anytime", it's always shown.
   final List<String> windowIds;
 
-  /// Whether this metric is currently active (shown on the Home screen).
-  final bool isEnabled;
-
   /// Optional emoji or icon hint for the UI.
   final String? emoji;
+
+  /// Whether this metric is currently active (shown on the Home screen).
+  final bool isEnabled;
 
   /// Whether logging this metric counts towards the Activity Heatmap and Streak.
   final bool isActivityIndicator;
@@ -38,6 +38,9 @@ class MetricDefinition {
   /// - `true`  → always treated as reliable (e.g. a scale the user knows is factual).
   /// - `false` → always treated as unreliable.
   final bool? retroReliableOverride;
+
+  /// Optional description or instructions on how to measure/track the metric.
+  final String? description;
 
   /// Whether this metric's value can be reliably recalled after the fact.
   ///
@@ -61,6 +64,7 @@ class MetricDefinition {
     this.emoji,
     this.isActivityIndicator = true,
     this.retroReliableOverride,
+    this.description,
   });
 
   /// Creates a copy with the given fields replaced.
@@ -77,6 +81,7 @@ class MetricDefinition {
     String? emoji,
     bool? isActivityIndicator,
     Object? retroReliableOverride = _unset,
+    String? description,
   }) {
     return MetricDefinition(
       id: id ?? this.id,
@@ -90,6 +95,7 @@ class MetricDefinition {
       retroReliableOverride: retroReliableOverride == _unset
           ? this.retroReliableOverride
           : retroReliableOverride as bool?,
+      description: description ?? this.description,
     );
   }
 }
