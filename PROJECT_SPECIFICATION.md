@@ -7,13 +7,15 @@ The goal is to move beyond simple data collection and provide users with a "Beha
 
 ## 2. Core Philosophy
 - **Local-First:** All sensitive data is stored exclusively on the user's device in a local SQLite database.
-- **Privacy by Design:** No cloud synchronization or third-party tracking.
+- **Opt-In Cloud Backup:** Users can optionally enable secure synchronization to a private Supabase instance. This remains disabled by default.
+- **Privacy by Design:** No default cloud synchronization, third-party trackers, or analytics scripts are bundled.
 - **Transparency:** Users have full visibility and control over their "Universal Event" log.
-- **Data Portability:** While analysis happens on-device, a "Research Mode" allows for standardized JSON exports for external academic validation (e.g., Python/Pandas).
+- **Data Portability:** While analysis happens on-device, users can trigger manual JSON exports/imports or use the cloud sync to move their profiles between devices.
 
 ## 3. Technical Architecture
 - **Framework:** Flutter (Material 3 UI).
-- **Database:** `drift` (SQLite) for reactive, high-integrity storage.
+- **Local Database:** `drift` (SQLite) for reactive, high-integrity storage.
+- **Cloud Backend:** `Supabase` (client-side SDK) for optional database backup and syncing.
 - **State Management:** `provider` (chosen for academic clarity and reliability).
 - **Notifications:** `awesome_notifications` for high-fidelity interaction tracking.
 - **Background Processing:** `workmanager` for periodic passive data syncing.
@@ -59,5 +61,35 @@ The core of the "Calculate on Device" shift. Covary processes the `Events` table
 
 ## 7. Adaptive Research Design
 Covary is not just a tracker; it's an adaptive tool:
-- **Prompt Fatigue Detection:** If the app detects a pattern of `swipeAway` interactions, it suggests rescheduling notifications to a different time window(maybe, never tested the feature, there are many things to fix/improve).
+- **Prompt Fatigue Detection:** If the app detects a pattern of `swipeAway` interactions, it suggests rescheduling notifications to a different time window.
 - **Compliance Tracking:** Visualizes "Recall Reliability"—showing how consistent the user is with their logging to ensure high-quality research data.
+
+## 8. Opt-In Cloud Backup Architecture
+To facilitate data durability and seamless device transfers without compromising user privacy, Covary provides an optional **Cloud Backup** powered by Supabase.
+
+### A. Security & Isolation
+- **No Global Sync:** Data is never synced automatically to a public cloud unless the user explicitly toggles the feature on via **Settings > Data Management > Enable Cloud Backup**.
+- **Credential Protection:** Supabase credentials (URL, anonymous publishable API key) are kept in `lib/services/supabase_config.dart` which is ignored in Git tracking.
+- **Anonymous Identity:** Uploaded rows are identified exclusively by the persistent `user_uuid` generated during onboarding. Display nicknames are stored for UI personalization but no real-world identifying data (email, name, phone) is collected.
+
+### B. Remote SQL Schema
+The remote PostgreSQL database on Supabase mirrors the local Drift database tables in a single compressed JSON payload:
+
+```sql
+create table if not exists public.user_syncs (
+  uuid uuid primary key,
+  nickname text,
+  synced_at timestamp with time zone not null default now(),
+  payload jsonb not null
+);
+
+alter table public.user_syncs enable row level security;
+
+create policy "Allow public upsert by UUID"
+on public.user_syncs for all using (true) with check (true);
+```
+
+### C. Sync Triggers
+When cloud backup is enabled, the app schedules sync tasks under two triggers:
+1. **Startup Sync:** Fires when the application is launched, immediately after the profile UUID is resolved.
+2. **Resume Sync:** A `WidgetsBindingObserver` monitors application lifecycle changes and initiates a silent background sync whenever the application state changes back to `resumed` (e.g., app unlocked or reopened).

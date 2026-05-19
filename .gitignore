@@ -122,3 +122,7 @@ app.*.symbols
 # Antigravity / Google IDE
 .google/
 .agents/cache/
+
+# Supabase secrets configuration
+/lib/services/supabase_config.dart
+

@@ -18,6 +18,7 @@ import 'services/theme_service.dart';
 import 'services/background_service.dart';
 import 'services/analytics_service.dart';
 import 'services/import_service.dart';
+import 'services/sync_service.dart';
 import 'ui/screens/app_shell.dart';
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/profile_setup_screen.dart';
@@ -69,6 +70,10 @@ void main() async {
   );
   final analyticsService = AnalyticsService(database);
   final importService = ImportService(database, profileService);
+  final syncService = SyncService(
+    db: database,
+    profileService: profileService,
+  );
 
   // ── SHOW THE UI IMMEDIATELY ────────────────────────────────────────────
   runApp(
@@ -85,6 +90,7 @@ void main() async {
         ChangeNotifierProvider<ThemeService>.value(value: themeService),
         Provider<AnalyticsService>.value(value: analyticsService),
         Provider<ImportService>.value(value: importService),
+        ChangeNotifierProvider<SyncService>.value(value: syncService),
       ],
       child: const CovaryApp(),
     ),
@@ -99,6 +105,10 @@ void main() async {
       metricService.init(database),
       profileService.initDeferred(),
     ]);
+
+    // Initialize SyncService after ProfileService deferred init (since it needs UUID)
+    await syncService.init();
+    unawaited(syncService.syncNow());
 
     // Phase 2: Notifications + app usage + WorkManager (parallel, non-blocking)
     unawaited(Future.wait([

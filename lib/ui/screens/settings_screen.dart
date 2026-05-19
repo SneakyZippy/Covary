@@ -12,6 +12,7 @@ import 'debug_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../services/update_service.dart';
 import '../../services/import_service.dart';
+import '../../services/sync_service.dart';
 import '../../services/notification_service.dart';
 
 import 'metrics_screen.dart';
@@ -329,6 +330,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: colorScheme.primary,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Consumer<SyncService>(
+                    builder: (context, syncService, child) {
+                      final hasErrorMessage = syncService.syncErrorMessage != null;
+                      final lastSyncStr = syncService.lastSyncTime != null
+                          ? 'Last sync: ${syncService.lastSyncTime!.toLocal().toString().split('.').first}'
+                          : 'Never synced';
+                      return SwitchListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
+                        ),
+                        secondary: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.cloud_upload_rounded,
+                            color: colorScheme.onPrimaryContainer,
+                            size: 20,
+                          ),
+                        ),
+                        title: const Text('Enable Cloud Backup'),
+                        subtitle: Text(
+                          syncService.isSyncing
+                              ? 'Syncing to cloud...'
+                              : hasErrorMessage
+                                  ? 'Error: ${syncService.syncErrorMessage}'
+                                  : lastSyncStr,
+                          style: TextStyle(
+                            color: hasErrorMessage ? colorScheme.error : null,
+                          ),
+                        ),
+                        value: syncService.syncEnabled,
+                        onChanged: (bool value) async {
+                          await syncService.setSyncEnabled(value);
+                          if (context.mounted && value && syncService.syncErrorMessage != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Sync error: ${syncService.syncErrorMessage}'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    },
                   ),
                 ),
               ),

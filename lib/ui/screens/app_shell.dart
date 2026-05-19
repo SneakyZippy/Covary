@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/notification_service.dart';
+import '../../services/sync_service.dart';
 import '../../services/update_service.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
@@ -16,17 +18,35 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService().checkPendingFatigueDialog();
       // Check for updates on app launch
       UpdateService.checkAndPrompt(context);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      try {
+        context.read<SyncService>().syncNow();
+      } catch (e) {
+        debugPrint('[AppShell] Failed to trigger auto-sync on resume: $e');
+      }
+    }
   }
 
   static const List<Widget> _screens = [

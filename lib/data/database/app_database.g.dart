@@ -113,6 +113,17 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _testMigrationFieldMeta =
+      const VerificationMeta('testMigrationField');
+  @override
+  late final GeneratedColumn<String> testMigrationField =
+      GeneratedColumn<String>(
+        'test_migration_field',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -125,6 +136,7 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     interactionType,
     sessionId,
     recordedAt,
+    testMigrationField,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -179,6 +191,15 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
       context.handle(
         _recordedAtMeta,
         recordedAt.isAcceptableOrUnknown(data['recorded_at']!, _recordedAtMeta),
+      );
+    }
+    if (data.containsKey('test_migration_field')) {
+      context.handle(
+        _testMigrationFieldMeta,
+        testMigrationField.isAcceptableOrUnknown(
+          data['test_migration_field']!,
+          _testMigrationFieldMeta,
+        ),
       );
     }
     return context;
@@ -236,6 +257,10 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}recorded_at'],
       ),
+      testMigrationField: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}test_migration_field'],
+      ),
     );
   }
 
@@ -287,6 +312,9 @@ class Event extends DataClass implements Insertable<Event> {
   /// When the event was actually logged in the app (for HCI/compliance metrics).
   /// Null for older data (meaning recordedAt == timestamp).
   final DateTime? recordedAt;
+
+  /// A test field to verify schema migration safety with cloud backup.
+  final String? testMigrationField;
   const Event({
     required this.id,
     required this.timestamp,
@@ -298,6 +326,7 @@ class Event extends DataClass implements Insertable<Event> {
     required this.interactionType,
     this.sessionId,
     this.recordedAt,
+    this.testMigrationField,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -328,6 +357,9 @@ class Event extends DataClass implements Insertable<Event> {
     if (!nullToAbsent || recordedAt != null) {
       map['recorded_at'] = Variable<DateTime>(recordedAt);
     }
+    if (!nullToAbsent || testMigrationField != null) {
+      map['test_migration_field'] = Variable<String>(testMigrationField);
+    }
     return map;
   }
 
@@ -347,6 +379,9 @@ class Event extends DataClass implements Insertable<Event> {
       recordedAt: recordedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(recordedAt),
+      testMigrationField: testMigrationField == null && nullToAbsent
+          ? const Value.absent()
+          : Value(testMigrationField),
     );
   }
 
@@ -372,6 +407,9 @@ class Event extends DataClass implements Insertable<Event> {
       ),
       sessionId: serializer.fromJson<String?>(json['sessionId']),
       recordedAt: serializer.fromJson<DateTime?>(json['recordedAt']),
+      testMigrationField: serializer.fromJson<String?>(
+        json['testMigrationField'],
+      ),
     );
   }
   @override
@@ -394,6 +432,7 @@ class Event extends DataClass implements Insertable<Event> {
       ),
       'sessionId': serializer.toJson<String?>(sessionId),
       'recordedAt': serializer.toJson<DateTime?>(recordedAt),
+      'testMigrationField': serializer.toJson<String?>(testMigrationField),
     };
   }
 
@@ -408,6 +447,7 @@ class Event extends DataClass implements Insertable<Event> {
     InteractionType? interactionType,
     Value<String?> sessionId = const Value.absent(),
     Value<DateTime?> recordedAt = const Value.absent(),
+    Value<String?> testMigrationField = const Value.absent(),
   }) => Event(
     id: id ?? this.id,
     timestamp: timestamp ?? this.timestamp,
@@ -419,6 +459,9 @@ class Event extends DataClass implements Insertable<Event> {
     interactionType: interactionType ?? this.interactionType,
     sessionId: sessionId.present ? sessionId.value : this.sessionId,
     recordedAt: recordedAt.present ? recordedAt.value : this.recordedAt,
+    testMigrationField: testMigrationField.present
+        ? testMigrationField.value
+        : this.testMigrationField,
   );
   Event copyWithCompanion(EventsCompanion data) {
     return Event(
@@ -438,6 +481,9 @@ class Event extends DataClass implements Insertable<Event> {
       recordedAt: data.recordedAt.present
           ? data.recordedAt.value
           : this.recordedAt,
+      testMigrationField: data.testMigrationField.present
+          ? data.testMigrationField.value
+          : this.testMigrationField,
     );
   }
 
@@ -453,7 +499,8 @@ class Event extends DataClass implements Insertable<Event> {
           ..write('triggerSource: $triggerSource, ')
           ..write('interactionType: $interactionType, ')
           ..write('sessionId: $sessionId, ')
-          ..write('recordedAt: $recordedAt')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('testMigrationField: $testMigrationField')
           ..write(')'))
         .toString();
   }
@@ -470,6 +517,7 @@ class Event extends DataClass implements Insertable<Event> {
     interactionType,
     sessionId,
     recordedAt,
+    testMigrationField,
   );
   @override
   bool operator ==(Object other) =>
@@ -484,7 +532,8 @@ class Event extends DataClass implements Insertable<Event> {
           other.triggerSource == this.triggerSource &&
           other.interactionType == this.interactionType &&
           other.sessionId == this.sessionId &&
-          other.recordedAt == this.recordedAt);
+          other.recordedAt == this.recordedAt &&
+          other.testMigrationField == this.testMigrationField);
 }
 
 class EventsCompanion extends UpdateCompanion<Event> {
@@ -498,6 +547,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
   final Value<InteractionType> interactionType;
   final Value<String?> sessionId;
   final Value<DateTime?> recordedAt;
+  final Value<String?> testMigrationField;
   final Value<int> rowid;
   const EventsCompanion({
     this.id = const Value.absent(),
@@ -510,6 +560,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     this.interactionType = const Value.absent(),
     this.sessionId = const Value.absent(),
     this.recordedAt = const Value.absent(),
+    this.testMigrationField = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   EventsCompanion.insert({
@@ -523,6 +574,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     required InteractionType interactionType,
     this.sessionId = const Value.absent(),
     this.recordedAt = const Value.absent(),
+    this.testMigrationField = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : category = Value(category),
        label = Value(label),
@@ -540,6 +592,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     Expression<String>? interactionType,
     Expression<String>? sessionId,
     Expression<DateTime>? recordedAt,
+    Expression<String>? testMigrationField,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -553,6 +606,8 @@ class EventsCompanion extends UpdateCompanion<Event> {
       if (interactionType != null) 'interaction_type': interactionType,
       if (sessionId != null) 'session_id': sessionId,
       if (recordedAt != null) 'recorded_at': recordedAt,
+      if (testMigrationField != null)
+        'test_migration_field': testMigrationField,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -568,6 +623,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     Value<InteractionType>? interactionType,
     Value<String?>? sessionId,
     Value<DateTime?>? recordedAt,
+    Value<String?>? testMigrationField,
     Value<int>? rowid,
   }) {
     return EventsCompanion(
@@ -581,6 +637,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
       interactionType: interactionType ?? this.interactionType,
       sessionId: sessionId ?? this.sessionId,
       recordedAt: recordedAt ?? this.recordedAt,
+      testMigrationField: testMigrationField ?? this.testMigrationField,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -624,6 +681,9 @@ class EventsCompanion extends UpdateCompanion<Event> {
     if (recordedAt.present) {
       map['recorded_at'] = Variable<DateTime>(recordedAt.value);
     }
+    if (testMigrationField.present) {
+      map['test_migration_field'] = Variable<String>(testMigrationField.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -643,6 +703,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
           ..write('interactionType: $interactionType, ')
           ..write('sessionId: $sessionId, ')
           ..write('recordedAt: $recordedAt, ')
+          ..write('testMigrationField: $testMigrationField, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1936,6 +1997,7 @@ typedef $$EventsTableCreateCompanionBuilder =
       required InteractionType interactionType,
       Value<String?> sessionId,
       Value<DateTime?> recordedAt,
+      Value<String?> testMigrationField,
       Value<int> rowid,
     });
 typedef $$EventsTableUpdateCompanionBuilder =
@@ -1950,6 +2012,7 @@ typedef $$EventsTableUpdateCompanionBuilder =
       Value<InteractionType> interactionType,
       Value<String?> sessionId,
       Value<DateTime?> recordedAt,
+      Value<String?> testMigrationField,
       Value<int> rowid,
     });
 
@@ -2014,6 +2077,11 @@ class $$EventsTableFilterComposer
     column: $table.recordedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get testMigrationField => $composableBuilder(
+    column: $table.testMigrationField,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$EventsTableOrderingComposer
@@ -2074,6 +2142,11 @@ class $$EventsTableOrderingComposer
     column: $table.recordedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get testMigrationField => $composableBuilder(
+    column: $table.testMigrationField,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$EventsTableAnnotationComposer
@@ -2122,6 +2195,11 @@ class $$EventsTableAnnotationComposer
     column: $table.recordedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get testMigrationField => $composableBuilder(
+    column: $table.testMigrationField,
+    builder: (column) => column,
+  );
 }
 
 class $$EventsTableTableManager
@@ -2162,6 +2240,7 @@ class $$EventsTableTableManager
                 Value<InteractionType> interactionType = const Value.absent(),
                 Value<String?> sessionId = const Value.absent(),
                 Value<DateTime?> recordedAt = const Value.absent(),
+                Value<String?> testMigrationField = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => EventsCompanion(
                 id: id,
@@ -2174,6 +2253,7 @@ class $$EventsTableTableManager
                 interactionType: interactionType,
                 sessionId: sessionId,
                 recordedAt: recordedAt,
+                testMigrationField: testMigrationField,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2188,6 +2268,7 @@ class $$EventsTableTableManager
                 required InteractionType interactionType,
                 Value<String?> sessionId = const Value.absent(),
                 Value<DateTime?> recordedAt = const Value.absent(),
+                Value<String?> testMigrationField = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => EventsCompanion.insert(
                 id: id,
@@ -2200,6 +2281,7 @@ class $$EventsTableTableManager
                 interactionType: interactionType,
                 sessionId: sessionId,
                 recordedAt: recordedAt,
+                testMigrationField: testMigrationField,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
