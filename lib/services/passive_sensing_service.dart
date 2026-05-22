@@ -4,7 +4,8 @@ import 'package:uuid/uuid.dart';
 
 import 'package:health/health.dart';
 
-import '../data/database/app_database.dart';
+import '../data/database/app_database.dart' show EventsCompanion;
+import '../data/repositories/event_repository.dart';
 import '../data/models/enums.dart';
 import 'app_usage_service.dart';
 import 'health_service.dart';
@@ -29,15 +30,15 @@ import 'health_service.dart';
 /// [TriggerSource.manual] events (e.g., subjective metrics) is a core
 /// analysis axis in the research design.
 class PassiveSensingService {
-  final AppDatabase _db;
+  final EventRepository _eventRepo;
   final HealthService _health;
   final AppUsageService _appUsage;
 
   PassiveSensingService({
-    required AppDatabase db,
+    required EventRepository eventRepo,
     required HealthService health,
     required AppUsageService appUsage,
-  })  : _db = db,
+  })  : _eventRepo = eventRepo,
         _health = health,
         _appUsage = appUsage;
 
@@ -324,17 +325,17 @@ class PassiveSensingService {
     final dayStart = DateTime(timestamp.year, timestamp.month, timestamp.day);
     final dayEnd = dayStart.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
 
-    final existing = await (_db.select(_db.events)
-          ..where((t) => t.category.equalsValue(category))
-          ..where((t) => t.label.equals(label))
-          ..where((t) => t.triggerSource.equalsValue(TriggerSource.system))
-          ..where((t) => t.timestamp.isBetweenValues(dayStart, dayEnd))
-          ..limit(1))
-        .getSingleOrNull();
+    final existing = await _eventRepo.findSystemEvent(
+      category: category,
+      label: label,
+      start: dayStart,
+      end: dayEnd,
+    );
 
     if (existing != null) {
       // Update existing record with the new value (and new sessionId)
-      await (_db.update(_db.events)..where((t) => t.id.equals(existing.id))).write(
+      await _eventRepo.updateEvent(
+        existing.id,
         EventsCompanion(
           value: Value(value),
           sessionId: Value(sessionId),
@@ -345,7 +346,7 @@ class PassiveSensingService {
       debugPrint('[PassiveSensingService] UPDATED → $label = $value for ${dayStart.toIso8601String().split('T')[0]}');
     } else {
       // Insert new record
-      await _db.insertEvent(
+      await _eventRepo.insertEvent(
         EventsCompanion(
           category: Value(category),
           label: Value(label),
@@ -372,16 +373,14 @@ class PassiveSensingService {
   }) async {
     // Optimization: Check for existing records is fast enough for single-day syncs,
     // but for deep syncs, we use the timestamp as a unique key in the DB query.
-    final existing = await (_db.select(_db.events)
-          ..where((t) => t.category.equalsValue(category))
-          ..where((t) => t.label.equals(label))
-          ..where((t) => t.triggerSource.equalsValue(TriggerSource.system))
-          ..where((t) => t.timestamp.equals(timestamp))
-          ..limit(1))
-        .getSingleOrNull();
+    final existing = await _eventRepo.findSystemEventAtTimestamp(
+      category: category,
+      label: label,
+      timestamp: timestamp,
+    );
 
     if (existing == null) {
-      await _db.insertEvent(
+      await _eventRepo.insertEvent(
         EventsCompanion(
           category: Value(category),
           label: Value(label),

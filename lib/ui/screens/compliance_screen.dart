@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../services/metric_service.dart';
 
 class ComplianceScreen extends StatefulWidget {
@@ -23,12 +23,12 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   }
 
   Future<void> _loadComplianceData() async {
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     final metricService = context.read<MetricService>();
     final now = DateTime.now();
     final fourteenDaysAgo = now.subtract(const Duration(days: 14));
     
-    final events = await db.getEventsInDateRange(fourteenDaysAgo, now);
+    final events = await eventRepo.getEventsInDateRange(fourteenDaysAgo, now);
     
     // Filter out meta events and app usage for compliance.
     // IMPORTANT: We also exclude system-triggered events (passive sensing)

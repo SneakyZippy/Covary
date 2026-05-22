@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/metric_definition.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../services/metric_service.dart';
 import '../widgets/metric_input_card.dart';
 import '../widgets/metric_icon.dart';
@@ -316,12 +317,17 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
       itemBuilder: (context, index) {
         final metric = metrics[index];
         return InkWell(
-          onTap: () {
+          onTap: () async {
             if (metric.inputType == MetricInputType.counter) {
               final latency = DateTime.now().difference(_cardVisibleAt).inMilliseconds;
-              _logCounterTap(metric, latency, effectiveTargetTime: effectiveTargetTime);
+              await _logCounterTap(metric, latency, effectiveTargetTime: effectiveTargetTime);
             } else {
-              _showSingleMetricInput(metric, effectiveTargetTime);
+              await _showSingleMetricInput(metric, effectiveTargetTime);
+            }
+            if (mounted) {
+              setState(() {
+                _cardVisibleAt = DateTime.now();
+              });
             }
           },
           borderRadius: BorderRadius.circular(20),
@@ -373,9 +379,9 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 
   Future<void> _logCounterTap(MetricDefinition metric, int latencyMs, {DateTime? customTime, DateTime? effectiveTargetTime}) async {
     try {
-      final db = context.read<AppDatabase>();
+      final eventRepo = context.read<EventRepository>();
       final now = DateTime.now();
-      await db.insertEvent(
+      await eventRepo.insertEvent(
         EventsCompanion(
           category: Value(metric.category),
           label: Value(metric.label),
@@ -401,11 +407,11 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     }
   }
 
-  void _showSingleMetricInput(MetricDefinition metric, DateTime effectiveTargetTime) {
+  Future<void> _showSingleMetricInput(MetricDefinition metric, DateTime effectiveTargetTime) async {
     final openedAt = DateTime.now();
     DateTime customTime = effectiveTargetTime;
 
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -428,9 +434,9 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                     onChanged: (value) async {
                       try {
                         final latency = DateTime.now().difference(openedAt).inMilliseconds;
-                        final db = context.read<AppDatabase>();
+                        final eventRepo = context.read<EventRepository>();
                         final now = DateTime.now();
-                        await db.insertEvent(
+                        await eventRepo.insertEvent(
                           EventsCompanion(
                             category: Value(metric.category),
                             label: Value(metric.label),
@@ -493,7 +499,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   }
 
   Future<void> _submitSession(List<MetricDefinition> metrics, DateTime effectiveTargetTime) async {
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     final metricService = context.read<MetricService>();
     final colorScheme = Theme.of(context).colorScheme;
     final sessionId = widget.sessionId ?? const Uuid().v4();
@@ -504,7 +510,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
       final data = _sessionData[metric.id];
       if (data != null) {
         final now = DateTime.now();
-        await db.insertEvent(
+        await eventRepo.insertEvent(
           EventsCompanion(
             category: Value(metric.category),
             label: Value(metric.label),
@@ -541,7 +547,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         }
       }
 
-      await db.insertEvent(
+      await eventRepo.insertEvent(
         EventsCompanion(
           category: const Value(EventCategory.meta),
           label: const Value('SessionCompleted'),

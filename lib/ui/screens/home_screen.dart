@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/metric_definition.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../services/app_usage_service.dart';
 import '../../services/health_service.dart';
 import '../../services/metric_service.dart';
@@ -61,8 +62,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // Also refresh whenever ANY event is added to the database.
     // This ensures that sessions finished via notifications or deep links
     // also trigger a refresh on the home screen immediately.
-    final db = context.read<AppDatabase>();
-    _eventSubscription = db.watchAllEvents().listen((_) {
+    final eventRepo = context.read<EventRepository>();
+    _eventSubscription = eventRepo.watchAllEvents().listen((_) {
       if (mounted) _loadTodayStats();
     });
   }
@@ -85,8 +86,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadTodayStats() async {
     if (!mounted) return;
-    final db = context.read<AppDatabase>();
-    final allEvents = await db.getAllEvents();
+    final eventRepo = context.read<EventRepository>();
+    final allEvents = await eventRepo.getAllEvents();
 
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
@@ -164,14 +165,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _checkPermissionsAndDismissal() async {
     final healthService = context.read<HealthService>();
     final appUsageService = context.read<AppUsageService>();
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
 
     final healthGranted = await healthService.hasPermissions();
     final usageGranted = await appUsageService.isPermissionGranted();
     final notifGranted = await AwesomeNotifications().isNotificationAllowed();
 
     // Check if the banner has ever been dismissed
-    final dismissEvents = await db.getEventsByLabel('PermissionBannerDismissed');
+    final dismissEvents = await eventRepo.getEventsByLabel('PermissionBannerDismissed');
     final dismissed = dismissEvents.isNotEmpty;
 
     if (mounted) {
@@ -451,8 +452,8 @@ class _HomeScreenState extends State<HomeScreen> {
       key: const ValueKey('permission_banner'),
       direction: DismissDirection.horizontal,
       onDismissed: (_) async {
-        final db = context.read<AppDatabase>();
-        await db.insertEvent(
+        final eventRepo = context.read<EventRepository>();
+        await eventRepo.insertEvent(
           EventsCompanion(
             category: const Value(EventCategory.meta),
             label: const Value('PermissionBannerDismissed'),
@@ -556,8 +557,8 @@ class _HomeScreenState extends State<HomeScreen> {
       colorScheme: colorScheme,
       textTheme: textTheme,
       onDismissed: () async {
-        final db = context.read<AppDatabase>();
-        await db.insertEvent(
+        final eventRepo = context.read<EventRepository>();
+        await eventRepo.insertEvent(
           EventsCompanion(
             category: const Value(EventCategory.meta),
             label: const Value('SessionDismissed'),

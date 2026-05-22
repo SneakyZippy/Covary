@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' hide Column;
 
 import '../../data/database/app_database.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../data/models/enums.dart';
 import '../../services/metric_service.dart';
 import '../widgets/metric_input_card.dart';
@@ -29,7 +30,7 @@ class _RawDataScreenState extends State<RawDataScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _eventsStream ??= context.read<AppDatabase>().watchAllEvents();
+    _eventsStream ??= context.read<EventRepository>().watchAllEvents();
   }
 
   @override
@@ -521,7 +522,7 @@ class _SessionCardState extends State<_SessionCard> {
   }
 
   void _deleteSession(BuildContext context) async {
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -540,7 +541,7 @@ class _SessionCardState extends State<_SessionCard> {
 
     if (confirmed == true && context.mounted) {
       for (final event in widget.session.events) {
-        await db.deleteEvent(event.id);
+        await eventRepo.deleteEvent(event.id);
       }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -773,7 +774,7 @@ class _EventRow extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () async {
-                   final db = context.read<AppDatabase>();
+                   final eventRepo = context.read<EventRepository>();
                    final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
@@ -790,7 +791,7 @@ class _EventRow extends StatelessWidget {
                       ),
                     );
                     if (confirmed == true && context.mounted) {
-                      await db.deleteEvent(event.id);
+                      await eventRepo.deleteEvent(event.id);
                       if (context.mounted) {
                         Navigator.pop(context);
                       }
@@ -892,16 +893,16 @@ class _EventRow extends StatelessWidget {
                     return;
                   }
 
-                  final db = ctx.read<AppDatabase>();
+                  final eventRepo = ctx.read<EventRepository>();
                   
                   // Update the actual event
-                  await db.updateEvent(event.id, EventsCompanion(
+                  await eventRepo.updateEvent(event.id, EventsCompanion(
                     value: Value(newValue),
                     timestamp: Value(newTimestamp),
                   ));
                   
                   // Insert a meta event tracking the change
-                  await db.insertEvent(EventsCompanion.insert(
+                  await eventRepo.insertEvent(EventsCompanion.insert(
                     category: EventCategory.meta,
                     label: 'data_edited',
                     value: '${event.label}: ${event.value} -> $newValue, time ${event.timestamp} -> $newTimestamp',

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../services/profile_service.dart';
 import '../../services/metric_service.dart';
 import '../widgets/edit_window_dialog.dart';
@@ -7,6 +9,8 @@ import '../widgets/metric_icon.dart';
 import '../../data/models/enums.dart';
 import 'profile_setup_screen.dart';
 import 'package:covary/ui/screens/app_shell.dart';
+import '../../services/sync_service.dart';
+import '../widgets/sync_summary_dialog.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -65,14 +69,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final metricService = context.watch<MetricService>();
+    final profileService = context.watch<ProfileService>();
     
     final List<Widget> pages = [
       // 1. Mission
-      const OnboardingStaticSlide(
+      OnboardingStaticSlide(
         title: 'Welcome to Covary',
         description: 'A versatile research tool designed to uncover the patterns between your habits, environment, and daily experiences.',
         icon: Icons.science_rounded,
         color: Colors.blue,
+        actionButton: TextButton.icon(
+          icon: const Icon(Icons.cloud_download_rounded),
+          label: const Text('Restore from cloud backup'),
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            final summary = await showDialog<SyncSummary?>(
+              context: context,
+              builder: (context) => const _RestoreBackupDialog(),
+            );
+            if (summary != null) {
+              if (context.mounted) {
+                await showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => SyncSummaryDialog(summary: summary),
+                );
+              }
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const AppShell()),
+                (route) => false,
+              );
+            }
+          },
+        ),
       ),
       // 2. Method
       const OnboardingStaticSlide(
@@ -89,11 +118,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         color: Colors.teal,
       ),
       // 4. Contribution
-      const OnboardingStaticSlide(
+      OnboardingStaticSlide(
         title: 'Support Science',
         description: 'If you would like to participate in the research, you can contribute by manually exporting and sending your data to me at the end of the study period.',
         icon: Icons.school_rounded,
         color: Colors.purple,
+        actionButton: TextButton.icon(
+          icon: const Icon(Icons.share_rounded),
+          label: const Text('Send Research ID to researcher'),
+          onPressed: () async {
+            final uuid = profileService.uuid;
+            if (uuid.isNotEmpty) {
+              await Clipboard.setData(ClipboardData(text: uuid));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Research ID copied! Opening share sheet...'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                
+                final box = context.findRenderObject() as RenderBox?;
+                await SharePlus.instance.share(
+                  ShareParams(
+                    text: 'My Covary Research ID is: $uuid\n\n'
+                          'To: felix.zoeggeler@edu.fh-joanneum.at',
+                    subject: 'Covary Research ID',
+                    sharePositionOrigin: box != null
+                        ? box.localToGlobal(Offset.zero) & box.size
+                        : null,
+                  ),
+                );
+              }
+            }
+          },
+        ),
       ),
       // 5. Research Focus (Presets)
       _PresetSelectionSlide(service: metricService),
@@ -222,6 +281,7 @@ class OnboardingStaticSlide extends StatelessWidget {
   final String description;
   final IconData icon;
   final Color color;
+  final Widget? actionButton;
 
   const OnboardingStaticSlide({
     super.key,
@@ -229,6 +289,7 @@ class OnboardingStaticSlide extends StatelessWidget {
     required this.description,
     required this.icon,
     required this.color,
+    this.actionButton,
   });
 
   @override
@@ -276,6 +337,10 @@ class OnboardingStaticSlide extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    if (actionButton != null) ...[
+                      const SizedBox(height: 32),
+                      actionButton!,
+                    ],
                   ],
                 ),
               ),
@@ -283,6 +348,126 @@ class OnboardingStaticSlide extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _RestoreBackupDialog extends StatefulWidget {
+  const _RestoreBackupDialog();
+
+  @override
+  State<_RestoreBackupDialog> createState() => _RestoreBackupDialogState();
+}
+
+class _RestoreBackupDialogState extends State<_RestoreBackupDialog> {
+  final TextEditingController _uuidController = TextEditingController();
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _uuidController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleRestore() async {
+    final uuid = _uuidController.text.trim();
+    if (uuid.isEmpty) {
+      setState(() => _error = 'Please enter a valid UUID');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final syncService = context.read<SyncService>();
+      final summary = await syncService.restoreWithUuid(uuid);
+      
+      if (!mounted) return;
+
+      if (summary != null) {
+        Navigator.of(context).pop(summary);
+      } else {
+        setState(() {
+          _error = 'No backup found. Double check your UUID.';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Error: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      title: Row(
+        children: [
+          Icon(Icons.cloud_download_rounded, color: colorScheme.primary),
+          const SizedBox(width: 12),
+          const Text('Restore Backup'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Enter your 36-character Research ID to restore your settings, metrics, and event history.',
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _uuidController,
+              enabled: !_isLoading,
+              style: const TextStyle(fontFamily: 'monospace'),
+              decoration: InputDecoration(
+                hintText: 'e.g. 17b6c8aa-b586-...',
+                errorText: _error,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _handleRestore,
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Restore'),
+        ),
+      ],
     );
   }
 }

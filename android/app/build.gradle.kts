@@ -37,6 +37,7 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appName"] = "Covary"
     }
 
     signingConfigs {
@@ -49,6 +50,10 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            applicationIdSuffix = ".debug"
+            manifestPlaceholders["appName"] = "Covary Dev"
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the release keys if key.properties exists

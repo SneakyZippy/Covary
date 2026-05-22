@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../services/metric_service.dart';
 
 class ActivityHistoryScreen extends StatefulWidget {
@@ -24,9 +24,9 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   }
 
   Future<void> _loadAllActivity() async {
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     final metricService = context.read<MetricService>();
-    final allEvents = await db.getAllEvents();
+    final allEvents = await eventRepo.getAllEvents();
 
     final indicatorLabels = metricService.allMetrics
         .where((m) => m.isActivityIndicator)

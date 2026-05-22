@@ -9,12 +9,14 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 
 import '../../data/database/app_database.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../data/models/enums.dart';
 import '../../services/export_service.dart';
 import '../../services/metric_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/passive_sensing_service.dart';
 import '../../services/update_service.dart';
+import '../../services/profile_service.dart';
 import '../widgets/dialog_utils.dart';
 
 class DebugScreen extends StatefulWidget {
@@ -34,8 +36,8 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<void> _refreshEventCount() async {
-    final db = context.read<AppDatabase>();
-    final events = await db.select(db.events).get();
+    final eventRepo = context.read<EventRepository>();
+    final events = await eventRepo.getAllEvents();
     setState(() {
       _eventCount = events.length;
     });
@@ -86,8 +88,8 @@ class _DebugScreenState extends State<DebugScreen> {
     );
 
     if (confirmed == true && mounted) {
-      final db = context.read<AppDatabase>();
-      await db.delete(db.events).go();
+      final eventRepo = context.read<EventRepository>();
+      await eventRepo.clearAllEvents();
       await _refreshEventCount();
       _showSnackbar('Database cleared.');
     }
@@ -113,7 +115,7 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<void> _seedDummyData() async {
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     final random = Random();
     final now = DateTime.now();
 
@@ -126,7 +128,7 @@ class _DebugScreenState extends State<DebugScreen> {
             minute: minute,
           );
 
-      await db.insertEvent(EventsCompanion(
+      await eventRepo.insertEvent(EventsCompanion(
         category: drift.Value(EventCategory.values[random.nextInt(EventCategory.values.length)]),
         label: drift.Value('Dummy Event $i'),
         value: drift.Value(random.nextInt(10).toString()),
@@ -145,6 +147,46 @@ class _DebugScreenState extends State<DebugScreen> {
     final uuid = prefs.getString('user_uuid') ?? 'Not generated yet';
     await Clipboard.setData(ClipboardData(text: uuid));
     if (mounted) _showSnackbar('UUID copied to clipboard: $uuid');
+  }
+
+  Future<void> _setCustomUuid() async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set Custom UUID'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Enter UUID (e.g. 17b6c8aa-...)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final input = controller.text.trim();
+      if (input.isEmpty) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_uuid', input);
+
+      if (mounted) {
+        final profileService = context.read<ProfileService>();
+        await profileService.init();
+        _showSnackbar('UUID updated to: $input');
+      }
+    }
   }
 
   Future<void> _cancelAllNotifications() async {
@@ -382,6 +424,12 @@ class _DebugScreenState extends State<DebugScreen> {
             subtitle: const Text('Copies your persistent researcher UUID to clipboard'),
             trailing: const Icon(Icons.perm_identity),
             onTap: _copyUuid,
+          ),
+          ListTile(
+            title: const Text('Set Custom UUID'),
+            subtitle: const Text('Overwrites the local user UUID (useful for backup restores)'),
+            trailing: const Icon(Icons.edit),
+            onTap: _setCustomUuid,
           ),
           ListTile(
             title: const Text('Simulate Missed Check-in'),

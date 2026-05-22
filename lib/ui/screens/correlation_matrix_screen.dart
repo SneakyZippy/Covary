@@ -5,7 +5,7 @@ import '../../services/metric_service.dart';
 import 'dart:ui';
 import '../../data/models/metric_definition.dart';
 import '../../data/models/enums.dart';
-import 'package:covary/data/database/app_database.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../ui/theme/design_system.dart';
 
 class CorrelationMatrixScreen extends StatefulWidget {
@@ -144,7 +144,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     if (_rowMetrics.isEmpty || _colMetrics.isEmpty) return;
 
     setState(() => _isLoading = true);
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     final analyticsService = context.read<AnalyticsService>();
     final newMatrix = <String, Map<String, double?>>{};
 
@@ -153,7 +153,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       for (final col in _colMetrics) {
         // Only show 1.0 on diagonal if the user has actually logged data for it
         if (row.id == col.id && _lagDays == 0) {
-          final events = await db.getEventsByLabel(row.label);
+          final events = await eventRepo.getEventsByLabel(row.label);
           if (events.isNotEmpty) {
             newMatrix[row.id]![col.id] = 1.0;
           } else {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../services/metric_service.dart';
 import '../../services/export_service.dart';
 import 'raw_data_screen.dart';
@@ -75,8 +76,8 @@ class _DataScreenState extends State<DataScreen> {
   }
 
   Future<void> _loadRecentEvents() async {
-    final db = context.read<AppDatabase>();
-    final events = await db.getAllEvents();
+    final eventRepo = context.read<EventRepository>();
+    final events = await eventRepo.getAllEvents();
     
     // Sort and take top 3
     final sorted = events.where((e) => e.category != EventCategory.meta).toList()
@@ -90,11 +91,11 @@ class _DataScreenState extends State<DataScreen> {
   }
 
   Future<void> _loadComplianceData() async {
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     final now = DateTime.now();
     final fourteenDaysAgo = now.subtract(const Duration(days: 14));
     
-    final events = await db.getEventsInDateRange(fourteenDaysAgo, now);
+    final events = await eventRepo.getEventsInDateRange(fourteenDaysAgo, now);
     final researchEvents = events.where((e) => 
       e.category != EventCategory.meta && 
       e.category != EventCategory.appUsage
@@ -119,8 +120,8 @@ class _DataScreenState extends State<DataScreen> {
   }
 
   Future<void> _loadStats() async {
-    final db = context.read<AppDatabase>();
-    final allEvents = await db.getAllEvents();
+    final eventRepo = context.read<EventRepository>();
+    final allEvents = await eventRepo.getAllEvents();
     
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);

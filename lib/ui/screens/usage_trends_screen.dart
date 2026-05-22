@@ -3,7 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/database/app_database.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../services/app_usage_service.dart';
 import 'app_category_manager_screen.dart';
 
@@ -53,7 +53,7 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     
     // 1. Determine Date Range
     final now = DateTime.now();
@@ -77,7 +77,7 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
     }
 
     // 2. Fetch Events
-    final events = await db.getUsageEvents(start, end);
+    final events = await eventRepo.getUsageEvents(start, end);
     
     // 3. Process & Group Data
     final Map<DateTime, Map<String, int>> dailyMap = {};
@@ -118,7 +118,7 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
     final periodDuration = end.difference(start);
     final prevStart = start.subtract(periodDuration);
     final prevEnd = start.subtract(const Duration(seconds: 1));
-    final prevEvents = await db.getUsageEvents(prevStart, prevEnd);
+    final prevEvents = await eventRepo.getUsageEvents(prevStart, prevEnd);
     int prevTotal = 0;
     for (final e in prevEvents) {
       if (e.label == 'total_screen_time') {
@@ -889,9 +889,9 @@ class _AppSelectorState extends State<_AppSelector> {
   }
 
   Future<void> _loadAvailable() async {
-    final db = context.read<AppDatabase>();
+    final eventRepo = context.read<EventRepository>();
     final appUsage = context.read<AppUsageService>();
-    final events = await db.getUsageEvents(DateTime.now().subtract(const Duration(days: 30)), DateTime.now());
+    final events = await eventRepo.getUsageEvents(DateTime.now().subtract(const Duration(days: 30)), DateTime.now());
     setState(() {
       _availableApps = events.where((e) => e.label.startsWith('app_time:')).map((e) => e.label).toSet().toList();
       _availableCats = appUsage.categories.keys.map((c) => 'category_time:$c').toList();

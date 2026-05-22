@@ -1,36 +1,39 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/database/app_database.dart';
 import '../data/models/enums.dart';
-
-/// Keys used in [SharedPreferences] for profile data.
-const _kUserUuid = 'user_uuid';
-const _kNickname = 'nickname';
-const _kFirstLaunchAt = 'first_launch_at';
-const _kHasSeenOnboarding = 'has_seen_onboarding';
-const _kIsDeveloperMode = 'is_developer_mode';
+import '../data/repositories/profile_repository.dart';
+import '../data/repositories/event_repository.dart';
+import '../data/repositories/metric_repository.dart';
+import '../data/repositories/tracking_window_repository.dart';
 
 /// Service responsible for user identity and profile management.
 ///
 /// On first launch, generates a persistent UUID v4 that serves as the
 /// user's identity across all exported data. The UUID is stored in
-/// [SharedPreferences] and never changes.
+/// ProfileRepository and never changes.
 ///
 /// Nicknames are cosmetic — they personalize the UI but all data is
 /// always tied to [uuid]. Every nickname change is recorded as a
 /// [EventCategory.meta] event for research traceability.
-///
-/// Usage:
-/// ```dart
-/// final profileService = ProfileService();
-/// await profileService.init(database);
-/// print(profileService.uuid);     // e.g. "f47ac10b-58cc-..."
-/// print(profileService.nickname); // e.g. "Max"
-/// ```
 class ProfileService extends ChangeNotifier {
+  final ProfileRepository _profileRepo;
+  final EventRepository _eventRepo;
+  final MetricRepository _metricRepo;
+  final TrackingWindowRepository _trackingWindowRepo;
+
+  ProfileService({
+    required ProfileRepository profileRepo,
+    required EventRepository eventRepo,
+    required MetricRepository metricRepo,
+    required TrackingWindowRepository trackingWindowRepo,
+  })  : _profileRepo = profileRepo,
+        _eventRepo = eventRepo,
+        _metricRepo = metricRepo,
+        _trackingWindowRepo = trackingWindowRepo;
+
   /// The user's persistent identifier. Set once on first launch.
   String _uuid = '';
 
@@ -51,9 +54,6 @@ class ProfileService extends ChangeNotifier {
 
   /// Whether the user has enabled developer mode.
   bool _isDeveloperMode = false;
-
-  /// Reference to the database for logging meta events.
-  late final AppDatabase _db;
 
   // ---------------------------------------------------------------------------
   // Getters
@@ -99,43 +99,35 @@ class ProfileService extends ChangeNotifier {
   // Initialization
   // ---------------------------------------------------------------------------
 
-  /// Fast initialization — reads ONLY SharedPreferences (no DB queries).
+  /// Fast initialization — reads ONLY repositories (no DB queries).
   ///
   /// This is enough to determine the routing decision (onboarding vs app shell)
   /// and should be called before [runApp] to minimize startup delay.
   /// Call [initDeferred] after the first frame for the heavy DB work.
-  Future<void> initFast(AppDatabase db) async {
-    _db = db;
-    final prefs = await SharedPreferences.getInstance();
-
+  Future<void> initFast() async {
     // --- UUID ---
-    final storedUuid = prefs.getString(_kUserUuid);
+    final storedUuid = _profileRepo.getUuid();
     if (storedUuid != null) {
       _uuid = storedUuid;
       debugPrint('[ProfileService] Existing user: $_uuid');
-    } else {
-      // No UUID in prefs — could be first launch or restored backup.
-      // We can't check the DB here (too slow), so we defer it.
-      // For routing, this is fine: isFirstLaunch will be true (nickname empty)
-      // and initDeferred() will detect restored data and trigger re-route.
     }
 
     // --- Nickname ---
-    _nickname = prefs.getString(_kNickname) ?? '';
+    _nickname = _profileRepo.getNickname();
 
     // --- Onboarding ---
-    _hasSeenOnboarding = prefs.getBool(_kHasSeenOnboarding) ?? false;
+    _hasSeenOnboarding = _profileRepo.getHasSeenOnboarding();
 
     // --- Developer Mode ---
-    _isDeveloperMode = prefs.getBool(_kIsDeveloperMode) ?? false;
+    _isDeveloperMode = _profileRepo.getIsDeveloperMode();
 
-    // --- First Launch Timestamp (from prefs only) ---
-    final storedLaunch = prefs.getString(_kFirstLaunchAt);
+    // --- First Launch Timestamp ---
+    final storedLaunch = _profileRepo.getFirstLaunchAt();
     if (storedLaunch != null) {
-      _firstLaunchAt = DateTime.tryParse(storedLaunch);
+      _firstLaunchAt = storedLaunch;
     } else {
       _firstLaunchAt = DateTime.now();
-      await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
+      await _profileRepo.setFirstLaunchAt(_firstLaunchAt!);
     }
 
     _isInitialized = true;
@@ -147,8 +139,7 @@ class ProfileService extends ChangeNotifier {
   /// Handles restored-data detection, first-launch timestamp backfill, and
   /// UUID generation for true first launches.
   Future<void> initDeferred() async {
-    final prefs = await SharedPreferences.getInstance();
-    final allEvents = await _db.getAllEvents();
+    final allEvents = await _eventRepo.getAllEvents();
 
     // --- Detect restored data (DB has events but no UUID in prefs) ---
     if (_uuid.isEmpty) {
@@ -158,18 +149,18 @@ class ProfileService extends ChangeNotifier {
         notifyListeners(); // Triggers re-route to RestoreSelectionScreen
         return;
       } else {
-        await _generateNewIdentity(prefs);
+        await _generateNewIdentity();
       }
     }
 
     // --- Backfill first launch timestamp from earliest event if needed ---
-    final storedLaunch = prefs.getString(_kFirstLaunchAt);
+    final storedLaunch = _profileRepo.getFirstLaunchAt();
     if (storedLaunch == null && allEvents.isNotEmpty) {
       final earliest = allEvents.reduce(
         (a, b) => a.timestamp.isBefore(b.timestamp) ? a : b,
       );
       _firstLaunchAt = earliest.timestamp;
-      await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
+      await _profileRepo.setFirstLaunchAt(_firstLaunchAt!);
     }
 
     notifyListeners();
@@ -177,19 +168,19 @@ class ProfileService extends ChangeNotifier {
 
   /// Legacy / full initialization — calls both fast and deferred in sequence.
   /// Kept for compatibility with import service and restore flows.
-  Future<void> init(AppDatabase db) async {
-    await initFast(db);
+  Future<void> init() async {
+    await initFast();
     await initDeferred();
   }
 
-  Future<void> _generateNewIdentity(SharedPreferences prefs) async {
+  Future<void> _generateNewIdentity() async {
     _uuid = const Uuid().v4();
-    await prefs.setString(_kUserUuid, _uuid);
+    await _profileRepo.setUuid(_uuid);
     debugPrint('[ProfileService] Generated UUID: $_uuid');
 
     try {
-      await _db.insertEvent(EventsCompanion(
-        category: Value(EventCategory.meta),
+      await _eventRepo.insertEvent(EventsCompanion(
+        category: const Value(EventCategory.meta),
         label: const Value('first_launch'),
         value: Value(_uuid),
         triggerSource: const Value(TriggerSource.system),
@@ -208,25 +199,24 @@ class ProfileService extends ChangeNotifier {
   /// Starts a completely fresh session by wiping the database and generating a new ID.
   Future<void> startFresh() async {
     // 1. Wipe the database
-    await _db.delete(_db.events).go();
-    await _db.delete(_db.customMetrics).go();
-    await _db.delete(_db.trackingWindows).go();
+    await _eventRepo.clearAllEvents();
+    await _metricRepo.clearAllMetrics();
+    await _trackingWindowRepo.clearAllTrackingWindows();
 
     // 2. Clear prefs and generate new identity
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    await _generateNewIdentity(prefs);
+    await _profileRepo.clear();
+    await _generateNewIdentity();
     
     _hasRestoredData = false;
     _firstLaunchAt = DateTime.now();
-    await prefs.setString(_kFirstLaunchAt, _firstLaunchAt!.toIso8601String());
+    await _profileRepo.setFirstLaunchAt(_firstLaunchAt!);
     
     notifyListeners();
   }
 
   /// Attempts to recover the UUID and nickname from the historical database events.
   Future<void> recoverFromDatabase() async {
-    final allEvents = await _db.getAllEvents();
+    final allEvents = await _eventRepo.getAllEvents();
     
     // Find the original UUID from the first_launch event
     try {
@@ -237,8 +227,8 @@ class ProfileService extends ChangeNotifier {
     } catch (e) {
       // Fallback: If no first_launch event, generate a new UUID for the old data
       _uuid = const Uuid().v4();
-      await _db.insertEvent(EventsCompanion(
-        category: Value(EventCategory.meta),
+      await _eventRepo.insertEvent(EventsCompanion(
+        category: const Value(EventCategory.meta),
         label: const Value('first_launch'),
         value: Value(_uuid),
         triggerSource: const Value(TriggerSource.system),
@@ -262,9 +252,8 @@ class ProfileService extends ChangeNotifier {
       _nickname = 'Recovered User';
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kUserUuid, _uuid);
-    await prefs.setString(_kNickname, _nickname);
+    await _profileRepo.setUuid(_uuid);
+    await _profileRepo.setNickname(_nickname);
     
     _hasRestoredData = false;
     notifyListeners();
@@ -288,14 +277,13 @@ class ProfileService extends ChangeNotifier {
     final oldNickname = _nickname;
     _nickname = newNickname.trim();
 
-    // Persist to SharedPreferences.
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kNickname, _nickname);
+    // Persist to ProfileRepository.
+    await _profileRepo.setNickname(_nickname);
 
     // Log the change as a meta event.
     try {
-      await _db.insertEvent(EventsCompanion(
-        category: Value(EventCategory.meta),
+      await _eventRepo.insertEvent(EventsCompanion(
+        category: const Value(EventCategory.meta),
         label: const Value('nickname_changed'),
         value: Value(_nickname),
         latencyMs: Value(latencyMs),
@@ -317,9 +305,8 @@ class ProfileService extends ChangeNotifier {
     _uuid = uuid;
     _nickname = nickname;
     
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kUserUuid, _uuid);
-    await prefs.setString(_kNickname, _nickname);
+    await _profileRepo.setUuid(_uuid);
+    await _profileRepo.setNickname(_nickname);
     
     debugPrint('[ProfileService] Profile restored: $_nickname ($_uuid)');
     notifyListeners();
@@ -328,11 +315,10 @@ class ProfileService extends ChangeNotifier {
   /// Marks the onboarding as complete and logs the time spent.
   Future<void> completeOnboarding({int latencyMs = 0}) async {
     _hasSeenOnboarding = true;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kHasSeenOnboarding, true);
+    await _profileRepo.setHasSeenOnboarding(true);
 
     try {
-      await _db.insertEvent(EventsCompanion(
+      await _eventRepo.insertEvent(EventsCompanion(
         category: const Value(EventCategory.meta),
         label: const Value('onboarding_completed'),
         value: const Value('true'),
@@ -350,8 +336,7 @@ class ProfileService extends ChangeNotifier {
   /// Resets the onboarding state so the user can see the tutorial again.
   Future<void> resetOnboarding() async {
     _hasSeenOnboarding = false;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kHasSeenOnboarding, false);
+    await _profileRepo.setHasSeenOnboarding(false);
     notifyListeners();
   }
 
@@ -359,8 +344,7 @@ class ProfileService extends ChangeNotifier {
   Future<void> setDeveloperMode(bool value) async {
     if (_isDeveloperMode == value) return;
     _isDeveloperMode = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kIsDeveloperMode, value);
+    await _profileRepo.setIsDeveloperMode(value);
     notifyListeners();
   }
 }

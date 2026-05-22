@@ -1,12 +1,13 @@
 import 'dart:math';
-import '../data/database/app_database.dart';
+import '../data/database/app_database.dart' show Event;
+import '../data/repositories/event_repository.dart';
 import '../data/models/enums.dart';
 
 /// Service responsible for on-device statistical analysis and correlations.
 class AnalyticsService {
-  final AppDatabase _db;
+  final EventRepository _eventRepo;
 
-  AnalyticsService(this._db);
+  AnalyticsService(this._eventRepo);
 
   /// Calculates the Spearman Rank Correlation between two metrics.
   /// 
@@ -21,8 +22,8 @@ class AnalyticsService {
     DateTime? end,
   }) async {
     // 1. Fetch data for both metrics
-    final eventsA = await _db.getEventsByLabel(metricA);
-    final eventsB = await _db.getEventsByLabel(metricB);
+    final eventsA = await _eventRepo.getEventsByLabel(metricA);
+    final eventsB = await _eventRepo.getEventsByLabel(metricB);
 
     if (eventsA.isEmpty || eventsB.isEmpty) return null;
 
@@ -59,8 +60,8 @@ class AnalyticsService {
     int lagHours = 0,
     int lastNDays = 7,
   }) async {
-    final eventsA = await _db.getEventsByLabel(metricA);
-    final eventsB = await _db.getEventsByLabel(metricB);
+    final eventsA = await _eventRepo.getEventsByLabel(metricA);
+    final eventsB = await _eventRepo.getEventsByLabel(metricB);
 
     if (eventsA.isEmpty || eventsB.isEmpty) return null;
 
@@ -128,7 +129,7 @@ class AnalyticsService {
     double? minValue,
     double? maxValue,
   }) async {
-    final events = await _db.getEventsByLabel(label);
+    final events = await _eventRepo.getEventsByLabel(label);
     if (events.isEmpty) return {};
 
     final daily = _aggregateByDay(events);
@@ -185,7 +186,7 @@ class AnalyticsService {
     double? maxValue,
   }) async {
     final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
-    final events = await _db.getEventsByLabel(label);
+    final events = await _eventRepo.getEventsByLabel(label);
     
     // Filter to last N days
     final filteredEvents = events.where((e) => e.timestamp.isAfter(cutoff)).toList();
@@ -218,7 +219,7 @@ class AnalyticsService {
     double? maxValue,
   }) async {
     final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
-    final events = await _db.getEventsByLabel(label);
+    final events = await _eventRepo.getEventsByLabel(label);
     
     final filteredEvents = events.where((e) => e.timestamp.isAfter(cutoff)).toList();
     if (filteredEvents.isEmpty) return {};

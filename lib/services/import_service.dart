@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:drift/drift.dart';
-import '../data/database/app_database.dart';
+import '../data/database/app_database.dart' show EventsCompanion;
+import '../data/repositories/event_repository.dart';
+import '../data/repositories/metric_repository.dart';
+import '../data/repositories/tracking_window_repository.dart';
 import 'profile_service.dart';
 import '../data/database/tables/table_utils.dart';
 import '../data/models/enums.dart';
@@ -11,10 +13,20 @@ import '../data/models/enums.dart';
 /// Service responsible for importing data from JSON files.
 /// Updated to support full migrations (Profile, Windows, Events).
 class ImportService {
-  final AppDatabase _db;
+  final EventRepository _eventRepo;
+  final MetricRepository _metricRepo;
+  final TrackingWindowRepository _trackingWindowRepo;
   final ProfileService _profileService;
 
-  ImportService(this._db, this._profileService);
+  ImportService({
+    required EventRepository eventRepo,
+    required MetricRepository metricRepo,
+    required TrackingWindowRepository trackingWindowRepo,
+    required ProfileService profileService,
+  })  : _eventRepo = eventRepo,
+        _metricRepo = metricRepo,
+        _trackingWindowRepo = trackingWindowRepo,
+        _profileService = profileService;
 
   /// Opens a file picker and imports data from the selected JSON file.
   /// Returns a summary message of the import results.
@@ -75,9 +87,7 @@ class ImportService {
             map['label'] ??= 'Imported Window';
             map['id'] ??= uuid.v4();
 
-            await _db.insertTrackingWindow(
-              _db.trackingWindows.map(map).toCompanion(true),
-            );
+            await _trackingWindowRepo.insertRawMap(map);
             windowCount++;
           } catch (e, stack) {
             debugPrint('[ImportService] Error importing window: $e');
@@ -110,9 +120,7 @@ class ImportService {
               map['category'] = 'behavior';
             }
 
-            await _db.insertCustomMetric(
-              _db.customMetrics.map(map).toCompanion(true),
-            );
+            await _metricRepo.insertRawMap(map);
             metricCount++;
           } catch (e, stack) {
             debugPrint('[ImportService] Error importing metric: $e');
@@ -144,10 +152,7 @@ class ImportService {
               map['category'] = 'behavior';
             }
 
-            await _db.into(_db.events).insert(
-              _db.events.map(map),
-              mode: InsertMode.insertOrReplace,
-            );
+            await _eventRepo.insertRawMap(map);
             eventCount++;
           } catch (err, stack) {
             debugPrint('[ImportService] Error importing event: $err');
@@ -157,7 +162,7 @@ class ImportService {
       }
 
       // 5. Log Import Meta Event
-      await _db.insertEvent(
+      await _eventRepo.insertEvent(
         EventsCompanion.insert(
           category: EventCategory.meta,
           label: 'data_imported',

@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../data/repositories/profile_repository.dart';
 import 'package:usage_stats/usage_stats.dart';
 
 /// Tri-state permission result for App Usage Stats.
@@ -19,6 +19,10 @@ const _kDynamicCategoriesKey = 'app_usage_dynamic_categories';
 
 /// Wraps the Android `UsageStats` API to query per-app foreground time.
 class AppUsageService extends ChangeNotifier {
+  final ProfileRepository _profileRepo;
+
+  AppUsageService({required ProfileRepository profileRepo}) : _profileRepo = profileRepo;
+
   /// Dynamic map of category names to sets of package names.
   Map<String, Set<String>> _categories = {};
 
@@ -40,10 +44,8 @@ class AppUsageService extends ChangeNotifier {
 
   /// Loads persisted category sets from SharedPreferences.
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    
     // 1. Check for dynamic categories first
-    final dynamicJson = prefs.getString(_kDynamicCategoriesKey);
+    final dynamicJson = _profileRepo.getStringSetting(_kDynamicCategoriesKey);
     if (dynamicJson != null) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(dynamicJson);
@@ -56,8 +58,8 @@ class AppUsageService extends ChangeNotifier {
 
     // 2. Migration from legacy v2 (social/entertainment lists)
     if (_categories.isEmpty) {
-      final social = prefs.getStringList(_kSocialAppsKey) ?? [];
-      final entertainment = prefs.getStringList(_kEntertainmentAppsKey) ?? [];
+      final social = _profileRepo.getStringListSetting(_kSocialAppsKey) ?? [];
+      final entertainment = _profileRepo.getStringListSetting(_kEntertainmentAppsKey) ?? [];
       
       if (social.isNotEmpty || entertainment.isNotEmpty) {
         _categories['social'] = social.toSet();
@@ -68,13 +70,13 @@ class AppUsageService extends ChangeNotifier {
     }
 
     // 3. Seeding (if brand new install)
-    _seeded = prefs.getBool(_kCategoriesSeeded) ?? false;
+    _seeded = _profileRepo.getBoolSetting(_kCategoriesSeeded, defaultValue: false);
     if (!_seeded && _categories.isEmpty) {
       // Default empty categories
       _categories['social'] = {};
       _categories['entertainment'] = {};
       await _persistCurrent();
-      await prefs.setBool(_kCategoriesSeeded, true);
+      await _profileRepo.setBoolSetting(_kCategoriesSeeded, true);
       _seeded = true;
       debugPrint('[AppUsageService] Initialized with default empty categories.');
     }
@@ -176,8 +178,7 @@ class AppUsageService extends ChangeNotifier {
       return AppUsagePermissionStatus.granted;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final settingsOpened = prefs.getBool(_kSettingsOpenedKey) ?? false;
+    final settingsOpened = _profileRepo.getBoolSetting(_kSettingsOpenedKey, defaultValue: false);
 
     if (settingsOpened) {
       return AppUsagePermissionStatus.restricted;
@@ -189,8 +190,7 @@ class AppUsageService extends ChangeNotifier {
   Future<void> openPermissionSettings() async {
     if (!Platform.isAndroid) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_kSettingsOpenedKey, true);
+      await _profileRepo.setBoolSetting(_kSettingsOpenedKey, true);
       await UsageStats.grantUsagePermission();
     } on PlatformException catch (e) {
       debugPrint('[AppUsageService] openPermissionSettings error: $e');
@@ -198,8 +198,7 @@ class AppUsageService extends ChangeNotifier {
   }
 
   Future<void> resetRestrictedFlag() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kSettingsOpenedKey);
+    await _profileRepo.removeSetting(_kSettingsOpenedKey);
   }
 
   // ---------------------------------------------------------------------------
@@ -415,9 +414,8 @@ class AppUsageService extends ChangeNotifier {
   }
 
   Future<void> _persistCurrent() async {
-    final prefs = await SharedPreferences.getInstance();
     final json = jsonEncode(_categories.map((key, value) => MapEntry(key, value.toList())));
-    await prefs.setString(_kDynamicCategoriesKey, json);
+    await _profileRepo.setStringSetting(_kDynamicCategoriesKey, json);
   }
 
   static String readableName(String packageName) {

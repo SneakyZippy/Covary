@@ -14,6 +14,8 @@ import '../../services/update_service.dart';
 import '../../services/import_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/notification_service.dart';
+import 'package:flutter/services.dart';
+import '../widgets/sync_summary_dialog.dart';
 
 import 'metrics_screen.dart';
 import 'tracking_windows_screen.dart';
@@ -349,47 +351,192 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final lastSyncStr = syncService.lastSyncTime != null
                           ? 'Last sync: ${syncService.lastSyncTime!.toLocal().toString().split('.').first}'
                           : 'Never synced';
-                      return SwitchListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
-                        ),
-                        secondary: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.cloud_upload_rounded,
-                            color: colorScheme.onPrimaryContainer,
-                            size: 20,
-                          ),
-                        ),
-                        title: const Text('Enable Cloud Backup'),
-                        subtitle: Text(
-                          syncService.isSyncing
-                              ? 'Syncing to cloud...'
-                              : hasErrorMessage
-                                  ? 'Error: ${syncService.syncErrorMessage}'
-                                  : lastSyncStr,
-                          style: TextStyle(
-                            color: hasErrorMessage ? colorScheme.error : null,
-                          ),
-                        ),
-                        value: syncService.syncEnabled,
-                        onChanged: (bool value) async {
-                          await syncService.setSyncEnabled(value);
-                          if (context.mounted && value && syncService.syncErrorMessage != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Sync error: ${syncService.syncErrorMessage}'),
-                                behavior: SnackBarBehavior.floating,
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SwitchListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
+                            secondary: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            );
-                          }
-                        },
+                              child: Icon(
+                                Icons.cloud_upload_rounded,
+                                color: colorScheme.onPrimaryContainer,
+                                size: 20,
+                              ),
+                            ),
+                            title: const Text('Enable Cloud Backup'),
+                            subtitle: Text(
+                              syncService.isSyncing
+                                  ? 'Syncing to cloud...'
+                                  : hasErrorMessage
+                                      ? 'Error: ${syncService.syncErrorMessage}'
+                                      : lastSyncStr,
+                              style: TextStyle(
+                                color: hasErrorMessage ? colorScheme.error : null,
+                              ),
+                            ),
+                            value: syncService.syncEnabled,
+                            onChanged: (bool value) async {
+                              await syncService.setSyncEnabled(value);
+                              if (context.mounted && value && syncService.syncErrorMessage != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Sync error: ${syncService.syncErrorMessage}'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          if (syncService.syncEnabled) ...[
+                            const Divider(height: 1, indent: 20, endIndent: 20),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Research ID (UUID)',
+                                              style: textTheme.labelSmall?.copyWith(
+                                                color: colorScheme.primary,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            SelectableText(
+                                              profileService.uuid,
+                                              style: textTheme.bodyMedium?.copyWith(
+                                                fontFamily: 'monospace',
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.copy_rounded,
+                                          color: colorScheme.primary,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          Clipboard.setData(
+                                            ClipboardData(text: profileService.uuid),
+                                          );
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Research ID copied to clipboard.'),
+                                              behavior: SnackBarBehavior.floating,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        },
+                                        tooltip: 'Copy ID',
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _ManualBackupButton(syncService: syncService),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.cloud_download_rounded,
+                        color: colorScheme.onPrimaryContainer,
+                        size: 20,
+                      ),
+                    ),
+                    title: const Text('Restore from Cloud Backup'),
+                    subtitle: const Text('Download and merge a research profile'),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    onTap: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          icon: Icon(
+                            Icons.warning_amber_rounded,
+                            color: colorScheme.error,
+                            size: 32,
+                          ),
+                          title: const Text('Restore Cloud Backup?'),
+                          content: const Text(
+                            'This will switch your app to the restored Research ID and merge the remote backup data into your local database. Your current local data will be kept and merged.',
+                            textAlign: TextAlign.center,
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                              ),
+                              child: const Text('Restore'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm == true) {
+                        if (!context.mounted) return;
+                        final summary = await showDialog<SyncSummary?>(
+                          context: context,
+                          builder: (context) => const _SettingsRestoreDialog(),
+                        );
+                        if (context.mounted && summary != null) {
+                          await showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => SyncSummaryDialog(summary: summary),
+                          );
+                        }
+                      }
                     },
                   ),
                 ),
@@ -1195,6 +1342,193 @@ class _SnoozeDurationDialogState extends State<_SnoozeDurationDialog> {
           if (val) setState(() => _minutes = value);
         },
       ),
+    );
+  }
+}
+
+class _ManualBackupButton extends StatefulWidget {
+  final SyncService syncService;
+
+  const _ManualBackupButton({required this.syncService});
+
+  @override
+  State<_ManualBackupButton> createState() => _ManualBackupButtonState();
+}
+
+class _ManualBackupButtonState extends State<_ManualBackupButton> {
+  bool _isBackingUp = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return OutlinedButton.icon(
+      onPressed: _isBackingUp || widget.syncService.isSyncing
+          ? null
+          : () async {
+              setState(() => _isBackingUp = true);
+              try {
+                await widget.syncService.uploadBackup();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Backup completed successfully!'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Backup failed: $e'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: colorScheme.error,
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() => _isBackingUp = false);
+                }
+              }
+            },
+      icon: _isBackingUp
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+              ),
+            )
+          : const Icon(Icons.cloud_upload_outlined, size: 18),
+      label: Text(_isBackingUp ? 'Backing up...' : 'Back Up Now'),
+      style: OutlinedButton.styleFrom(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsRestoreDialog extends StatefulWidget {
+  const _SettingsRestoreDialog();
+
+  @override
+  State<_SettingsRestoreDialog> createState() => _SettingsRestoreDialogState();
+}
+
+class _SettingsRestoreDialogState extends State<_SettingsRestoreDialog> {
+  final TextEditingController _uuidController = TextEditingController();
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _uuidController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleRestore() async {
+    final uuid = _uuidController.text.trim();
+    if (uuid.isEmpty) {
+      setState(() => _error = 'Please enter a valid ID');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final syncService = context.read<SyncService>();
+      final summary = await syncService.restoreWithUuid(uuid);
+      
+      if (!mounted) return;
+
+      if (summary != null) {
+        Navigator.of(context).pop(summary);
+      } else {
+        setState(() {
+          _error = 'No backup found. Double check your ID.';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Error: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      title: Row(
+        children: [
+          Icon(Icons.cloud_download_rounded, color: colorScheme.primary),
+          const SizedBox(width: 12),
+          const Text('Enter Research ID'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Enter the 36-character Research ID to restore.',
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _uuidController,
+              enabled: !_isLoading,
+              style: const TextStyle(fontFamily: 'monospace'),
+              decoration: InputDecoration(
+                hintText: 'e.g. 17b6c8aa-b586-...',
+                errorText: _error,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _handleRestore,
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Restore'),
+        ),
+      ],
     );
   }
 }

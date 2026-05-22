@@ -7,6 +7,10 @@ import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
 import 'data/database/app_database.dart';
 import 'data/models/enums.dart';
+import 'data/repositories/event_repository.dart';
+import 'data/repositories/metric_repository.dart';
+import 'data/repositories/tracking_window_repository.dart';
+import 'data/repositories/profile_repository.dart';
 import 'services/app_usage_service.dart';
 import 'services/export_service.dart';
 import 'services/metric_service.dart';
@@ -34,44 +38,71 @@ void main() async {
 
   final database = AppDatabase.getInstance();
 
+  // Instantiate Repositories
+  final eventRepo = DriftEventRepository(database);
+  final metricRepo = DriftMetricRepository(database);
+  final trackingWindowRepo = DriftTrackingWindowRepository(database);
+  final profileRepo = SharedPrefsProfileRepository();
+  await profileRepo.init();
+
   // ── Global Error Handlers ───────────────────────────────────────────────
   // Capture uncaught errors as meta events so crash data appears in exports.
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details); // keep default red-screen in debug
-    _logCrash(database, details.exceptionAsString(), details.stack);
+    _logCrash(eventRepo, details.exceptionAsString(), details.stack);
   };
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-    _logCrash(database, error.toString(), stack);
+    _logCrash(eventRepo, error.toString(), stack);
     return true; // prevent app termination
   };
 
   // ── FAST INIT (prefs-only, no DB queries) ──────────────────────────────
   // These two are the only things blocking the first frame.
-  final profileService = ProfileService();
+  final profileService = ProfileService(
+    profileRepo: profileRepo,
+    eventRepo: eventRepo,
+    metricRepo: metricRepo,
+    trackingWindowRepo: trackingWindowRepo,
+  );
   final themeService = ThemeService();
   await Future.wait([
-    profileService.initFast(database),
+    profileService.initFast(),
     themeService.init(),
   ]);
 
   // ── Create services (constructors only, no heavy init) ─────────────────
-  final metricService = MetricService();
+  final metricService = MetricService(
+    metricRepo: metricRepo,
+    trackingWindowRepo: trackingWindowRepo,
+    eventRepo: eventRepo,
+    profileRepo: profileRepo,
+  );
   final healthService = HealthService();
-  final appUsageService = AppUsageService();
+  final appUsageService = AppUsageService(profileRepo: profileRepo);
   final passiveSensingService = PassiveSensingService(
-    db: database,
+    eventRepo: eventRepo,
     health: healthService,
     appUsage: appUsageService,
   );
   final notificationService = NotificationService();
   final exportService = ExportService(
-    db: database,
+    eventRepo: eventRepo,
+    metricRepo: metricRepo,
+    trackingWindowRepo: trackingWindowRepo,
     profileService: profileService,
   );
-  final analyticsService = AnalyticsService(database);
-  final importService = ImportService(database, profileService);
+  final analyticsService = AnalyticsService(eventRepo);
+  final importService = ImportService(
+    eventRepo: eventRepo,
+    metricRepo: metricRepo,
+    trackingWindowRepo: trackingWindowRepo,
+    profileService: profileService,
+  );
   final syncService = SyncService(
-    db: database,
+    eventRepo: eventRepo,
+    metricRepo: metricRepo,
+    trackingWindowRepo: trackingWindowRepo,
+    profileRepo: profileRepo,
     profileService: profileService,
   );
 
@@ -80,6 +111,10 @@ void main() async {
     MultiProvider(
       providers: [
         Provider<AppDatabase>.value(value: database),
+        Provider<EventRepository>.value(value: eventRepo),
+        Provider<MetricRepository>.value(value: metricRepo),
+        Provider<TrackingWindowRepository>.value(value: trackingWindowRepo),
+        Provider<ProfileRepository>.value(value: profileRepo),
         ChangeNotifierProvider<ProfileService>.value(value: profileService),
         Provider<ExportService>.value(value: exportService),
         ChangeNotifierProvider<MetricService>.value(value: metricService),
@@ -102,7 +137,7 @@ void main() async {
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     // Phase 1: MetricService + ProfileService DB work (parallel)
     await Future.wait([
-      metricService.init(database),
+      metricService.init(),
       profileService.initDeferred(),
     ]);
 
@@ -164,10 +199,10 @@ class CovaryApp extends StatelessWidget {
 
 /// Writes an uncaught error into the Events table so it appears in JSON exports.
 /// Truncates the stack to avoid bloating the database.
-void _logCrash(AppDatabase db, String error, StackTrace? stack) {
+void _logCrash(EventRepository eventRepo, String error, StackTrace? stack) {
   try {
     final trace = stack?.toString().split('\n').take(5).join('\n') ?? '';
-    db.insertEvent(EventsCompanion(
+    eventRepo.insertEvent(EventsCompanion(
       category: const Value(EventCategory.meta),
       label: const Value('app_crash'),
       value: Value('$error\n$trace'),

@@ -231,6 +231,7 @@ class _AppPicker extends StatefulWidget {
 class _AppPickerState extends State<_AppPicker> {
   Set<String>? _installed;
   String _search = '';
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -239,8 +240,22 @@ class _AppPickerState extends State<_AppPicker> {
   }
 
   Future<void> _loadApps() async {
-    final apps = await context.read<AppUsageService>().fetchInstalledPackages();
-    if (mounted) setState(() => _installed = apps);
+    try {
+      final apps = await context.read<AppUsageService>().fetchInstalledPackages();
+      if (mounted) {
+        setState(() {
+          _installed = apps;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _installed = null;
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -277,21 +292,45 @@ class _AppPickerState extends State<_AppPicker> {
             ),
           ),
           Expanded(
-            child: _installed == null
+            child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView(
-                    children: _installed!
-                        .where((pkg) => AppUsageService.readableName(pkg).toLowerCase().contains(_search))
-                        .map((pkg) {
-                      final isActive = currentApps.contains(pkg);
-                      return CheckboxListTile(
-                        title: Text(AppUsageService.readableName(pkg)),
-                        subtitle: Text(pkg, style: const TextStyle(fontSize: 10)),
-                        value: isActive,
-                        onChanged: (val) => appUsage.toggleAppInCategory(pkg, widget.categoryName, val ?? false),
-                      );
-                    }).toList(),
-                  ),
+                : _installed == null || _installed!.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 48,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'App category selection is only supported on Android.',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView(
+                        children: _installed!
+                            .where((pkg) => AppUsageService.readableName(pkg).toLowerCase().contains(_search))
+                            .map((pkg) {
+                          final isActive = currentApps.contains(pkg);
+                          return CheckboxListTile(
+                            title: Text(AppUsageService.readableName(pkg)),
+                            subtitle: Text(pkg, style: const TextStyle(fontSize: 10)),
+                            value: isActive,
+                            onChanged: (val) => appUsage.toggleAppInCategory(pkg, widget.categoryName, val ?? false),
+                          );
+                        }).toList(),
+                      ),
           ),
         ],
       ),

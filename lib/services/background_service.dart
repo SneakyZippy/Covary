@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import '../data/database/app_database.dart';
+import '../data/repositories/event_repository.dart';
+import '../data/repositories/profile_repository.dart';
 import 'app_usage_service.dart';
 import 'health_service.dart';
 import 'passive_sensing_service.dart';
@@ -12,12 +14,15 @@ void callbackDispatcher() {
     debugPrint('[WorkManager] Task fired: $taskName');
     try {
       final db = AppDatabase.getInstance();
+      final eventRepo = DriftEventRepository(db);
+      final profileRepo = SharedPrefsProfileRepository();
+      await profileRepo.init();
 
-      final appUsageService = AppUsageService();
+      final appUsageService = AppUsageService(profileRepo: profileRepo);
       await appUsageService.init();
 
       final sensingService = PassiveSensingService(
-        db: db,
+        eventRepo: eventRepo,
         health: HealthService(),
         appUsage: appUsageService,
       );

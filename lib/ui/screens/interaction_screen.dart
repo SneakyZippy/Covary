@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
-import '../../data/database/app_database.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../data/models/enums.dart';
 
 class InteractionScreen extends StatefulWidget {
@@ -30,8 +30,8 @@ class _InteractionScreenState extends State<InteractionScreen> {
   }
 
   Future<void> _loadInteractionData() async {
-    final db = context.read<AppDatabase>();
-    final events = await db.getAllEvents();
+    final eventRepo = context.read<EventRepository>();
+    final events = await eventRepo.getAllEvents();
 
     final researchEvents = events.where((e) {
       if (e.category == EventCategory.appUsage) return false;

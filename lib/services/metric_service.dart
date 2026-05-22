@@ -1,18 +1,21 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-import '../data/database/app_database.dart';
+import '../data/database/app_database.dart' show TrackingWindow, TrackingWindowsCompanion, CustomMetricsCompanion, EventsCompanion;
 import '../data/models/enums.dart';
 import '../data/models/metric_definition.dart';
 import '../data/metric_presets.dart';
+import '../data/repositories/event_repository.dart';
+import '../data/repositories/metric_repository.dart';
+import '../data/repositories/profile_repository.dart';
+import '../data/repositories/tracking_window_repository.dart';
 import 'notification_service.dart';
 
-/// Prefix for core-metric toggle keys in [SharedPreferences].
+/// Prefix for core-metric toggle keys in preferences.
 const _kCoreMetricPrefix = 'core_metric_enabled_';
 
-/// Prefix for core-metric window keys in [SharedPreferences].
+/// Prefix for core-metric window keys in preferences.
 const _kCoreMetricWindowPrefix = 'core_metric_window_';
 
 /// Sentinel used in [MetricService.updateMetric] to distinguish
@@ -27,13 +30,13 @@ String _serializeWindowIds(List<String> ids) =>
 /// Service that manages all metric definitions (core + custom).
 ///
 /// Core metrics are hard-coded with their enabled/disabled state persisted
-/// in [SharedPreferences]. Custom metrics live in the [CustomMetrics] Drift
+/// in SharedPreferences. Custom metrics live in the CustomMetrics Drift
 /// table. This service merges both into a single list for the UI.
-///
-/// The Home screen reads [activeMetrics] (only enabled ones).
-/// The Settings screen reads [allMetrics] (everything).
 class MetricService extends ChangeNotifier {
-  late AppDatabase _db;
+  final MetricRepository _metricRepo;
+  final TrackingWindowRepository _trackingWindowRepo;
+  final EventRepository _eventRepo;
+  final ProfileRepository _profileRepo;
 
   /// Merged list of all metrics (core + custom), cached in memory.
   List<MetricDefinition> _allMetrics = [];
@@ -43,6 +46,16 @@ class MetricService extends ChangeNotifier {
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
+
+  MetricService({
+    required MetricRepository metricRepo,
+    required TrackingWindowRepository trackingWindowRepo,
+    required EventRepository eventRepo,
+    required ProfileRepository profileRepo,
+  })  : _metricRepo = metricRepo,
+        _trackingWindowRepo = trackingWindowRepo,
+        _eventRepo = eventRepo,
+        _profileRepo = profileRepo;
 
   // ---------------------------------------------------------------------------
   // Core metric templates (from the research methodology)
@@ -165,27 +178,19 @@ class MetricService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   /// Initializes the service by loading and seeding (if necessary) windows and 
-  /// metrics from the Drift database, then merges them.
-  Future<void> init(AppDatabase db) async {
-    _db = db;
-    final prefs = await SharedPreferences.getInstance();
-    
+  /// metrics from the repositories, then merges them.
+  Future<void> init() async {
     // --- Seed Tracking Windows ---
-    final existingWindows = await _db.getAllTrackingWindows();
-    final windowsSeeded = prefs.getBool('tracking_windows_seeded') ?? false;
+    final existingWindows = await _trackingWindowRepo.getAllTrackingWindows();
+    final windowsSeeded = _profileRepo.getBoolSetting('tracking_windows_seeded');
     
-    // Seeding logic: Only runs if the 'tracking_windows_seeded' flag is false.
-    // If the flag is false but windows already exist (e.g. from an old version), 
-    // we still mark as seeded but also rely on the soft migration below to 
-    // inject any new default windows.
+    // Seeding logic
     if (!windowsSeeded) {
       if (existingWindows.isEmpty) {
         for (final s in MetricPresets.windowPresets) {
           try {
-            await _db.insertTrackingWindow(
+            await _trackingWindowRepo.insertTrackingWindow(
               TrackingWindowsCompanion.insert(
-                // Use the stable UUID from the preset so metrics can reference it
-                // before the DB is seeded (the preset list defines canonical IDs).
                 id: s.id != null ? Value(s.id!) : const Value.absent(),
                 label: s.label,
                 startHour: s.startHour,
@@ -203,21 +208,14 @@ class MetricService extends ChangeNotifier {
           }
         }
       }
-      await prefs.setBool('tracking_windows_seeded', true);
+      await _profileRepo.setBoolSetting('tracking_windows_seeded', true);
       debugPrint('[MetricService] Seeded ${MetricPresets.windowPresets.length} sample tracking windows');
     }
 
     // --- SOFT MIGRATION: Sync Tracking Windows (v2) ---
-    //
-    // v2 bumped because:
-    //   - Added stable UUIDs to all window presets
-    //   - "Evening Review" and "Late Morning" now enabled by default
-    //
-    // This ensures that existing users get any newly added windows and
-    // have their core research windows enabled correctly.
     final windowSyncKey = 'tracking_windows_v2_sync';
-    if (!(prefs.getBool(windowSyncKey) ?? false)) {
-      final currentWindows = await _db.getAllTrackingWindows();
+    if (!_profileRepo.getBoolSetting(windowSyncKey)) {
+      final currentWindows = await _trackingWindowRepo.getAllTrackingWindows();
       final currentWindowIds = currentWindows.map((w) => w.id).toSet();
       int addedCount = 0;
       int updatedCount = 0;
@@ -226,7 +224,7 @@ class MetricService extends ChangeNotifier {
         if (s.id != null && !currentWindowIds.contains(s.id)) {
           // Insert missing window
           try {
-            await _db.insertTrackingWindow(
+            await _trackingWindowRepo.insertTrackingWindow(
               TrackingWindowsCompanion.insert(
                 id: Value(s.id!),
                 label: s.label,
@@ -247,7 +245,7 @@ class MetricService extends ChangeNotifier {
         } else if (s.id != null) {
           // Force enable research-critical windows if they were disabled by default before
           try {
-            await _db.updateTrackingWindow(
+            await _trackingWindowRepo.updateTrackingWindow(
               s.id!,
               TrackingWindowsCompanion(
                 isEnabled: Value(s.isEnabled),
@@ -263,16 +261,16 @@ class MetricService extends ChangeNotifier {
       if (addedCount > 0 || updatedCount > 0) {
         debugPrint('[MetricService] Window Soft Migration v2: +$addedCount new, $updatedCount synced');
       }
-      await prefs.setBool(windowSyncKey, true);
+      await _profileRepo.setBoolSetting(windowSyncKey, true);
     }
 
     // --- MIGRATION: Sync existing windows notification time ---
     final migrationKey = 'notif_sync_v1';
-    if (!(prefs.getBool(migrationKey) ?? false)) {
-      final windows = await _db.getAllTrackingWindows();
+    if (!_profileRepo.getBoolSetting(migrationKey)) {
+      final windows = await _trackingWindowRepo.getAllTrackingWindows();
       for (var w in windows) {
         if (w.notificationHour != w.startHour || w.notificationMinute != w.startMinute) {
-          await _db.updateTrackingWindow(
+          await _trackingWindowRepo.updateTrackingWindow(
             w.id,
             TrackingWindowsCompanion(
               notificationHour: Value(w.startHour),
@@ -281,33 +279,54 @@ class MetricService extends ChangeNotifier {
           );
         }
       }
-      await prefs.setBool(migrationKey, true);
+      await _profileRepo.setBoolSetting(migrationKey, true);
+    }
+
+    // --- SOFT MIGRATION: Sync Tracking Windows Label (v3) ---
+    final windowSyncV3Key = 'tracking_windows_v3_sync';
+    if (!_profileRepo.getBoolSetting(windowSyncV3Key)) {
+      final currentWindows = await _trackingWindowRepo.getAllTrackingWindows();
+      for (final w in currentWindows) {
+        if (w.id == '4c62fdff-7942-4848-8140-3c483a54daba' && w.label == 'Afternoon Sync') {
+          try {
+            await _trackingWindowRepo.updateTrackingWindow(
+              w.id,
+              const TrackingWindowsCompanion(
+                label: Value('Afternoon'),
+              ),
+            );
+            debugPrint('[MetricService] Window Soft Migration v3: Renamed Afternoon Sync to Afternoon');
+          } catch (e) {
+            debugPrint('[MetricService] Error updating window label during v3 sync: $e');
+          }
+        }
+      }
+      await _profileRepo.setBoolSetting(windowSyncV3Key, true);
     }
 
     // --- Seed Metrics ---
-    final existingMetrics = await _db.getAllCustomMetrics();
-    final hasSeeded = prefs.getBool('core_metrics_seeded') ?? false;
+    final existingMetrics = await _metricRepo.getAllCustomMetrics();
+    final hasSeeded = _profileRepo.getBoolSetting('core_metrics_seeded');
     
     if (!hasSeeded && existingMetrics.isEmpty) {
       // Seed default metrics if first launch
       for (final m in templates) {
         try {
-          // Support legacy prefix for migration if needed, but here we just seed new ones
           final legacyPrefKey = 'core_habit_enabled_${m.id}';
           final prefKey = '$_kCoreMetricPrefix${m.id}';
           
-          final enabled = prefs.getBool(legacyPrefKey) ?? prefs.getBool(prefKey) ?? m.isEnabled;
+          final enabled = _profileRepo.getBoolSetting(legacyPrefKey) || _profileRepo.getBoolSetting(prefKey) || m.isEnabled;
           
           final legacyWindowKey = 'core_habit_frequency_${m.id}';
           final windowKey = '$_kCoreMetricWindowPrefix${m.id}';
-          final windowIdsString = prefs.getString(legacyWindowKey) ?? prefs.getString(windowKey);
+          final windowIdsString = _profileRepo.getStringSetting(legacyWindowKey) ?? _profileRepo.getStringSetting(windowKey);
           
           List<String> windowIds = m.windowIds;
           if (windowIdsString != null) {
             windowIds = windowIdsString.split(',').where((s) => s.isNotEmpty).toList();
           }
 
-          await _db.insertCustomMetric(
+          await _metricRepo.insertCustomMetric(
             CustomMetricsCompanion.insert(
               id: Value(m.id),
               label: m.label,
@@ -323,15 +342,14 @@ class MetricService extends ChangeNotifier {
           debugPrint('[MetricService] Error seeding metric ${m.id}: $e');
         }
       }
-      await prefs.setBool('core_metrics_seeded', true);
+      await _profileRepo.setBoolSetting('core_metrics_seeded', true);
     } else if (!hasSeeded) {
-      // Handle restore scenario
-      await prefs.setBool('core_metrics_seeded', true);
+      await _profileRepo.setBoolSetting('core_metrics_seeded', true);
     }
 
     // --- SOFT MIGRATION v5: Inject missing metrics + sync inputType/isActivityIndicator ---
     final syncKey = 'core_metrics_v5_sync';
-    if (!(prefs.getBool(syncKey) ?? false)) {
+    if (!_profileRepo.getBoolSetting(syncKey)) {
       await _reload(); // Ensure _allMetrics is populated before we check IDs
       final currentMetricIds = _allMetrics.map((m) => m.id).toSet();
       int addedCount = 0;
@@ -339,9 +357,8 @@ class MetricService extends ChangeNotifier {
       
       for (final template in templates) {
         if (!currentMetricIds.contains(template.id)) {
-          // Insert brand-new metrics
           try {
-            await _db.insertCustomMetric(
+            await _metricRepo.insertCustomMetric(
               CustomMetricsCompanion.insert(
                 id: Value(template.id),
                 label: template.label,
@@ -359,9 +376,8 @@ class MetricService extends ChangeNotifier {
             debugPrint('[MetricService] Error injecting missing metric ${template.id}: $e');
           }
         } else {
-          // Sync research-critical fields that changed in v5
           try {
-            await _db.updateCustomMetric(
+            await _metricRepo.updateCustomMetric(
               template.id,
               CustomMetricsCompanion(
                 inputType: Value(template.inputType),
@@ -379,7 +395,7 @@ class MetricService extends ChangeNotifier {
         debugPrint('[MetricService] Soft Migration v5: +$addedCount new, ~$updatedCount updated');
         await _reload();
       }
-      await prefs.setBool(syncKey, true);
+      await _profileRepo.setBoolSetting(syncKey, true);
     }
 
     await _reload();
@@ -393,12 +409,10 @@ class MetricService extends ChangeNotifier {
 
   /// Reloads all metric data from persistence and rebuilds [_allMetrics].
   Future<void> _reload() async {
-    final prefs = await SharedPreferences.getInstance();
-
     // --- Windows from Drift ---
-    _allWindows = await _db.getAllTrackingWindows();
+    _allWindows = await _trackingWindowRepo.getAllTrackingWindows();
 
-    final windowOrder = prefs.getStringList('tracking_windows_sort_order');
+    final windowOrder = _profileRepo.getStringListSetting('tracking_windows_sort_order');
     if (windowOrder != null) {
       _allWindows.sort((a, b) {
         int indexA = windowOrder.indexOf(a.id);
@@ -411,7 +425,7 @@ class MetricService extends ChangeNotifier {
     }
 
     // --- All metrics from Drift ---
-    final customRows = await _db.getAllCustomMetrics();
+    final customRows = await _metricRepo.getAllCustomMetrics();
     final customMetrics = customRows.map((row) {
       final rawWindows = row.windowIds;
       final List<String> windowIds;
@@ -439,7 +453,7 @@ class MetricService extends ChangeNotifier {
 
     _allMetrics = [...customMetrics];
 
-    final savedOrder = prefs.getStringList('metric_sort_order');
+    final savedOrder = _profileRepo.getStringListSetting('metric_sort_order');
     if (savedOrder != null) {
       _allMetrics.sort((a, b) {
         int indexA = savedOrder.indexOf(a.id);
@@ -458,7 +472,7 @@ class MetricService extends ChangeNotifier {
   // Sorting
   // ---------------------------------------------------------------------------
 
-  /// Updates the order of metrics and persists it to SharedPreferences.
+  /// Updates the order of metrics and persists it to preferences.
   Future<void> reorderMetrics(int oldIndex, int newIndex, {List<MetricDefinition>? currentList}) async {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -490,14 +504,13 @@ class MetricService extends ChangeNotifier {
       }
     }
 
-    final prefs = await SharedPreferences.getInstance();
     final newOrder = _allMetrics.map((m) => m.id).toList();
-    await prefs.setStringList('metric_sort_order', newOrder);
+    await _profileRepo.setStringListSetting('metric_sort_order', newOrder);
     
     notifyListeners();
   }
 
-  /// Updates the order of tracking windows and persists it to SharedPreferences.
+  /// Updates the order of tracking windows and persists it to preferences.
   Future<void> reorderTrackingWindows(int oldIndex, int newIndex) async {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -505,9 +518,8 @@ class MetricService extends ChangeNotifier {
     final item = _allWindows.removeAt(oldIndex);
     _allWindows.insert(newIndex, item);
 
-    final prefs = await SharedPreferences.getInstance();
     final newOrder = _allWindows.map((w) => w.id).toList();
-    await prefs.setStringList('tracking_windows_sort_order', newOrder);
+    await _profileRepo.setStringListSetting('tracking_windows_sort_order', newOrder);
 
     notifyListeners();
   }
@@ -524,7 +536,7 @@ class MetricService extends ChangeNotifier {
     final metric = _allMetrics[index];
     final newEnabled = !metric.isEnabled;
 
-    await _db.setCustomMetricEnabled(id, newEnabled);
+    await _metricRepo.setCustomMetricEnabled(id, newEnabled);
 
     _allMetrics[index] = metric.copyWith(isEnabled: newEnabled);
     notifyListeners();
@@ -538,7 +550,7 @@ class MetricService extends ChangeNotifier {
 
     final metric = _allMetrics[index];
     
-    await _db.updateCustomMetric(
+    await _metricRepo.updateCustomMetric(
       id,
       CustomMetricsCompanion(isActivityIndicator: Value(isActivityIndicator)),
     );
@@ -556,7 +568,7 @@ class MetricService extends ChangeNotifier {
     final window = _allWindows[index];
     final newEnabled = !window.isEnabled;
  
-    await _db.updateTrackingWindow(
+    await _trackingWindowRepo.updateTrackingWindow(
       id,
       TrackingWindowsCompanion(isEnabled: Value(newEnabled)),
     );
@@ -576,7 +588,7 @@ class MetricService extends ChangeNotifier {
     final metric = _allMetrics[index];
     final windowIdsString = _serializeWindowIds(windowIds);
 
-    await _db.updateCustomMetricWindows(id, windowIdsString);
+    await _metricRepo.updateCustomMetricWindows(id, windowIdsString);
 
     _allMetrics[index] = metric.copyWith(windowIds: windowIds);
     notifyListeners();
@@ -603,7 +615,7 @@ class MetricService extends ChangeNotifier {
   }) async {
     final metricId = id ?? const Uuid().v4();
 
-    await _db.insertCustomMetric(
+    await _metricRepo.insertCustomMetric(
       CustomMetricsCompanion.insert(
         id: Value(metricId),
         label: label,
@@ -618,7 +630,7 @@ class MetricService extends ChangeNotifier {
     );
 
     try {
-      await _db.insertEvent(
+      await _eventRepo.insertEvent(
         EventsCompanion(
           category: const Value(EventCategory.meta),
           label: const Value('custom_metric_added'),
@@ -648,7 +660,7 @@ class MetricService extends ChangeNotifier {
     bool? isActivityIndicator,
     Object? retroReliableOverride = _kUnset,
   }) async {
-    await _db.updateCustomMetric(
+    await _metricRepo.updateCustomMetric(
       id,
       CustomMetricsCompanion(
         label: Value(label),
@@ -683,7 +695,7 @@ class MetricService extends ChangeNotifier {
     int? notificationHour,
     int? notificationMinute,
   }) async {
-    await _db.insertTrackingWindow(
+    await _trackingWindowRepo.insertTrackingWindow(
       TrackingWindowsCompanion.insert(
         label: label,
         startHour: startHour,
@@ -711,7 +723,7 @@ class MetricService extends ChangeNotifier {
     int? notificationHour,
     int? notificationMinute,
   }) async {
-    await _db.updateTrackingWindow(
+    await _trackingWindowRepo.updateTrackingWindow(
       id,
       TrackingWindowsCompanion(
         label: Value(label),
@@ -747,7 +759,7 @@ class MetricService extends ChangeNotifier {
       }
 
       if (changed) {
-        await _db.updateCustomMetric(
+        await _metricRepo.updateCustomMetric(
           m.id,
           CustomMetricsCompanion(
             windowIds: Value(_serializeWindowIds(newWindowIds)),
@@ -760,7 +772,7 @@ class MetricService extends ChangeNotifier {
 
   /// Deletes a tracking window.
   Future<void> deleteTrackingWindow(String id) async {
-    await _db.deleteTrackingWindow(id);
+    await _trackingWindowRepo.deleteTrackingWindow(id);
     await _reload();
     await NotificationService.scheduleDailyReminders();
   }
@@ -773,10 +785,10 @@ class MetricService extends ChangeNotifier {
     );
 
     debugPrint('[MetricService] Deleting metric: "${metric.label}" (ID: $id)');
-    await _db.deleteCustomMetric(id);
+    await _metricRepo.deleteCustomMetric(id);
 
     try {
-      await _db.insertEvent(
+      await _eventRepo.insertEvent(
         EventsCompanion(
           category: const Value(EventCategory.meta),
           label: const Value('custom_metric_deleted'),
@@ -798,17 +810,16 @@ class MetricService extends ChangeNotifier {
   /// clears seeding flags, and re-initializes with defaults.
   Future<void> debugResetMetrics() async {
     debugPrint('[MetricService] DANGER: debugResetMetrics() called. Wiping ALL definitions.');
-    await _db.clearAllMetrics();
-    await _db.clearAllTrackingWindows();
+    await _metricRepo.clearAllMetrics();
+    await _trackingWindowRepo.clearAllTrackingWindows();
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('tracking_windows_seeded');
-    await prefs.remove('core_metrics_seeded');
-    await prefs.remove('metric_sort_order');
-    await prefs.remove('tracking_windows_sort_order');
-    await prefs.remove('tracking_windows_v2_sync'); // Clear sync flag too
+    await _profileRepo.removeSetting('tracking_windows_seeded');
+    await _profileRepo.removeSetting('core_metrics_seeded');
+    await _profileRepo.removeSetting('metric_sort_order');
+    await _profileRepo.removeSetting('tracking_windows_sort_order');
+    await _profileRepo.removeSetting('tracking_windows_v2_sync'); // Clear sync flag too
     
-    await init(_db);
+    await init();
     await NotificationService.scheduleDailyReminders();
     
     debugPrint('[MetricService] Debug Reset: All metrics and windows cleared and re-seeded');
@@ -845,16 +856,16 @@ class MetricService extends ChangeNotifier {
     
     for (var m in _allMetrics) {
       if (m.isEnabled) {
-        await _db.setCustomMetricEnabled(m.id, false);
+        await _metricRepo.setCustomMetricEnabled(m.id, false);
       }
     }
 
     for (var id in targetIds) {
-      await _db.setCustomMetricEnabled(id, true);
+      await _metricRepo.setCustomMetricEnabled(id, true);
     }
 
     try {
-      await _db.insertEvent(
+      await _eventRepo.insertEvent(
         EventsCompanion(
           category: const Value(EventCategory.meta),
           label: const Value('research_preset_applied'),

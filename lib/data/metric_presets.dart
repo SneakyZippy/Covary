@@ -605,7 +605,7 @@ class MetricPresets {
     ),
     WindowPreset(
       id: '4c62fdff-7942-4848-8140-3c483a54daba',
-      label: 'Afternoon Sync',
+      label: 'Afternoon',
       startHour: 14,
       startMinute: 0,
       endHour: 16,
