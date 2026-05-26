@@ -18,21 +18,133 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Covary: A research tool for Ecological Momentary Assessment (EMA).">
 
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="trace_loop">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <!-- Mobile Viewport with iOS Fullscreen Support -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- iOS PWA Configuration -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Covary">
+  <link rel="apple-touch-icon" href="icons/Icon-180.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>trace_loop</title>
+  <title>Covary</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Splash Screen Styling -->
+  <style>
+    body {
+      background-color: #0B1120;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #loading-splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #0B1120;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 999999;
+      opacity: 1;
+      transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #dde4e0;
+    }
+    #loading-splash.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .logo-container {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .logo-img {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      z-index: 2;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
+    /* Pulsating logo background glow */
+    .logo-glow {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: rgba(56, 222, 187, 0.2);
+      filter: blur(15px);
+      z-index: 1;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(56, 222, 187, 0.1);
+      border-radius: 50%;
+      border-top-color: #38debb;
+      animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      margin-top: 24px;
+    }
+    .app-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      font-weight: 600;
+      color: #38debb;
+      letter-spacing: 0.5px;
+      margin: 0;
+      text-shadow: 0 2px 10px rgba(56, 222, 187, 0.15);
+    }
+    .app-subtitle {
+      font-size: 14px;
+      color: #bacac3;
+      margin-top: 8px;
+      font-weight: 400;
+      letter-spacing: 0.2px;
+      text-align: center;
+      max-width: 280px;
+      line-height: 1.4;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.2; }
+      50% { transform: scale(1.25); opacity: 0.45; }
+    }
+  </style>
 </head>
 <body>
+  <!-- Custom Loading Splash Screen -->
+  <div id="loading-splash">
+    <div class="logo-container">
+      <div class="logo-glow"></div>
+      <img class="logo-img" src="icons/Icon-180.png" alt="Covary Logo">
+    </div>
+    <h1 class="app-title">Covary</h1>
+    <p class="app-subtitle">Researching Habits, Health &amp; Well-being</p>
+    <div class="spinner"></div>
+  </div>
+
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

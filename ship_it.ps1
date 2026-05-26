@@ -31,6 +31,30 @@ Write-Host "Files updated. Starting build..." -ForegroundColor Yellow
 flutter build apk --release
 if ($LASTEXITCODE -ne 0) { throw "Flutter build failed!" }
 
+# 4b. Build Web PWA
+Write-Host "Building Web PWA..." -ForegroundColor Yellow
+flutter build web --base-href "/Covary/" --release
+if ($LASTEXITCODE -ne 0) { throw "Flutter web build failed!" }
+
+Write-Host "Deploying PWA to GitHub Pages..." -ForegroundColor Yellow
+$remoteUrl = git remote get-url origin
+$deployDir = "build\web_deploy"
+if (Test-Path $deployDir) { Remove-Item -Recurse -Force $deployDir }
+New-Item -ItemType Directory -Force -Path $deployDir | Out-Null
+
+Copy-Item -Path "build\web\*" -Destination $deployDir -Recurse -Force
+
+Push-Location $deployDir
+git init | Out-Null
+git remote add origin $remoteUrl
+git checkout -b gh-pages | Out-Null
+git add .
+git commit -m "Deploy PWA v$currentVersion+$newBuildNumber" | Out-Null
+git push -f origin gh-pages
+Pop-Location
+Remove-Item -Recurse -Force $deployDir
+Write-Host "PWA deployed successfully to GitHub Pages!" -ForegroundColor Green
+
 # 5. Git Operations
 $tag = "v$currentVersion+$newBuildNumber"
 git add pubspec.yaml version.json

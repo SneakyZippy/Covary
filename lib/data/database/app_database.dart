@@ -1,9 +1,5 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'connection/connection.dart' as impl;
 
 import '../models/enums.dart';
 import 'tables/events_table.dart';
@@ -22,7 +18,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase? _instance;
 
   static AppDatabase getInstance() {
-    _instance ??= AppDatabase._(_openConnection());
+    _instance ??= AppDatabase._(impl.connect());
     return _instance!;
   }
 
@@ -253,12 +249,4 @@ class AppDatabase extends _$AppDatabase {
   Future<void> clearAllTrackingWindows() async {
     await delete(trackingWindows).go();
   }
-}
-
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'covary.sqlite'));
-    return NativeDatabase.createInBackground(file);
-  });
 }

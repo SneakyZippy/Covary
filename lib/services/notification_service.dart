@@ -351,6 +351,7 @@ class NotificationService {
 
   static Future<void> scheduleDailyReminders() async {
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
+    debugPrint('[NotificationService] scheduleDailyReminders: isAllowed=$isAllowed');
     if (!isAllowed) return;
 
     // 1. Clean up stale or disabled notifications.
@@ -360,6 +361,8 @@ class NotificationService {
     final db = AppDatabase.getInstance();
     final windows = await db.getAllTrackingWindows();
     final snoozeDurations = await getSnoozeDurations();
+    final String localTimeZone = await AwesomeNotifications().getLocalTimeZoneIdentifier();
+    debugPrint('[NotificationService] Using local timeZone: $localTimeZone');
 
     for (var s in scheduled) {
       final payload = s.content?.payload;
@@ -383,12 +386,16 @@ class NotificationService {
       await AwesomeNotifications().cancel(i);
     }
 
-
+    int scheduledCount = 0;
     for (var window in windows) {
-      if (!window.isNotificationEnabled || !window.isEnabled) continue;
+      if (!window.isNotificationEnabled || !window.isEnabled) {
+        debugPrint('[NotificationService] Skipping window ${window.label}: isNotificationEnabled=${window.isNotificationEnabled}, isEnabled=${window.isEnabled}');
+        continue;
+      }
 
       // Generate a stable integer ID from the UUID hash
       final notificationId = window.id.hashCode.abs() % 2147483647;
+      debugPrint('[NotificationService] Scheduling window ${window.label} (ID: $notificationId) at ${window.notificationHour}:${window.notificationMinute}');
       
       try {
         await AwesomeNotifications().createNotification(
@@ -413,6 +420,7 @@ class NotificationService {
             allowWhileIdle: true,
             preciseAlarm: true,
             repeats: true,
+            timeZone: localTimeZone,
           ),
           actionButtons: [
             NotificationActionButton(
@@ -423,6 +431,7 @@ class NotificationService {
             ..._buildSnoozeButtons(snoozeDurations),
           ],
         );
+        scheduledCount++;
       } catch (e) {
         debugPrint(
           '[NotificationService] Exact alarm scheduling failed for ${window.label}, falling back to inexact alarm: $e',
@@ -450,6 +459,7 @@ class NotificationService {
               allowWhileIdle: true,
               preciseAlarm: false,
               repeats: true,
+              timeZone: localTimeZone,
             ),
             actionButtons: [
               NotificationActionButton(
@@ -460,6 +470,7 @@ class NotificationService {
               ..._buildSnoozeButtons(snoozeDurations),
             ],
           );
+          scheduledCount++;
         } catch (e2) {
           debugPrint(
             '[NotificationService] Inexact alarm scheduling also failed for ${window.label}: $e2',
@@ -467,7 +478,7 @@ class NotificationService {
         }
       }
     }
-    debugPrint('[NotificationService] Scheduled notifications for ${windows.length} windows.');
+    debugPrint('[NotificationService] Scheduled notifications for $scheduledCount / ${windows.length} windows.');
   }
 
   static Future<TimeOfDay> getReminderTime(

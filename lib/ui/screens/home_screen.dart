@@ -18,6 +18,7 @@ import 'daily_checkin_screen.dart';
 import 'compliance_screen.dart';
 import 'permission_shield_screen.dart';
 import 'activity_history_screen.dart';
+import '../../services/notification_service.dart';
 
 /// The primary Home view.
 ///
@@ -30,7 +31,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<TrackingWindow> _missedWindows = [];
   List<TrackingWindow> _activeWindows = [];
   Set<String> _completedWindowIds = {};
@@ -53,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _waitForInitAndLoad();
     // Refresh every minute to ensure window transitions are smooth
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
@@ -70,9 +72,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     _eventSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadTodayStats();
+      // Try to schedule reminders if notifications are now granted.
+      // This handles cases where they enabled them in Settings and returned.
+      NotificationService.scheduleDailyReminders();
+    }
   }
 
   Future<void> _waitForInitAndLoad() async {

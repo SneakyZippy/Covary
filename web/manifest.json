@@ -1,11 +1,11 @@
 {
-    "name": "trace_loop",
-    "short_name": "trace_loop",
+    "name": "Covary",
+    "short_name": "Covary",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B1120",
+    "theme_color": "#38debb",
+    "description": "Covary: A research tool for Ecological Momentary Assessment (EMA).",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
@@ -17,6 +17,11 @@
         {
             "src": "icons/Icon-512.png",
             "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-180.png",
+            "sizes": "180x180",
             "type": "image/png"
         },
         {
