@@ -23,7 +23,7 @@ Android is the "main" platform for this research because it lets us track things
 4.  **Stay Awake:** Disable "Battery Optimization" for Covary if you want the 4-hour background sync to be reliable.
 
 ### 🍎 For iOS
-I've recently added iOS support. I dont have one tho, so I haven't tested it yet! It's a bit more "lite" due to Apple's privacy rules.
+I've recently added iOS PWA support, allowing you to install and test it on iPhones directly from your Safari browser without needing a Mac or Xcode!
 
 1.  **Build with Xcode:** You'll need a Mac. Run `flutter build ios`, then open the workspace in Xcode.
 2.  **Sign it:** Select your development team in *Signing & Capabilities*.
