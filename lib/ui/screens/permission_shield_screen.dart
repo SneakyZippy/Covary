@@ -7,6 +7,7 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import '../../services/app_usage_service.dart';
 import '../../services/health_service.dart';
 import '../../services/passive_sensing_service.dart';
+import '../../services/notification_service.dart';
 
 /// The Permission Shield — a research consent & permission onboarding screen.
 ///
@@ -84,6 +85,10 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
     final usageStatus = await appUsageService.checkPermissionStatus();
     final notifResult = await AwesomeNotifications().isNotificationAllowed();
     final batteryResult = await Permission.ignoreBatteryOptimizations.isGranted;
+
+    if (notifResult) {
+      await NotificationService.scheduleDailyReminders();
+    }
 
     if (!mounted) return;
     setState(() {

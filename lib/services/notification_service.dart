@@ -368,9 +368,10 @@ class NotificationService {
         
         // Check if this window still exists and is enabled
         final exists = windows.any((w) => w.id == windowId);
-        final isEnabled = exists && windows.firstWhere((w) => w.id == windowId).isNotificationEnabled;
+        final window = exists ? windows.firstWhere((w) => w.id == windowId) : null;
+        final shouldBeScheduled = exists && window != null && window.isNotificationEnabled && window.isEnabled;
 
-        if (!exists || !isEnabled) {
+        if (!exists || !shouldBeScheduled) {
           debugPrint('[NotificationService] Cancelling stale reminder for window: $windowId');
           await AwesomeNotifications().cancel(s.content!.id!);
         }
@@ -424,8 +425,46 @@ class NotificationService {
         );
       } catch (e) {
         debugPrint(
-          '[NotificationService] Exception scheduling ${window.label} notification: $e',
+          '[NotificationService] Exact alarm scheduling failed for ${window.label}, falling back to inexact alarm: $e',
         );
+        try {
+          await AwesomeNotifications().createNotification(
+            content: NotificationContent(
+              id: notificationId,
+              channelKey: 'ema_reminders',
+              title: '${window.label} Check-in',
+              body: 'Time for your ${window.label.toLowerCase()} update! Please take a moment to record your status.',
+              payload: {
+                'metric_id': 'default',
+                'window_id': window.id,
+                'window_label': window.label,
+              },
+              notificationLayout: NotificationLayout.Default,
+              category: NotificationCategory.Reminder,
+              wakeUpScreen: true,
+            ),
+            schedule: NotificationCalendar(
+              hour: window.notificationHour,
+              minute: window.notificationMinute,
+              second: 0,
+              allowWhileIdle: true,
+              preciseAlarm: false,
+              repeats: true,
+            ),
+            actionButtons: [
+              NotificationActionButton(
+                key: 'remind_at',
+                label: 'At time...',
+                actionType: ActionType.Default,
+              ),
+              ..._buildSnoozeButtons(snoozeDurations),
+            ],
+          );
+        } catch (e2) {
+          debugPrint(
+            '[NotificationService] Inexact alarm scheduling also failed for ${window.label}: $e2',
+          );
+        }
       }
     }
     debugPrint('[NotificationService] Scheduled notifications for ${windows.length} windows.');
@@ -497,7 +536,36 @@ class NotificationService {
         ],
       );
     } catch (e) {
-      debugPrint('[NotificationService] Exception scheduling notification: $e');
+      debugPrint('[NotificationService] Exact alarm scheduling failed, falling back to inexact alarm: $e');
+      try {
+        await AwesomeNotifications().createNotification(
+          content: NotificationContent(
+            id: notificationId,
+            channelKey: 'ema_reminders',
+            title: 'Time for a quick update!',
+            body: 'Please take a moment to record your current status.',
+            payload: payload ?? {'metric_id': 'default'},
+            notificationLayout: NotificationLayout.Default,
+            category: NotificationCategory.Reminder,
+            wakeUpScreen: true,
+          ),
+          schedule: NotificationCalendar.fromDate(
+            date: DateTime.now().add(delay ?? const Duration(seconds: 10)),
+            allowWhileIdle: true,
+            preciseAlarm: false,
+          ),
+          actionButtons: [
+            NotificationActionButton(
+              key: 'remind_at',
+              label: 'At time...',
+              actionType: ActionType.Default,
+            ),
+            ..._buildSnoozeButtons(snoozeDurations),
+          ],
+        );
+      } catch (e2) {
+        debugPrint('[NotificationService] Inexact alarm scheduling also failed: $e2');
+      }
     }
   }
 

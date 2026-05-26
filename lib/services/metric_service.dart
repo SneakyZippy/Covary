@@ -574,6 +574,7 @@ class MetricService extends ChangeNotifier {
     );
  
     await _reload(); // Reload to update memory and notify
+    await NotificationService.scheduleDailyReminders();
     debugPrint('[MetricService] Toggled window "${window.label}" → $newEnabled');
   }
 
