@@ -43,12 +43,14 @@ if (Test-Path $deployDir) { Remove-Item -Recurse -Force $deployDir }
 New-Item -ItemType Directory -Force -Path $deployDir | Out-Null
 
 Copy-Item -Path "build\web\*" -Destination $deployDir -Recurse -Force
+New-Item -ItemType File -Path (Join-Path $deployDir ".nojekyll") -Force | Out-Null
 
 Push-Location $deployDir
 git init | Out-Null
 git remote add origin $remoteUrl
 git checkout -b gh-pages | Out-Null
-git add .
+git add --all
+git add -f .nojekyll 2>$null
 git commit -m "Deploy PWA v$currentVersion+$newBuildNumber" | Out-Null
 git push -f origin gh-pages
 Pop-Location
