@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Column;
@@ -73,6 +74,9 @@ class NotificationService {
   static Future<void> onActionReceivedMethod(
     ReceivedAction receivedAction,
   ) async {
+    WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
+
     final db = AppDatabase.getInstance();
 
     if (receivedAction.buttonKeyPressed.startsWith('snooze_')) {
@@ -94,9 +98,7 @@ class NotificationService {
       }
     } else if (receivedAction.buttonKeyPressed == 'remind_at') {
       await _logInteraction(db, InteractionType.snooze, receivedAction.payload);
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _showTimePickerDialog(receivedAction.payload);
-      });
+      _showTimePickerDialog(receivedAction.payload);
     } else {
       await _resetDismissCount();
 
@@ -116,13 +118,27 @@ class NotificationService {
         );
       }
 
-      _navigateToGuidedCheckin(sessionId: sessionId, windowId: windowId);
+      await _navigateToGuidedCheckin(sessionId: sessionId, windowId: windowId);
     }
   }
 
-  static void _navigateToGuidedCheckin({String? sessionId, String? windowId}) {
-    final context = navigatorKey.currentContext;
-    if (context == null) return;
+  static Future<BuildContext?> _waitForContext({int maxRetries = 30}) async {
+    for (int i = 0; i < maxRetries; i++) {
+      final context = navigatorKey.currentContext;
+      if (context != null) return context;
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    return null;
+  }
+
+  static Future<void> _navigateToGuidedCheckin({String? sessionId, String? windowId}) async {
+    final context = await _waitForContext();
+    if (context == null) {
+      debugPrint(
+        '[NotificationService] navigatorKey has no context. Navigation aborted.',
+      );
+      return;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Navigator.of(context).push(
@@ -144,6 +160,9 @@ class NotificationService {
   static Future<void> onDismissActionReceivedMethod(
     ReceivedAction receivedAction,
   ) async {
+    WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
+
     final db = AppDatabase.getInstance();
     await _logInteraction(
       db,
@@ -227,8 +246,8 @@ class NotificationService {
   static Future<void> _showTimePickerDialog(
     Map<String, String?>? payload,
   ) async {
-    final context = navigatorKey.currentContext;
-    if (context == null) {
+    final context = await _waitForContext();
+    if (context == null || !context.mounted) {
       debugPrint(
         '[NotificationService] navigatorKey has no context. App is dead?',
       );
@@ -393,8 +412,8 @@ class NotificationService {
         continue;
       }
 
-      // Generate a stable integer ID from the UUID hash
-      final notificationId = window.id.hashCode.abs() % 2147483647;
+      // Generate a stable integer ID from the UUID hash (modulo 1B to allow headroom for snooze ID)
+      final notificationId = window.id.hashCode.abs() % 1000000000;
       debugPrint('[NotificationService] Scheduling window ${window.label} (ID: $notificationId) at ${window.notificationHour}:${window.notificationMinute}');
       
       try {
@@ -513,11 +532,10 @@ class NotificationService {
 
     final snoozeDurations = await getSnoozeDurations();
 
-    // Use the same ID logic as scheduleDailyReminders to ensure consistent window handling
-    // or fallback to 100 if no window_id is present.
+    // Use a distinct ID range for snooze to prevent overwriting tomorrow's daily scheduled reminders
     final windowId = payload?['window_id'];
     final notificationId = windowId != null 
-        ? (windowId.hashCode.abs() % 2147483647) 
+        ? ((windowId.hashCode.abs() % 1000000000) + 1000000000) 
         : 100;
 
     try {
@@ -605,7 +623,7 @@ class NotificationService {
       return NotificationActionButton(
         key: 'snooze_${mins}m',
         label: '+ ${_formatDurationLabel(mins)}',
-        actionType: ActionType.SilentAction,
+        actionType: ActionType.SilentBackgroundAction,
       );
     }).toList();
   }

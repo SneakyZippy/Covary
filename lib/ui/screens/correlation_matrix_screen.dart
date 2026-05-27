@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import 'dart:ui';
@@ -380,6 +382,8 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                             cellSize,
                             colorScheme,
                             textTheme,
+                            row,
+                            col,
                             delayIndex: rowIndex + colIndex,
                           );
                         }),
@@ -508,7 +512,9 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     double? correlation,
     double size,
     ColorScheme colorScheme,
-    TextTheme textTheme, {
+    TextTheme textTheme,
+    MetricDefinition rowMetric,
+    MetricDefinition colMetric, {
     int delayIndex = 0,
   }) {
     Color cellColor = Colors.white.withAlpha(5);
@@ -546,42 +552,58 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
           child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
         );
       },
-      child: Container(
-        width: size - 6,
-        height: size - 6,
-        margin: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: cellColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isStrong
-                ? Colors.white.withValues(alpha: 0.3)
-                : Colors.white.withValues(alpha: 0.05),
-            width: isStrong ? 1.0 : 0.5,
-          ),
-          boxShadow: isVeryStrong
-              ? [
-                  BoxShadow(
-                    color: cellColor.withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        child: Center(
-          child: Text(
-            text,
-            style: textTheme.labelLarge?.copyWith(
-              fontSize: text == '·' ? 16 : 11,
-              fontWeight: FontWeight.w800,
+      child: GestureDetector(
+        onTap: () {
+          if (correlation != null) {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => _CorrelationDetailsSheet(
+                rowMetric: rowMetric,
+                colMetric: colMetric,
+                correlation: correlation,
+              ),
+            );
+          }
+        },
+        child: Container(
+          width: size - 6,
+          height: size - 6,
+          margin: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: cellColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
               color: isStrong
-                  ? (correlation > 0
-                        ? CovaryDesignSystem.onPrimary
-                        : Colors.white)
-                  : Colors.white.withAlpha(200),
-              letterSpacing: 0,
+                  ? Colors.white.withValues(alpha: 0.3)
+                  : Colors.white.withValues(alpha: 0.05),
+              width: isStrong ? 1.0 : 0.5,
+            ),
+            boxShadow: isVeryStrong
+                ? [
+                    BoxShadow(
+                      color: cellColor.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              text,
+              style: textTheme.labelLarge?.copyWith(
+                fontSize: text == '·' ? 16 : 11,
+                fontWeight: FontWeight.w800,
+                color: isStrong
+                    ? (correlation > 0
+                          ? CovaryDesignSystem.onPrimary
+                          : Colors.white)
+                    : Colors.white.withAlpha(200),
+                letterSpacing: 0,
+              ),
             ),
           ),
         ),
@@ -923,6 +945,309 @@ class _LegendItem extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(label, style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
+}
+
+class _CorrelationDetailsSheet extends StatefulWidget {
+  final MetricDefinition rowMetric;
+  final MetricDefinition colMetric;
+  final double correlation;
+
+  const _CorrelationDetailsSheet({
+    required this.rowMetric,
+    required this.colMetric,
+    required this.correlation,
+  });
+
+  @override
+  State<_CorrelationDetailsSheet> createState() => _CorrelationDetailsSheetState();
+}
+
+class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
+  bool _loading = true;
+  List<FlSpot> _spotsRow = [];
+  List<FlSpot> _spotsCol = [];
+  List<String> _dateLabels = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAndAlignData();
+  }
+
+  Future<void> _fetchAndAlignData() async {
+    final analyticsService = context.read<AnalyticsService>();
+    final dataRow = await analyticsService.getDailyTimeSeries(widget.rowMetric.label, normalize: true, lastNDays: 14);
+    final dataCol = await analyticsService.getDailyTimeSeries(widget.colMetric.label, normalize: true, lastNDays: 14);
+
+    final sortedDates = dataRow.keys.where((d) => dataCol.containsKey(d)).toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    final List<FlSpot> spotsRow = [];
+    final List<FlSpot> spotsCol = [];
+    final List<String> dateLabels = [];
+
+    for (int i = 0; i < sortedDates.length; i++) {
+      final date = sortedDates[i];
+      spotsRow.add(FlSpot(i.toDouble(), dataRow[date]!));
+      spotsCol.add(FlSpot(i.toDouble(), dataCol[date]!));
+      dateLabels.add('${date.month}/${date.day}');
+    }
+
+    if (mounted) {
+      setState(() {
+        _spotsRow = spotsRow;
+        _spotsCol = spotsCol;
+        _dateLabels = dateLabels;
+        _loading = false;
+      });
+    }
+  }
+
+  String _getInterpretation() {
+    final r = widget.correlation;
+    final rAbs = r.abs();
+
+    String direction = r > 0 ? "positive" : "negative";
+    String strength = "weak";
+    if (rAbs >= 0.7) {
+      strength = "strong";
+    } else if (rAbs >= 0.4) {
+      strength = "moderate";
+    }
+
+    if (rAbs < 0.15) {
+      return "There is virtually no correlation between these two metrics in your logged history.";
+    }
+
+    return "There is a $strength $direction relationship (r = ${r.toStringAsFixed(2)}) between '${_cleanLabel(widget.rowMetric)}' and '${_cleanLabel(widget.colMetric)}'. "
+           "${r > 0 ? 'When one increases, the other typically increases too.' : 'When one increases, the other typically decreases.'}";
+  }
+
+  String _cleanLabel(MetricDefinition m) {
+    if (m.id.startsWith('passive_')) {
+      String label = m.label;
+      if (label.contains(':')) {
+        label = label.split(':').last;
+      }
+      return label.replaceAll('_', ' ').toUpperCase();
+    }
+    return m.label;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 48,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Correlation Insights',
+            style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "${_cleanLabel(widget.rowMetric)}  ×  ${_cleanLabel(widget.colMetric)}",
+                        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: widget.correlation > 0
+                            ? colorScheme.primary.withValues(alpha: 0.2)
+                            : colorScheme.secondary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        widget.correlation.toStringAsFixed(2),
+                        style: textTheme.labelLarge?.copyWith(
+                          color: widget.correlation > 0 ? colorScheme.primary : colorScheme.secondary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _getInterpretation(),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (_loading)
+            const SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_spotsRow.isEmpty || _spotsCol.isEmpty)
+            SizedBox(
+              height: 200,
+              child: Center(
+                child: Text(
+                  'Not enough overlapping history to render the trend chart.',
+                  style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+            )
+          else ...[
+            Text(
+              '14-Day Overlaid Trend (Normalized)',
+              style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16.0, top: 8),
+                child: LineChart(
+                  LineChartData(
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      getDrawingHorizontalLine: (val) => FlLine(
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                        strokeWidth: 1,
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 22,
+                          interval: max(1, _spotsRow.length / 5).toDouble(),
+                          getTitlesWidget: (val, meta) {
+                            final idx = val.toInt();
+                            if (idx >= 0 && idx < _dateLabels.length) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Text(
+                                  _dateLabels[idx],
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    minX: 0,
+                    maxX: (_spotsRow.length - 1).toDouble(),
+                    minY: -0.05,
+                    maxY: 1.05,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: _spotsRow,
+                        isCurved: true,
+                        color: colorScheme.primary,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: colorScheme.primary.withValues(alpha: 0.05),
+                        ),
+                      ),
+                      LineChartBarData(
+                        spots: _spotsCol,
+                        isCurved: true,
+                        color: colorScheme.secondary,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: colorScheme.secondary.withValues(alpha: 0.05),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLegendIndicator(_cleanLabel(widget.rowMetric), colorScheme.primary, textTheme),
+                const SizedBox(width: 24),
+                _buildLegendIndicator(_cleanLabel(widget.colMetric), colorScheme.secondary, textTheme),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendIndicator(String label, Color color, TextTheme textTheme) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(fontSize: 11),
+        ),
       ],
     );
   }

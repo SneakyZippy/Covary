@@ -6,7 +6,7 @@
 
 ## 2. Technical Stack (2026 Standards)
 
-- **Framework:** Flutter (Material 3 UI).
+- **Framework:** Flutter (Material 3 UI). Must always support running on Android as a native APK, as well as on iOS/Android as a Progressive Web App (PWA).
     
 - **Local Database:** `drift` (SQLite) for high-integrity, reactive storage.
     

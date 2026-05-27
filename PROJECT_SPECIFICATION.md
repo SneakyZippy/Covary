@@ -14,6 +14,7 @@ The goal is to move beyond simple data collection and provide users with a "Beha
 
 ## 3. Technical Architecture
 - **Framework:** Flutter (Material 3 UI).
+- **Cross-Platform Deployment:** Must always support running on Android as a native APK, as well as on iOS/Android as a Progressive Web App (PWA).
 - **Local Database:** `drift` (SQLite) for reactive, high-integrity storage.
 - **Cloud Backend:** `Supabase` (client-side SDK) for optional database backup and syncing.
 - **State Management:** `provider` (chosen for academic clarity and reliability).

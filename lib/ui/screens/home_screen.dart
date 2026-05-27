@@ -3,6 +3,7 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
@@ -12,6 +13,7 @@ import '../../services/app_usage_service.dart';
 import '../../services/health_service.dart';
 import '../../services/metric_service.dart';
 import '../../services/profile_service.dart';
+import '../widgets/metric_input_card.dart';
 import '../widgets/missed_session_card.dart';
 import '../widgets/quick_track_button.dart';
 import 'daily_checkin_screen.dart';
@@ -47,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _usageMissing = false;
   bool _notificationsMissing = false;
   bool _bannerPermanentlyDismissed = false;
+  String? _expandedEventId;
 
   Timer? _refreshTimer;
   StreamSubscription? _eventSubscription;
@@ -799,7 +802,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             return QuickTrackButton(
               key: ValueKey(quickMetrics[index].id),
               metric: quickMetrics[index],
-              onLogged: _loadTodayStats,
+          onLogged: _loadTodayStats,
             );
           },
         ),
@@ -814,6 +817,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (userEvents.isEmpty) return const SizedBox.shrink();
 
+    final visibleEvents = userEvents.take(5).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -827,53 +832,148 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SizedBox(height: 16),
         Container(
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest.withAlpha(100),
+            color: colorScheme.surfaceContainer.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colorScheme.outlineVariant.withAlpha(100)),
+            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
           ),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              ...userEvents.take(5).map((e) {
+              ...visibleEvents.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final e = entry.value;
+                final isLast = idx == visibleEvents.length - 1;
+                final isExpanded = _expandedEventId == e.id;
                 final timeStr = "${e.timestamp.hour.toString().padLeft(2, '0')}:${e.timestamp.minute.toString().padLeft(2, '0')}";
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colorScheme.primary,
+                final displayValue = e.value == '1' && e.label.toLowerCase().contains('coffee')
+                    ? '☕'
+                    : (e.value == 'true'
+                        ? 'Yes'
+                        : (e.value == 'false' ? 'No' : e.value));
+
+                final catColor = _getCategoryColor(e.category, colorScheme);
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Node column
+                    Column(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _expandedEventId = isExpanded ? null : e.id;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 16,
+                            height: 16,
+                            margin: const EdgeInsets.only(top: 2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: catColor,
+                              border: Border.all(
+                                  color: isExpanded ? Colors.white : Colors.transparent,
+                                  width: 1.5,
+                                ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: catColor.withValues(alpha: 0.4),
+                                  blurRadius: isExpanded ? 8 : 4,
+                                  spreadRadius: isExpanded ? 2 : 0,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
+                        if (!isLast)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 2,
+                            height: isExpanded ? 115 : 24,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                          )
+                        else
+                          const SizedBox(height: 24),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    // Details column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              setState(() {
+                                _expandedEventId = isExpanded ? null : e.id;
+                              });
+                            },
+                            child: Row(
+                              children: [
+                                Text(
+                                  timeStr,
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    e.label,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  displayValue,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: catColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          AnimatedCrossFade(
+                            firstChild: const SizedBox.shrink(),
+                            secondChild: Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(top: 8, bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildTimelineDetailRow('Category', e.category.name.toUpperCase(), colorScheme, textTheme),
+                                  const SizedBox(height: 4),
+                                  _buildTimelineDetailRow('Source', e.triggerSource.name.toUpperCase(), colorScheme, textTheme),
+                                  if (e.latencyMs > 0) ...[
+                                    const SizedBox(height: 4),
+                                    _buildTimelineDetailRow('Latency', '${(e.latencyMs / 1000).toStringAsFixed(1)}s', colorScheme, textTheme),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            crossFadeState: isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                            duration: const Duration(milliseconds: 200),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        timeStr,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          e.label,
-                          style: textTheme.bodyMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        e.value == '1' && e.label.toLowerCase().contains('coffee') ? '☕' : (e.value == 'true' ? 'Yes' : (e.value == 'false' ? 'No' : e.value)),
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               }),
               if (userEvents.length > 5)
@@ -881,7 +981,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   padding: const EdgeInsets.only(top: 8.0),
                   child: Center(
                     child: Text(
-                      '+${userEvents.length - 5} more (See Detailed Records)',
+                      '+${userEvents.length - 5} more',
                       style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                   ),
@@ -893,10 +993,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildTimelineDetailRow(String label, String value, ColorScheme colorScheme, TextTheme textTheme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 10,
+          ),
+        ),
+        Text(
+          value,
+          style: textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurface,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getCategoryColor(EventCategory category, ColorScheme colorScheme) {
+    switch (category) {
+      case EventCategory.mood:
+        return colorScheme.primary;
+      case EventCategory.behavior:
+        return colorScheme.secondary;
+      case EventCategory.health:
+        return const Color(0xFFC71585); // Ruby
+      case EventCategory.productivity:
+        return colorScheme.tertiary;
+      case EventCategory.social:
+        return const Color(0xFF007FFF); // Azure
+      case EventCategory.nutrition:
+        return const Color(0xFFFF7F50); // Coral
+      default:
+        return colorScheme.onSurfaceVariant;
+    }
+  }
+
   Widget _buildTrackingSuggestions(List<MetricDefinition> activeMetrics, ColorScheme colorScheme, TextTheme textTheme) {
     final userEvents = _todayEvents.where((e) => e.triggerSource != TriggerSource.system && e.category != EventCategory.meta).toList();
     final trackedLabels = userEvents.map((e) => e.label).toSet();
-    
     final untrackedMetrics = activeMetrics.where((m) => !trackedLabels.contains(m.label)).toList();
 
     if (untrackedMetrics.isEmpty) {
@@ -927,47 +1068,183 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Recommend the first untracked metric
     final recommendation = untrackedMetrics.first;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.tertiaryContainer.withAlpha(150),
+    return Material(
+      color: colorScheme.tertiaryContainer.withAlpha(150),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: () => _handleSuggestionTap(recommendation),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.tertiary.withAlpha(100)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colorScheme.tertiary.withAlpha(40),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.lightbulb_outline_rounded, color: colorScheme.tertiary),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Tracking Suggestion",
+                      style: textTheme.labelMedium?.copyWith(
+                        color: colorScheme.tertiary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "You haven't tracked '${recommendation.label}' today. Want to log it now?",
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: colorScheme.tertiary.withAlpha(40),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.lightbulb_outline_rounded, color: colorScheme.tertiary),
+    );
+  }
+
+  Future<void> _handleSuggestionTap(MetricDefinition metric) async {
+    if (metric.inputType == MetricInputType.counter) {
+      try {
+        final eventRepo = context.read<EventRepository>();
+        final eventId = const Uuid().v4();
+        final now = DateTime.now();
+        await eventRepo.insertEvent(
+          EventsCompanion(
+            id: Value(eventId),
+            category: Value(metric.category),
+            label: Value(metric.label),
+            value: const Value('1'),
+            latencyMs: const Value(0),
+            triggerSource: const Value(TriggerSource.manual),
+            interactionType: const Value(InteractionType.click),
+            timestamp: Value(now),
+            recordedAt: Value(now),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Tracking Suggestion",
-                  style: textTheme.labelMedium?.copyWith(
-                    color: colorScheme.tertiary,
-                    fontWeight: FontWeight.bold,
+        );
+        if (mounted) {
+          _loadTodayStats();
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Expanded(child: Text('${metric.label} logged! ✓')),
+                  TextButton(
+                    onPressed: () async {
+                      await eventRepo.deleteEvent(eventId);
+                      if (mounted) {
+                        _loadTodayStats();
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      }
+                    },
+                    child: Text('UNDO', style: TextStyle(color: Theme.of(context).colorScheme.inversePrimary)),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "You haven't tracked '${recommendation.label}' today. Want to log it now?",
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onTertiaryContainer,
-                  ),
-                ),
-              ],
+                ],
+              ),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 5),
             ),
-          ),
-        ],
+          );
+        }
+      } catch (e) {
+        debugPrint('Error logging suggestion counter: $e');
+      }
+    } else {
+      _showSuggestionInputModal(context, metric);
+    }
+  }
+
+  void _showSuggestionInputModal(BuildContext context, MetricDefinition metric) {
+    final openedAt = DateTime.now();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          top: 24,
+          left: 24,
+          right: 24,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MetricInputCard(
+              metric: metric,
+              onChanged: (value) async {
+                try {
+                  final latency = DateTime.now()
+                      .difference(openedAt)
+                      .inMilliseconds;
+                  final eventRepo = context.read<EventRepository>();
+                  final eventId = const Uuid().v4();
+                  final now = DateTime.now();
+                  await eventRepo.insertEvent(
+                    EventsCompanion(
+                      id: Value(eventId),
+                      category: Value(metric.category),
+                      label: Value(metric.label),
+                      value: Value(value),
+                      latencyMs: Value(latency),
+                      triggerSource: const Value(TriggerSource.manual),
+                      interactionType: const Value(InteractionType.click),
+                      timestamp: Value(now),
+                      recordedAt: Value(now),
+                    ),
+                  );
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx);
+                    _loadTodayStats();
+                    ScaffoldMessenger.of(ctx).clearSnackBars();
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Expanded(child: Text('${metric.label} logged!')),
+                            TextButton(
+                              onPressed: () async {
+                                await eventRepo.deleteEvent(eventId);
+                                if (ctx.mounted) {
+                                  _loadTodayStats();
+                                  ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+                                }
+                              },
+                              child: Text('UNDO', style: TextStyle(color: Theme.of(ctx).colorScheme.inversePrimary)),
+                            ),
+                          ],
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 5),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint('Error logging metric suggestion: $e');
+                  if (ctx.mounted) Navigator.pop(ctx);
+                }
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }

@@ -42,14 +42,13 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
 
   static const _passiveLabels = <_SelectableMetric>[
     _SelectableMetric('category_time:social', 'Social Media', '📱', inputType: MetricInputType.counter),
-    _SelectableMetric('total_screen_time', 'Total Screen Time', '⌛', inputType: MetricInputType.counter),
-    _SelectableMetric('category_time:entertainment', 'Entertainment Time', '🎬', inputType: MetricInputType.counter),
+    _SelectableMetric('total_screen_time', 'Screen Time', '⌛', inputType: MetricInputType.counter),
+    _SelectableMetric('category_time:entertainment', 'Entertainment', '🎬', inputType: MetricInputType.counter),
     _SelectableMetric('sleep_duration_hours', 'Sleep Duration', '🛌'),
     _SelectableMetric('sleep_bedtime', 'Bedtime', '🛌'),
-    _SelectableMetric('sleep_wakeup', 'Wake-up Time', 'sunny'),
-    _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', 'star'),
-    _SelectableMetric('step_count', 'Daily Total Steps', '🏃', inputType: MetricInputType.counter),
-    _SelectableMetric('step_segment', 'Hourly Steps', '👣', inputType: MetricInputType.counter),
+    _SelectableMetric('sleep_wakeup', 'Wake-up Time', '☀️'),
+    _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', '✨'),
+    _SelectableMetric('step_count', 'Steps', '🏃', inputType: MetricInputType.counter),
   ];
 
   @override
@@ -92,32 +91,30 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     setState(() => _isLoading = true);
     final analytics = context.read<AnalyticsService>();
 
-    // If secondary is selected, we MUST normalize to compare them on the same axis.
-    // If only primary is selected, we do NOT normalize, so the user sees raw values (e.g., 5000 steps).
-    final bool shouldNormalize = _secondaryLabel != null;
-
     Map<dynamic, double> primaryData = {};
     Map<dynamic, double> secondaryData = {};
 
-    final (pMin, pMax) = _getMetricBounds(_primaryLabel!);
-    final (sMin, sMax) = _secondaryLabel != null ? _getMetricBounds(_secondaryLabel!) : (null, null);
+    final String primaryEffective = _getEffectiveLabel(_primaryLabel!, _viewMode);
+    final String? secondaryEffective = _secondaryLabel != null
+        ? _getEffectiveLabel(_secondaryLabel!, _viewMode)
+        : null;
 
     if (_viewMode == InsightViewMode.daily) {
-      primaryData = await analytics.getDailyTimeSeries(_primaryLabel!, normalize: shouldNormalize, lastNDays: _dayRange, minValue: pMin, maxValue: pMax);
-      if (_secondaryLabel != null) {
-        secondaryData = await analytics.getDailyTimeSeries(_secondaryLabel!, normalize: true, lastNDays: _dayRange, minValue: sMin, maxValue: sMax);
+      primaryData = await analytics.getDailyTimeSeries(primaryEffective, normalize: false, lastNDays: _dayRange);
+      if (secondaryEffective != null) {
+        secondaryData = await analytics.getDailyTimeSeries(secondaryEffective, normalize: false, lastNDays: _dayRange);
       }
     } else if (_viewMode == InsightViewMode.circadian) {
-      primaryData = await analytics.getHourlyTimeSeries(_primaryLabel!, normalize: shouldNormalize, lastNDays: _dayRange, minValue: pMin, maxValue: pMax);
-      if (_secondaryLabel != null) {
-        secondaryData = await analytics.getHourlyTimeSeries(_secondaryLabel!, normalize: true, lastNDays: _dayRange, minValue: sMin, maxValue: sMax);
+      primaryData = await analytics.getHourlyTimeSeries(primaryEffective, normalize: false, lastNDays: _dayRange);
+      if (secondaryEffective != null) {
+        secondaryData = await analytics.getHourlyTimeSeries(secondaryEffective, normalize: false, lastNDays: _dayRange);
       }
     } else {
       // Timeline Mode (Hourly points)
       final timelineDays = _dayRange == 30 ? 3 : (_dayRange == 14 ? 2 : 1);
-      primaryData = await analytics.getRawHourlyTimeline(_primaryLabel!, normalize: shouldNormalize, lastNDays: timelineDays, minValue: pMin, maxValue: pMax);
-      if (_secondaryLabel != null) {
-        secondaryData = await analytics.getRawHourlyTimeline(_secondaryLabel!, normalize: true, lastNDays: timelineDays, minValue: sMin, maxValue: sMax);
+      primaryData = await analytics.getRawHourlyTimeline(primaryEffective, normalize: false, lastNDays: timelineDays);
+      if (secondaryEffective != null) {
+        secondaryData = await analytics.getRawHourlyTimeline(secondaryEffective, normalize: false, lastNDays: timelineDays);
       }
     }
 
@@ -139,6 +136,18 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       if (metric.inputType == MetricInputType.yesNo) return (0.0, 1.0);
     } catch (_) {}
     return (null, null);
+  }
+
+  String _getEffectiveLabel(String label, InsightViewMode mode) {
+    return MetricInsightsHelper.getEffectiveLabel(label, mode);
+  }
+
+  String _formatMetricValue(String label, double val) {
+    return MetricInsightsHelper.formatMetricValue(label, val);
+  }
+
+  String _formatAxisLabel(String label, double val) {
+    return MetricInsightsHelper.formatAxisLabel(label, val);
   }
 
   String _displayName(String label) {
@@ -417,22 +426,36 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       );
     }
 
+    final pMinMax = _getMetricBounds(_primaryLabel!);
+    double minA = pMinMax.$1 ?? (_seriesPrimary.values.isNotEmpty ? _seriesPrimary.values.reduce(min) : 0.0);
+    double maxA = pMinMax.$2 ?? (_seriesPrimary.values.isNotEmpty ? _seriesPrimary.values.reduce(max) : 1.0);
+    if (maxA == minA) maxA = minA + 1.0;
+
+    double minB = 0.0;
+    double maxB = 1.0;
+    if (isComparing) {
+      final sMinMax = _getMetricBounds(_secondaryLabel!);
+      minB = sMinMax.$1 ?? (_seriesSecondary.values.isNotEmpty ? _seriesSecondary.values.reduce(min) : 0.0);
+      maxB = sMinMax.$2 ?? (_seriesSecondary.values.isNotEmpty ? _seriesSecondary.values.reduce(max) : 1.0);
+      if (maxB == minB) maxB = minB + 1.0;
+    }
+
     final spotsA = <FlSpot>[];
     final spotsB = <FlSpot>[];
 
-    double maxValA = 0;
-    
     for (int i = 0; i < allKeys.length; i++) {
       final key = allKeys[i];
       final double xPos = isCircadian ? (key as int).toDouble() : i.toDouble();
 
       if (_seriesPrimary.containsKey(key)) {
         final val = _seriesPrimary[key]!;
-        spotsA.add(FlSpot(xPos, val));
-        if (val > maxValA) maxValA = val;
+        final double yPos = isComparing ? ((val - minA) / (maxA - minA)).clamp(0.0, 1.0) : val;
+        spotsA.add(FlSpot(xPos, yPos));
       }
-      if (_seriesSecondary.containsKey(key)) {
-        spotsB.add(FlSpot(xPos, _seriesSecondary[key]!));
+      if (isComparing && _seriesSecondary.containsKey(key)) {
+        final val = _seriesSecondary[key]!;
+        final double yPos = ((val - minB) / (maxB - minB)).clamp(0.0, 1.0);
+        spotsB.add(FlSpot(xPos, yPos));
       }
     }
 
@@ -443,16 +466,18 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     final bool isCounter = _allMetrics.any((m) => m.label == _primaryLabel && m.inputType == MetricInputType.counter);
     final bool isSecondaryCounter = isComparing && _allMetrics.any((m) => m.label == _secondaryLabel && m.inputType == MetricInputType.counter);
     
-    final maxY = isComparing ? 1.0 : (maxValA > 0 ? maxValA * 1.2 : 1.0);
+    final double minY = isComparing ? 0.0 : (pMinMax.$1 ?? 0.0);
+    final double maxY = isComparing ? 1.0 : (pMinMax.$2 ?? (maxA > 0 ? maxA * 1.15 : 1.0));
+
     // X Axis scaling
     final minX = 0.0;
     final maxX = isCircadian ? 23.0 : (allKeys.isNotEmpty ? allKeys.length.toDouble() - 1 : 0.0);
 
     // Calculate Y interval to avoid duplicate labels (0, 1, 1, 2, 2)
-    double yInterval = isComparing ? 0.5 : (maxY / 4);
-    if (!isComparing && isCounter && maxY < 6 && maxY > 0) {
+    double yInterval = isComparing ? 0.25 : ((maxY - minY) / 4);
+    if (!isComparing && isCounter && (maxY - minY) < 6 && (maxY - minY) > 0) {
       yInterval = 1.0; 
-    } else if (!isComparing && maxY < 1 && maxY > 0) {
+    } else if (!isComparing && (maxY - minY) < 1 && (maxY - minY) > 0) {
       yInterval = 0.25;
     }
 
@@ -483,6 +508,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
               ? BarChart(
                   BarChartData(
                     alignment: BarChartAlignment.spaceAround,
+                    minY: minY,
                     maxY: maxY,
                     barTouchData: BarTouchData(
                       touchTooltipData: BarTouchTooltipData(
@@ -492,14 +518,16 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                           if (idx < 0 || idx >= allKeys.length) return null;
                           final key = allKeys[idx];
                           String timeStr = _formatTooltipKey(key, _viewMode);
+                          final rawVal = rod.toY;
+                          final formattedVal = _formatMetricValue(_primaryLabel!, rawVal);
                           return BarTooltipItem(
-                            '${rod.toY.toStringAsFixed(0)}\n$timeStr',
+                            '$formattedVal\n$timeStr',
                             TextStyle(color: accentA, fontWeight: FontWeight.bold, fontSize: 10),
                           );
                         },
                       ),
                     ),
-                    titlesData: _buildTitlesData(allKeys, isCircadian, isTimeline, yInterval, isComparing),
+                    titlesData: _buildTitlesData(allKeys, isCircadian, isTimeline, yInterval, isComparing, minA, maxA, minB, maxB),
                     gridData: FlGridData(
                       show: true,
                       horizontalInterval: yInterval,
@@ -529,7 +557,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                   LineChartData(
                     minX: minX,
                     maxX: maxX,
-                    minY: 0,
+                    minY: minY,
                     maxY: maxY,
                     gridData: FlGridData(
                       show: true,
@@ -537,7 +565,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                       getDrawingHorizontalLine: (_) => FlLine(color: Colors.white.withAlpha(15), strokeWidth: 0.5),
                       drawVerticalLine: false,
                     ),
-                    titlesData: _buildTitlesData(allKeys, isCircadian, isTimeline, yInterval, isComparing),
+                    titlesData: _buildTitlesData(allKeys, isCircadian, isTimeline, yInterval, isComparing, minA, maxA, minB, maxB),
                     borderData: FlBorderData(show: false),
                     lineBarsData: [
                       _lineBar(spotsA, accentA, isFilled: !isComparing, isStep: isCounter),
@@ -553,10 +581,15 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                           String timeStr = _formatTooltipKey(key, _viewMode);
                           
                           return spots.map((s) {
-                            final color = s.barIndex == 0 ? accentA : accentB;
-                            final label = s.barIndex == 0 ? _displayName(_primaryLabel!) : _displayName(_secondaryLabel!);
+                            final isPrimarySpot = s.barIndex == 0;
+                            final color = isPrimarySpot ? accentA : accentB;
+                            final label = isPrimarySpot ? _displayName(_primaryLabel!) : _displayName(_secondaryLabel!);
+                            final rawVal = isComparing
+                                ? (isPrimarySpot ? s.y * (maxA - minA) + minA : s.y * (maxB - minB) + minB)
+                                : s.y;
+                            final formattedVal = _formatMetricValue(isPrimarySpot ? _primaryLabel! : _secondaryLabel!, rawVal);
                             return LineTooltipItem(
-                              '$timeStr\n$label: ${s.y.toStringAsFixed(isComparing ? 2 : 1)}',
+                              '$timeStr\n$label: $formattedVal',
                               TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
                             );
                           }).toList();
@@ -573,19 +606,48 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     );
   }
 
-  FlTitlesData _buildTitlesData(List<dynamic> allKeys, bool isCircadian, bool isTimeline, double yInterval, bool isComparing) {
+  FlTitlesData _buildTitlesData(
+    List<dynamic> allKeys,
+    bool isCircadian,
+    bool isTimeline,
+    double yInterval,
+    bool isComparing,
+    double minA,
+    double maxA,
+    double minB,
+    double maxB,
+  ) {
     return FlTitlesData(
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
           reservedSize: 40,
           interval: yInterval,
-          getTitlesWidget: (v, _) => Text(
-            isComparing ? v.toStringAsFixed(1) : v.toStringAsFixed(0),
-            style: TextStyle(fontSize: 9, color: Colors.white.withAlpha(80)),
-          ),
+          getTitlesWidget: (v, _) {
+            final double rawVal = isComparing ? (v * (maxA - minA) + minA) : v;
+            return Text(
+              _formatAxisLabel(_primaryLabel!, rawVal),
+              style: TextStyle(fontSize: 9, color: Colors.white.withAlpha(80)),
+            );
+          },
         ),
       ),
+      rightTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: isComparing,
+          reservedSize: 40,
+          interval: yInterval,
+          getTitlesWidget: (v, _) {
+            if (!isComparing || _secondaryLabel == null) return const SizedBox();
+            final double rawVal = v * (maxB - minB) + minB;
+            return Text(
+              _formatAxisLabel(_secondaryLabel!, rawVal),
+              style: TextStyle(fontSize: 9, color: CovaryDesignSystem.secondary.withAlpha(180)),
+            );
+          },
+        ),
+      ),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       bottomTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
@@ -624,8 +686,6 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
           },
         ),
       ),
-      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
     );
   }
 
@@ -828,4 +888,72 @@ class _SelectableMetric {
   final String emoji;
   final MetricInputType? inputType;
   const _SelectableMetric(this.label, this.displayName, this.emoji, {this.inputType});
+}
+
+class MetricInsightsHelper {
+  static String getEffectiveLabel(String label, InsightViewMode mode) {
+    if (mode == InsightViewMode.daily) {
+      return label;
+    }
+    switch (label) {
+      case 'step_count':
+        return 'step_segment';
+      case 'total_screen_time':
+        return 'app_usage_segment';
+      case 'category_time:social':
+        return 'category_segment:social';
+      case 'category_time:entertainment':
+        return 'category_segment:entertainment';
+      default:
+        if (label.startsWith('app_time:')) {
+          final pkg = label.replaceFirst('app_time:', '');
+          return 'app_segment:$pkg';
+        }
+        return label;
+    }
+  }
+
+  static String formatMetricValue(String label, double val) {
+    if (label == 'sleep_bedtime' || label == 'sleep_wakeup' || label == 'sleep_midpoint') {
+      double hours = val;
+      if (hours >= 24) hours -= 24;
+      final int h = hours.floor();
+      final int m = ((hours - h) * 60).round();
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+    }
+    if (label == 'sleep_duration_hours') {
+      return '${val.toStringAsFixed(1)}h';
+    }
+    if (label.contains('time') || label.contains('screen_time')) {
+      if (val >= 60) {
+        final h = val ~/ 60;
+        final m = (val % 60).round();
+        return '${h}h ${m}m';
+      }
+      return '${val.round()}m';
+    }
+    if (label == 'step_count' || label == 'step_segment') {
+      return NumberFormat.decimalPattern().format(val.round());
+    }
+    return val.toStringAsFixed(val % 1 == 0 ? 0 : 1);
+  }
+
+  static String formatAxisLabel(String label, double val) {
+    if (label == 'sleep_bedtime' || label == 'sleep_wakeup' || label == 'sleep_midpoint') {
+      double hours = val;
+      if (hours >= 24) hours -= 24;
+      final int h = hours.floor();
+      return '${h.toString().padLeft(2, '0')}:00';
+    }
+    if (label.contains('time') || label.contains('screen_time')) {
+      if (val >= 60) {
+        return '${(val / 60).toStringAsFixed(1)}h';
+      }
+      return '${val.round()}m';
+    }
+    if (val >= 1000) {
+      return '${(val / 1000).toStringAsFixed(1)}k';
+    }
+    return val.toStringAsFixed(val % 1 == 0 ? 0 : 1);
+  }
 }

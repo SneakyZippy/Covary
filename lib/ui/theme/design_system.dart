@@ -7,21 +7,21 @@ import 'package:google_fonts/google_fonts.dart';
 /// motion, and glassmorphism.
 class CovaryDesignSystem {
   // --- Raw Color Palette (Midnight Navy & Accents) ---
-  static const Color surface = Color(0xFF0e1512);
-  static const Color surfaceDim = Color(0xFF0e1512);
-  static const Color surfaceBright = Color(0xFF333b38);
-  static const Color surfaceContainerLowest = Color(0xFF09100d);
-  static const Color surfaceContainerLow = Color(0xFF161d1b);
-  static const Color surfaceContainer = Color(0xFF1a211f);
-  static const Color surfaceContainerHigh = Color(0xFF242c29);
-  static const Color surfaceContainerHighest = Color(0xFF2f3633);
-  static const Color onSurface = Color(0xFFdde4e0);
-  static const Color onSurfaceVariant = Color(0xFFbacac3);
-  static const Color inverseSurface = Color(0xFFdde4e0);
-  static const Color inverseOnSurface = Color(0xFF2b322f);
+  static const Color surface = Color(0xFF0B121F);
+  static const Color surfaceDim = Color(0xFF0B121F);
+  static const Color surfaceBright = Color(0xFF212C45);
+  static const Color surfaceContainerLowest = Color(0xFF070B14);
+  static const Color surfaceContainerLow = Color(0xFF101726);
+  static const Color surfaceContainer = Color(0xFF172033);
+  static const Color surfaceContainerHigh = Color(0xFF1F2B45);
+  static const Color surfaceContainerHighest = Color(0xFF2B3A5C);
+  static const Color onSurface = Color(0xFFE2E8F0);
+  static const Color onSurfaceVariant = Color(0xFF94A3B8);
+  static const Color inverseSurface = Color(0xFFE2E8F0);
+  static const Color inverseOnSurface = Color(0xFF0F172A);
 
-  static const Color outline = Color(0xFF85948e);
-  static const Color outlineVariant = Color(0xFF3c4a45);
+  static const Color outline = Color(0xFF64748B);
+  static const Color outlineVariant = Color(0xFF334155);
   static const Color surfaceTint = Color(0xFF38debb);
 
   // Default Primary Theme (Aquamarine)
@@ -53,13 +53,13 @@ class CovaryDesignSystem {
   static const Color errorContainer = Color(0xFF93000a);
   static const Color onErrorContainer = Color(0xFFffdad6);
 
-  static const Color background = Color(0xFF0e1512);
-  static const Color onBackground = Color(0xFFdde4e0);
+  static const Color background = Color(0xFF0B121F);
+  static const Color onBackground = Color(0xFFE2E8F0);
 
   // Elevated Neutrals & Levels (as defined in guidelines)
-  static const Color level0Background = Color(0xFF0B1120); // Midnight Navy
-  static const Color level1Surface = Color(0xFF162032);    // Layered Navy
-  static const Color innerBorderColor = Color(0x662D3748); // 40% opacity 2D3748
+  static const Color level0Background = Color(0xFF0B121F); // Midnight Navy
+  static const Color level1Surface = Color(0xFF172033);    // Layered Navy
+  static const Color innerBorderColor = Color(0x3394A3B8); // Slate outline with transparency
 
   // --- Spacing ---
   static const double unit = 4.0;

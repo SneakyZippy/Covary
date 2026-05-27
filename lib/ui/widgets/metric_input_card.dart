@@ -200,36 +200,50 @@ class _MetricInputCardState extends State<MetricInputCard> {
           child: Padding(
             padding: EdgeInsets.only(right: index < maxValue - 1 ? 8 : 0),
             child: GestureDetector(
-                onTap: () {
+              onTap: () {
                 setState(() => _selectedValue = value);
                 _emitChange();
               },
-              child: AnimatedContainer(
+              child: AnimatedScale(
+                scale: isSelected ? 1.05 : 1.0,
                 duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
+                curve: Curves.easeOutBack,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
                     color: isSelected
                         ? colorScheme.primary
-                        : colorScheme.outlineVariant,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    value,
-                    style: textTheme.titleSmall?.copyWith(
+                        : colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
                       color: isSelected
-                          ? colorScheme.onPrimary
-                          : colorScheme.onSurface,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant,
+                      width: isSelected ? 2 : 1,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: colorScheme.primary.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            )
+                          ]
+                        : [],
+                  ),
+                  child: Center(
+                    child: Text(
+                      value,
+                      style: textTheme.titleSmall?.copyWith(
+                        color: isSelected
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurface,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
                     ),
                   ),
                 ),
@@ -439,49 +453,63 @@ class _ToggleOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
+      child: AnimatedScale(
+        scale: isSelected ? 1.05 : 1.0,
         duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (label == 'Yes'
-                    ? colorScheme.primaryContainer
-                    : colorScheme.errorContainer)
-              : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
+        curve: Curves.easeOutBack,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
             color: isSelected
-                ? (label == 'Yes' ? colorScheme.primary : colorScheme.error)
-                : colorScheme.outlineVariant,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 20,
+                ? (label == 'Yes'
+                      ? colorScheme.primaryContainer
+                      : colorScheme.errorContainer)
+                : colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
               color: isSelected
-                  ? (label == 'Yes'
-                        ? colorScheme.onPrimaryContainer
-                        : colorScheme.onErrorContainer)
-                  : colorScheme.onSurfaceVariant,
+                  ? (label == 'Yes' ? colorScheme.primary : colorScheme.error)
+                  : colorScheme.outlineVariant,
+              width: isSelected ? 2 : 1,
             ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: (label == 'Yes' ? colorScheme.primary : colorScheme.error).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    )
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 20,
                 color: isSelected
                     ? (label == 'Yes'
                           ? colorScheme.onPrimaryContainer
                           : colorScheme.onErrorContainer)
                     : colorScheme.onSurfaceVariant,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? (label == 'Yes'
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onErrorContainer)
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
