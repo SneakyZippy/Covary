@@ -1,3 +1,5 @@
+pwa: https://sneakyzippy.github.io/Covary/
+
 # Covary <img src="assets/icon/app_icon.png" width="40" valign="middle">
 
 Covary is a behavioral research tool I'm building for my Bachelor's Thesis.
