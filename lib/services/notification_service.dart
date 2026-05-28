@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -9,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../ui/screens/daily_checkin_screen.dart';
 import '../data/database/app_database.dart';
 import '../data/models/enums.dart';
+import '../data/models/meal_reminder.dart';
 import '../ui/theme/design_system.dart';
 
 @pragma("vm:entry-point")
@@ -51,6 +53,7 @@ class NotificationService {
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     if (isAllowed) {
       await scheduleDailyReminders();
+      await scheduleMealReminders();
     }
   }
 
@@ -63,6 +66,7 @@ class NotificationService {
     isAllowed = await AwesomeNotifications().isNotificationAllowed();
     if (isAllowed) {
       await scheduleDailyReminders();
+      await scheduleMealReminders();
     }
   }
 
@@ -99,26 +103,61 @@ class NotificationService {
     } else if (receivedAction.buttonKeyPressed == 'remind_at') {
       await _logInteraction(db, InteractionType.snooze, receivedAction.payload);
       _showTimePickerDialog(receivedAction.payload);
-    } else {
-      await _resetDismissCount();
+    } else if (receivedAction.buttonKeyPressed == 'meal_snack' ||
+        receivedAction.buttonKeyPressed == 'meal_meal' ||
+        receivedAction.buttonKeyPressed == 'meal_feast') {
+      
+      String value = '1.0';
+      if (receivedAction.buttonKeyPressed == 'meal_meal') value = '2.0';
+      if (receivedAction.buttonKeyPressed == 'meal_feast') value = '3.0';
 
-      final sessionId = const Uuid().v4();
-      final windowId = receivedAction.payload?['window_id'];
+      await db.insertEvent(
+        EventsCompanion(
+          category: const Value(EventCategory.nutrition),
+          label: const Value('core_meal_count'),
+          value: Value(value),
+          latencyMs: const Value(0),
+          triggerSource: const Value(TriggerSource.notification),
+          interactionType: const Value(InteractionType.click),
+          timestamp: Value(DateTime.now()),
+          recordedAt: Value(DateTime.now()),
+        ),
+      );
 
       await _logInteraction(
         db,
         InteractionType.click,
         receivedAction.payload,
-        sessionId: sessionId,
+        value: value,
       );
-
-      if (receivedAction.payload?['metric_id'] != null) {
-        debugPrint(
-          '[NotificationService] Deep link to metric: ${receivedAction.payload?['metric_id']}',
+    } else {
+      if (receivedAction.payload?['notification_type'] == 'meal_reminder') {
+        await _logInteraction(
+          db,
+          InteractionType.click,
+          receivedAction.payload,
         );
-      }
+      } else {
+        await _resetDismissCount();
 
-      await _navigateToGuidedCheckin(sessionId: sessionId, windowId: windowId);
+        final sessionId = const Uuid().v4();
+        final windowId = receivedAction.payload?['window_id'];
+
+        await _logInteraction(
+          db,
+          InteractionType.click,
+          receivedAction.payload,
+          sessionId: sessionId,
+        );
+
+        if (receivedAction.payload?['metric_id'] != null) {
+          debugPrint(
+            '[NotificationService] Deep link to metric: ${receivedAction.payload?['metric_id']}',
+          );
+        }
+
+        await _navigateToGuidedCheckin(sessionId: sessionId, windowId: windowId);
+      }
     }
   }
 
@@ -169,7 +208,9 @@ class NotificationService {
       InteractionType.swipeAway,
       receivedAction.payload,
     );
-    await _incrementAndCheckDismissCount();
+    if (receivedAction.payload?['notification_type'] != 'meal_reminder') {
+      await _incrementAndCheckDismissCount();
+    }
   }
 
   @pragma("vm:entry-point")
@@ -199,10 +240,17 @@ class NotificationService {
   }) async {
     final windowLabel = payload?['window_label'];
     final metricId = payload?['metric_id'];
+    final notificationType = payload?['notification_type'];
+    final reminderLabel = payload?['reminder_label'];
     
-    final label = windowLabel != null 
-        ? 'Notification: $windowLabel' 
-        : 'Notification: ${metricId ?? 'EMA_Prompt'}';
+    String label;
+    if (notificationType == 'meal_reminder') {
+      label = 'Notification: Meal Reminder (${reminderLabel ?? 'Meal'})';
+    } else {
+      label = windowLabel != null 
+          ? 'Notification: $windowLabel' 
+          : 'Notification: ${metricId ?? 'EMA_Prompt'}';
+    }
 
     await db.insertEvent(
       EventsCompanion(
@@ -518,6 +566,155 @@ class NotificationService {
     await scheduleDailyReminders();
   }
 
+  static Future<void> scheduleMealReminders() async {
+    bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
+    debugPrint('[NotificationService] scheduleMealReminders: isAllowed=$isAllowed');
+    if (!isAllowed) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final bool masterEnabled = prefs.getBool('meal_reminders_master_enabled') ?? true;
+    final String? remindersJson = prefs.getString('meal_reminders');
+    final String localTimeZone = await AwesomeNotifications().getLocalTimeZoneIdentifier();
+
+    // 1. Cancel all existing meal reminders
+    final scheduled = await AwesomeNotifications().listScheduledNotifications();
+    for (var s in scheduled) {
+      final payload = s.content?.payload;
+      if (payload != null && payload['notification_type'] == 'meal_reminder') {
+        await AwesomeNotifications().cancel(s.content!.id!);
+      }
+    }
+
+    if (!masterEnabled) {
+      debugPrint('[NotificationService] Meal reminders are globally disabled.');
+      return;
+    }
+
+    List<MealReminder> reminders = [];
+    if (remindersJson != null) {
+      try {
+        final List<dynamic> decoded = json.decode(remindersJson);
+        reminders = decoded.map((item) => MealReminder.fromMap(item)).toList();
+      } catch (e) {
+        debugPrint('[NotificationService] Error parsing meal reminders: $e');
+      }
+    } else {
+      // Seed default presets if none are stored yet!
+      reminders = [
+        MealReminder(id: 'preset_breakfast', label: 'Breakfast', hour: 8, minute: 30, isEnabled: true),
+        MealReminder(id: 'preset_lunch', label: 'Lunch', hour: 12, minute: 30, isEnabled: true),
+        MealReminder(id: 'preset_dinner', label: 'Dinner', hour: 19, minute: 30, isEnabled: true),
+      ];
+      final encoded = json.encode(reminders.map((r) => r.toMap()).toList());
+      await prefs.setString('meal_reminders', encoded);
+    }
+
+    int scheduledCount = 0;
+    for (var reminder in reminders) {
+      if (!reminder.isEnabled) continue;
+
+      // Stable ID above 2B to prevent collisions
+      final notificationId = (reminder.id.hashCode.abs() % 1000000000) + 2000000000;
+      debugPrint('[NotificationService] Scheduling meal reminder ${reminder.label} (ID: $notificationId) at ${reminder.hour}:${reminder.minute}');
+
+      try {
+        await AwesomeNotifications().createNotification(
+          content: NotificationContent(
+            id: notificationId,
+            channelKey: 'ema_reminders',
+            title: '${reminder.label} Reminder',
+            body: 'Time to track your meal. What did you have?',
+            payload: {
+              'notification_type': 'meal_reminder',
+              'reminder_id': reminder.id,
+              'reminder_label': reminder.label,
+            },
+            notificationLayout: NotificationLayout.Default,
+            category: NotificationCategory.Reminder,
+            wakeUpScreen: true,
+          ),
+          schedule: NotificationCalendar(
+            hour: reminder.hour,
+            minute: reminder.minute,
+            second: 0,
+            allowWhileIdle: true,
+            preciseAlarm: true,
+            repeats: true,
+            timeZone: localTimeZone,
+          ),
+          actionButtons: [
+            NotificationActionButton(
+              key: 'meal_snack',
+              label: '🍪 Snack',
+              actionType: ActionType.SilentBackgroundAction,
+            ),
+            NotificationActionButton(
+              key: 'meal_meal',
+              label: '🍲 Meal',
+              actionType: ActionType.SilentBackgroundAction,
+            ),
+            NotificationActionButton(
+              key: 'meal_feast',
+              label: '🍖 Feast',
+              actionType: ActionType.SilentBackgroundAction,
+            ),
+          ],
+        );
+        scheduledCount++;
+      } catch (e) {
+        debugPrint('[NotificationService] Exact alarm failed for meal reminder ${reminder.label}, using inexact: $e');
+        try {
+          await AwesomeNotifications().createNotification(
+            content: NotificationContent(
+              id: notificationId,
+              channelKey: 'ema_reminders',
+              title: '${reminder.label} Reminder',
+              body: 'Time to track your meal. What did you have?',
+              payload: {
+                'notification_type': 'meal_reminder',
+                'reminder_id': reminder.id,
+                'reminder_label': reminder.label,
+              },
+              notificationLayout: NotificationLayout.Default,
+              category: NotificationCategory.Reminder,
+              wakeUpScreen: true,
+            ),
+            schedule: NotificationCalendar(
+              hour: reminder.hour,
+              minute: reminder.minute,
+              second: 0,
+              allowWhileIdle: true,
+              preciseAlarm: false,
+              repeats: true,
+              timeZone: localTimeZone,
+            ),
+            actionButtons: [
+              NotificationActionButton(
+                key: 'meal_snack',
+                label: '🍪 Snack',
+                actionType: ActionType.SilentBackgroundAction,
+              ),
+              NotificationActionButton(
+                key: 'meal_meal',
+                label: '🍲 Meal',
+                actionType: ActionType.SilentBackgroundAction,
+              ),
+              NotificationActionButton(
+                key: 'meal_feast',
+                label: '🍖 Feast',
+                actionType: ActionType.SilentBackgroundAction,
+              ),
+            ],
+          );
+          scheduledCount++;
+        } catch (e2) {
+          debugPrint('[NotificationService] Inexact alarm also failed for meal reminder ${reminder.label}: $e2');
+        }
+      }
+    }
+    debugPrint('[NotificationService] Scheduled $scheduledCount meal reminders.');
+  }
+
   static Future<void> schedulePrompt({
     Duration? delay,
     Map<String, String?>? payload,
@@ -534,17 +731,62 @@ class NotificationService {
 
     // Use a distinct ID range for snooze to prevent overwriting tomorrow's daily scheduled reminders
     final windowId = payload?['window_id'];
+    final notificationType = payload?['notification_type'];
+    final reminderId = payload?['reminder_id'];
+    final reminderLabel = payload?['reminder_label'];
+
     final notificationId = windowId != null 
         ? ((windowId.hashCode.abs() % 1000000000) + 1000000000) 
-        : 100;
+        : (notificationType == 'meal_reminder' && reminderId != null
+            ? ((reminderId.hashCode.abs() % 1000000000) + 3000000000)
+            : 100);
+
+    final bool isMeal = notificationType == 'meal_reminder';
+
+    final String title = isMeal
+        ? '${reminderLabel ?? 'Meal'} Reminder (Snoozed)'
+        : (payload?['window_label'] != null
+            ? '${payload!['window_label']} Check-in (Snoozed)'
+            : 'Time for a quick update!');
+
+    final String body = isMeal
+        ? 'Time to track your meal. What did you have?'
+        : 'Please take a moment to record your current status.';
+
+    final actionButtons = isMeal
+        ? [
+            NotificationActionButton(
+              key: 'meal_snack',
+              label: '🍪 Snack',
+              actionType: ActionType.SilentBackgroundAction,
+            ),
+            NotificationActionButton(
+              key: 'meal_meal',
+              label: '🍲 Meal',
+              actionType: ActionType.SilentBackgroundAction,
+            ),
+            NotificationActionButton(
+              key: 'meal_feast',
+              label: '🍖 Feast',
+              actionType: ActionType.SilentBackgroundAction,
+            ),
+          ]
+        : [
+            NotificationActionButton(
+              key: 'remind_at',
+              label: 'At time...',
+              actionType: ActionType.Default,
+            ),
+            ..._buildSnoozeButtons(snoozeDurations),
+          ];
 
     try {
       await AwesomeNotifications().createNotification(
         content: NotificationContent(
           id: notificationId,
           channelKey: 'ema_reminders',
-          title: 'Time for a quick update!',
-          body: 'Please take a moment to record your current status.',
+          title: title,
+          body: body,
           payload: payload ?? {'metric_id': 'default'},
           notificationLayout: NotificationLayout.Default,
           category: NotificationCategory.Reminder,
@@ -555,14 +797,7 @@ class NotificationService {
           allowWhileIdle: true,
           preciseAlarm: true,
         ),
-        actionButtons: [
-          NotificationActionButton(
-            key: 'remind_at',
-            label: 'At time...',
-            actionType: ActionType.Default,
-          ),
-          ..._buildSnoozeButtons(snoozeDurations),
-        ],
+        actionButtons: actionButtons,
       );
     } catch (e) {
       debugPrint('[NotificationService] Exact alarm scheduling failed, falling back to inexact alarm: $e');
@@ -571,8 +806,8 @@ class NotificationService {
           content: NotificationContent(
             id: notificationId,
             channelKey: 'ema_reminders',
-            title: 'Time for a quick update!',
-            body: 'Please take a moment to record your current status.',
+            title: title,
+            body: body,
             payload: payload ?? {'metric_id': 'default'},
             notificationLayout: NotificationLayout.Default,
             category: NotificationCategory.Reminder,
@@ -583,14 +818,7 @@ class NotificationService {
             allowWhileIdle: true,
             preciseAlarm: false,
           ),
-          actionButtons: [
-            NotificationActionButton(
-              key: 'remind_at',
-              label: 'At time...',
-              actionType: ActionType.Default,
-            ),
-            ..._buildSnoozeButtons(snoozeDurations),
-          ],
+          actionButtons: actionButtons,
         );
       } catch (e2) {
         debugPrint('[NotificationService] Inexact alarm scheduling also failed: $e2');

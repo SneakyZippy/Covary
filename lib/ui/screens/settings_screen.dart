@@ -20,6 +20,7 @@ import '../widgets/sync_summary_dialog.dart';
 import 'metrics_screen.dart';
 import 'tracking_windows_screen.dart';
 import 'onboarding_screen.dart';
+import 'meal_reminders_screen.dart';
 
 /// Settings screen for managing profile, notifications, and data.
 class SettingsScreen extends StatefulWidget {
@@ -249,6 +250,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: _NotificationSettingsSection(),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: ListTile(
+                    leading: Icon(Icons.restaurant_rounded, color: colorScheme.primary),
+                    title: const Text('Meal Reminders'),
+                    subtitle: const Text('Schedule alerts with quick Snack/Meal/Feast buttons'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MealRemindersScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
 

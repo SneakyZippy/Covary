@@ -552,6 +552,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           category: const Value(EventCategory.meta),
           label: const Value('SessionCompleted'),
           value: Value(windowId ?? 'anytime'),
+          timestamp: Value(effectiveTargetTime),
           triggerSource: const Value(TriggerSource.system),
           interactionType: const Value(InteractionType.click),
           sessionId: Value(sessionId),

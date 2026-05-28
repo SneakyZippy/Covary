@@ -6,8 +6,85 @@ import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/metric_definition.dart';
 import '../../data/database/tables/table_utils.dart';
+import '../../data/repositories/profile_repository.dart';
 import 'metric_input_card.dart';
 import 'metric_icon.dart';
+import 'quick_track_value_sheet.dart';
+
+// =============================================================================
+// Counter Metric Configurations
+// =============================================================================
+
+class CounterMetricConfig {
+  final String unit;
+  final double step;
+  final double min;
+  final double max;
+  final double fallbackDefault;
+
+  const CounterMetricConfig({
+    required this.unit,
+    required this.step,
+    required this.min,
+    required this.max,
+    required this.fallbackDefault,
+  });
+}
+
+const Map<String, CounterMetricConfig> _counterConfigs = {
+  'core_water_intake': CounterMetricConfig(
+    unit: 'ml',
+    step: 50,
+    min: 50,
+    max: 1000,
+    fallbackDefault: 250,
+  ),
+  'core_coffee_intake': CounterMetricConfig(
+    unit: 'cups',
+    step: 0.5,
+    min: 0.5,
+    max: 4.0,
+    fallbackDefault: 1.0,
+  ),
+  'core_alcohol_intake': CounterMetricConfig(
+    unit: 'drinks',
+    step: 1.0,
+    min: 1.0,
+    max: 8.0,
+    fallbackDefault: 1.0,
+  ),
+  'core_meal_count': CounterMetricConfig(
+    unit: 'meals',
+    step: 1.0,
+    min: 1.0,
+    max: 3.0,
+    fallbackDefault: 2.0, // Default to a standard Meal
+  ),
+  'core_toilet_urge': CounterMetricConfig(
+    unit: 'visits',
+    step: 1.0,
+    min: 1.0,
+    max: 5.0,
+    fallbackDefault: 1.0,
+  ),
+  '4b4ab972-ef92-4344-8573-18bda9e259db': CounterMetricConfig( // Smoked
+    unit: 'cigarettes',
+    step: 1.0,
+    min: 1.0,
+    max: 10.0,
+    fallbackDefault: 1.0,
+  ),
+};
+
+CounterMetricConfig _getConfig(String metricId) {
+  return _counterConfigs[metricId] ?? const CounterMetricConfig(
+    unit: 'units',
+    step: 1.0,
+    min: 1.0,
+    max: 10.0,
+    fallbackDefault: 1.0,
+  );
+}
 
 // =============================================================================
 // Quick Track Button
@@ -25,18 +102,32 @@ class QuickTrackButton extends StatelessWidget {
     required this.onLogged,
   });
 
-  Future<void> _handleTap(BuildContext context, {DateTime? customTime}) async {
+  Future<void> _handleTap(BuildContext context, {DateTime? customTime, double? customValue}) async {
     if (metric.inputType == MetricInputType.counter) {
       try {
         final db = context.read<AppDatabase>();
+        final profileRepo = context.read<ProfileRepository>();
         final eventId = uuid.v4();
         final now = DateTime.now();
+
+        // 1. Get the current default value (either from SharedPreferences or fallback)
+        final config = _getConfig(metric.id);
+        final savedValStr = profileRepo.getStringSetting('quick_track_default_value_${metric.id}');
+        final defaultValue = savedValStr != null
+            ? (double.tryParse(savedValStr) ?? config.fallbackDefault)
+            : config.fallbackDefault;
+
+        final valueToLog = customValue ?? defaultValue;
+        final valueStr = valueToLog == valueToLog.toInt()
+            ? valueToLog.toInt().toString()
+            : valueToLog.toString();
+
         await db.insertEvent(
           EventsCompanion(
             id: Value(eventId),
             category: Value(metric.category),
             label: Value(metric.label),
-            value: const Value('1'),
+            value: Value(valueStr),
             latencyMs: const Value(0),
             triggerSource: const Value(TriggerSource.manual),
             interactionType: const Value(InteractionType.click),
@@ -44,14 +135,35 @@ class QuickTrackButton extends StatelessWidget {
             recordedAt: Value(now),
           ),
         );
+
         if (context.mounted) {
           onLogged();
           ScaffoldMessenger.of(context).clearSnackBars();
+          
+          String snackbarText;
+          if (metric.id == 'core_meal_count') {
+            final mealType = valueToLog == 1.0 ? 'Snack' : (valueToLog == 2.0 ? 'Meal' : 'Feast');
+            snackbarText = '$mealType logged! ✓';
+          } else if (metric.id == 'core_toilet_urge') {
+            snackbarText = 'Bathroom visit logged! ✓';
+          } else {
+            final displayVal = valueToLog == valueToLog.toInt() ? valueToLog.toInt().toString() : valueToLog.toStringAsFixed(1);
+            String unitLabel = config.unit;
+            if (valueToLog == 1.0) {
+              if (config.unit == 'cups') unitLabel = 'cup';
+              if (config.unit == 'drinks') unitLabel = 'drink';
+              if (config.unit == 'cigarettes') unitLabel = 'cigarette';
+              if (config.unit == 'visits') unitLabel = 'visit';
+              if (config.unit == 'meals') unitLabel = 'meal';
+            }
+            snackbarText = '${metric.label} logged! ($displayVal $unitLabel) ✓';
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
                 children: [
-                  Expanded(child: Text('${metric.label} logged! ✓')),
+                  Expanded(child: Text(snackbarText)),
                   TextButton(
                     onPressed: () async {
                       await db.deleteEvent(eventId);
@@ -75,6 +187,37 @@ class QuickTrackButton extends StatelessWidget {
     } else {
       _showInputModal(context, customTime: customTime);
     }
+  }
+
+  void _showValueSliderSheet(BuildContext context) {
+    final profileRepo = context.read<ProfileRepository>();
+    final config = _getConfig(metric.id);
+    final savedValStr = profileRepo.getStringSetting('quick_track_default_value_${metric.id}');
+    final defaultValue = savedValStr != null
+        ? (double.tryParse(savedValStr) ?? config.fallbackDefault)
+        : config.fallbackDefault;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => QuickTrackValueSheet(
+        metric: metric,
+        initialValue: defaultValue,
+        unit: config.unit,
+        step: config.step,
+        min: config.min,
+        max: config.max,
+        onConfirm: (value, time, saveAsDefault) async {
+          if (saveAsDefault) {
+            await profileRepo.setStringSetting('quick_track_default_value_${metric.id}', value.toString());
+          }
+          if (context.mounted) {
+            await _handleTap(context, customTime: time, customValue: value);
+          }
+        },
+      ),
+    );
   }
 
   void _showInputModal(BuildContext context, {DateTime? customTime}) {
@@ -154,16 +297,75 @@ class QuickTrackButton extends StatelessWidget {
     );
   }
 
+  String _formatValueString(double val) {
+    if (val == val.toInt()) {
+      return val.toInt().toString();
+    }
+    return val.toStringAsFixed(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final db = context.read<AppDatabase>();
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return StreamBuilder<int>(
-      stream: db.watchTodayCountForLabel(metric.label),
+    final config = _getConfig(metric.id);
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+
+    final todayEventsStream = (db.select(db.events)
+          ..where((t) => t.label.equals(metric.label))
+          ..where((t) => t.timestamp.isBiggerOrEqualValue(todayStart)))
+        .watch();
+
+    return StreamBuilder<List<Event>>(
+      stream: todayEventsStream,
       builder: (context, snapshot) {
-        final count = snapshot.data ?? 0;
+        final list = snapshot.data ?? [];
+
+        String displayLabel = 'Today: None yet';
+
+        if (list.isNotEmpty) {
+          if (metric.id == 'core_meal_count') {
+            // Count meals by category
+            final snacks = list.where((e) => e.value == '1').length;
+            final meals = list.where((e) => e.value == '2').length;
+            final feasts = list.where((e) => e.value == '3').length;
+
+            final List<String> segments = [];
+            if (meals > 0) segments.add('$meals Meal${meals > 1 ? 's' : ''}');
+            if (snacks > 0) segments.add('$snacks Snack${snacks > 1 ? 's' : ''}');
+            if (feasts > 0) segments.add('$feasts Feast${feasts > 1 ? 's' : ''}');
+
+            displayLabel = segments.isEmpty ? 'Today: None yet' : 'Today: ${segments.join(', ')}';
+          } else {
+            // Calculate sum
+            double sum = 0.0;
+            for (var e in list) {
+              sum += double.tryParse(e.value) ?? 1.0;
+            }
+
+            final formattedVal = _formatValueString(sum);
+            
+            if (metric.id == 'core_toilet_urge') {
+              displayLabel = 'Today: ${sum.toInt()} visit${sum.toInt() == 1 ? '' : 's'}';
+            } else {
+              String unitLabel = config.unit;
+              if (sum == 1.0) {
+                if (config.unit == 'cups') unitLabel = 'cup';
+                if (config.unit == 'drinks') unitLabel = 'drink';
+                if (config.unit == 'cigarettes') unitLabel = 'cigarette';
+                if (config.unit == 'visits') unitLabel = 'visit';
+                if (config.unit == 'meals') unitLabel = 'meal';
+              }
+              
+              displayLabel = config.unit == 'units' || config.unit.isEmpty
+                  ? 'Today: $formattedVal'
+                  : 'Today: $formattedVal $unitLabel';
+            }
+          }
+        }
 
         return Material(
           color: colorScheme.surfaceContainerHighest,
@@ -171,20 +373,24 @@ class QuickTrackButton extends StatelessWidget {
           child: InkWell(
             onTap: () => _handleTap(context),
             onLongPress: () async {
-              final now = DateTime.now();
-              final time = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.now(),
-              );
-              if (time != null && context.mounted) {
-                final customTime = DateTime(
-                  now.year,
-                  now.month,
-                  now.day,
-                  time.hour,
-                  time.minute,
+              if (metric.inputType == MetricInputType.counter) {
+                _showValueSliderSheet(context);
+              } else {
+                final now = DateTime.now();
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.now(),
                 );
-                _handleTap(context, customTime: customTime);
+                if (time != null && context.mounted) {
+                  final customTime = DateTime(
+                    now.year,
+                    now.month,
+                    now.day,
+                    time.hour,
+                    time.minute,
+                  );
+                  _handleTap(context, customTime: customTime);
+                }
               }
             },
             borderRadius: BorderRadius.circular(20),
@@ -209,7 +415,7 @@ class QuickTrackButton extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Today: $count',
+                          displayLabel,
                           style: textTheme.bodySmall?.copyWith(
                             color: colorScheme.primary,
                             fontWeight: FontWeight.w600,

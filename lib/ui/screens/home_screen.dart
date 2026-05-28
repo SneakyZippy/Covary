@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<TrackingWindow> _missedWindows = [];
   List<TrackingWindow> _activeWindows = [];
   Set<String> _completedWindowIds = {};
+  Set<String> _dismissedWindowIds = {};
   List<Event> _todayEvents = [];
   
   // Activity Overview
@@ -123,6 +124,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         .map((e) => e.value)
         .toSet();
 
+    final dismissedIds = todayEvents
+        .where((e) => e.category == EventCategory.meta && e.label == 'SessionDismissed')
+        .map((e) => e.value)
+        .toSet();
+
     // Activity and Streak Computation
     final indicatorLabels = metricService.allMetrics
         .where((m) => m.isActivityIndicator)
@@ -168,6 +174,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         _activeWindows = activeWindows;
         _completedWindowIds = completedIds;
+        _dismissedWindowIds = dismissedIds;
         _todayEvents = todayEvents;
         _activityLevels = activityLevels;
         _currentStreak = currentStreak;
@@ -196,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _healthMissing = !healthGranted;
         _usageMissing = !usageGranted;
         _notificationsMissing = !notifGranted;
-        _bannerPermanentlyDismissed = dismissed;
+        _bannerPermanentlyDismissed = dismissed || _bannerPermanentlyDismissed;
       });
     }
   }
@@ -229,14 +236,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         
         // Find if there's a completion/dismissal for THIS specific iteration of the window.
         // We match by checking if the meta event timestamp falls on the same date as the targetTime.
-        final isCompleted = allEvents.any((e) => 
-            e.category == EventCategory.meta &&
-            (e.label == 'SessionCompleted' || e.label == 'SessionDismissed') &&
-            e.value == window.id &&
-            e.timestamp.year == targetTime.year &&
-            e.timestamp.month == targetTime.month &&
-            e.timestamp.day == targetTime.day
-        );
+        final isCompleted = _completedWindowIds.contains(window.id) ||
+            _dismissedWindowIds.contains(window.id) ||
+            allEvents.any((e) => 
+                e.category == EventCategory.meta &&
+                (e.label == 'SessionCompleted' || e.label == 'SessionDismissed') &&
+                e.value == window.id &&
+                e.timestamp.year == targetTime.year &&
+                e.timestamp.month == targetTime.month &&
+                e.timestamp.day == targetTime.day
+            );
 
         if (!isCompleted) {
           missed.add(window);
@@ -468,6 +477,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       key: const ValueKey('permission_banner'),
       direction: DismissDirection.horizontal,
       onDismissed: (_) async {
+        setState(() => _bannerPermanentlyDismissed = true);
         final eventRepo = context.read<EventRepository>();
         await eventRepo.insertEvent(
           EventsCompanion(
@@ -478,7 +488,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             interactionType: const Value(InteractionType.swipeAway),
           ),
         );
-        setState(() => _bannerPermanentlyDismissed = true);
       },
       child: Card(
         elevation: 0,
@@ -573,12 +582,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       colorScheme: colorScheme,
       textTheme: textTheme,
       onDismissed: () async {
+        setState(() {
+          _missedWindows.removeWhere((w) => w.id == window.id);
+          _dismissedWindowIds.add(window.id);
+        });
         final eventRepo = context.read<EventRepository>();
         await eventRepo.insertEvent(
           EventsCompanion(
             category: const Value(EventCategory.meta),
             label: const Value('SessionDismissed'),
             value: Value(window.id),
+            timestamp: Value(targetTime),
             triggerSource: const Value(TriggerSource.system),
             interactionType: const Value(InteractionType.swipeAway),
           ),
