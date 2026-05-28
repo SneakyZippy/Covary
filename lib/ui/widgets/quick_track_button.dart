@@ -10,6 +10,7 @@ import '../../data/repositories/profile_repository.dart';
 import 'metric_input_card.dart';
 import 'metric_icon.dart';
 import 'quick_track_value_sheet.dart';
+import 'confetti_animation.dart';
 
 // =============================================================================
 // Counter Metric Configurations
@@ -76,7 +77,7 @@ const Map<String, CounterMetricConfig> _counterConfigs = {
   ),
 };
 
-CounterMetricConfig _getConfig(String metricId) {
+CounterMetricConfig getCounterConfig(String metricId) {
   return _counterConfigs[metricId] ?? const CounterMetricConfig(
     unit: 'units',
     step: 1.0,
@@ -92,7 +93,7 @@ CounterMetricConfig _getConfig(String metricId) {
 
 /// A card button shown in the home screen "Quick Track" grid.
 /// Tapping a counter metric logs immediately; other types open a bottom sheet.
-class QuickTrackButton extends StatelessWidget {
+class QuickTrackButton extends StatefulWidget {
   final MetricDefinition metric;
   final VoidCallback onLogged;
 
@@ -102,8 +103,30 @@ class QuickTrackButton extends StatelessWidget {
     required this.onLogged,
   });
 
+  @override
+  State<QuickTrackButton> createState() => _QuickTrackButtonState();
+}
+
+class _QuickTrackButtonState extends State<QuickTrackButton> {
+  double _scale = 1.0;
+  Offset? _lastTapPosition;
+
+  void _triggerBurst(BuildContext context) {
+    if (!mounted) return;
+    if (_lastTapPosition != null) {
+      ConfettiOverlay.of(context)?.burst(_lastTapPosition!);
+    } else {
+      // Fallback: burst near the widget center
+      final RenderBox? box = context.findRenderObject() as RenderBox?;
+      if (box != null) {
+        final position = box.localToGlobal(Offset(box.size.width / 2, box.size.height / 2));
+        ConfettiOverlay.of(context)?.burst(position);
+      }
+    }
+  }
+
   Future<void> _handleTap(BuildContext context, {DateTime? customTime, double? customValue}) async {
-    if (metric.inputType == MetricInputType.counter) {
+    if (widget.metric.inputType == MetricInputType.counter) {
       try {
         final db = context.read<AppDatabase>();
         final profileRepo = context.read<ProfileRepository>();
@@ -111,8 +134,8 @@ class QuickTrackButton extends StatelessWidget {
         final now = DateTime.now();
 
         // 1. Get the current default value (either from SharedPreferences or fallback)
-        final config = _getConfig(metric.id);
-        final savedValStr = profileRepo.getStringSetting('quick_track_default_value_${metric.id}');
+        final config = getCounterConfig(widget.metric.id);
+        final savedValStr = profileRepo.getStringSetting('quick_track_default_value_${widget.metric.id}');
         final defaultValue = savedValStr != null
             ? (double.tryParse(savedValStr) ?? config.fallbackDefault)
             : config.fallbackDefault;
@@ -125,8 +148,8 @@ class QuickTrackButton extends StatelessWidget {
         await db.insertEvent(
           EventsCompanion(
             id: Value(eventId),
-            category: Value(metric.category),
-            label: Value(metric.label),
+            category: Value(widget.metric.category),
+            label: Value(widget.metric.label),
             value: Value(valueStr),
             latencyMs: const Value(0),
             triggerSource: const Value(TriggerSource.manual),
@@ -137,14 +160,15 @@ class QuickTrackButton extends StatelessWidget {
         );
 
         if (context.mounted) {
-          onLogged();
+          widget.onLogged();
+          _triggerBurst(context);
           ScaffoldMessenger.of(context).clearSnackBars();
           
           String snackbarText;
-          if (metric.id == 'core_meal_count') {
+          if (widget.metric.id == 'core_meal_count') {
             final mealType = valueToLog == 1.0 ? 'Snack' : (valueToLog == 2.0 ? 'Meal' : 'Feast');
             snackbarText = '$mealType logged! ✓';
-          } else if (metric.id == 'core_toilet_urge') {
+          } else if (widget.metric.id == 'core_toilet_urge') {
             snackbarText = 'Bathroom visit logged! ✓';
           } else {
             final displayVal = valueToLog == valueToLog.toInt() ? valueToLog.toInt().toString() : valueToLog.toStringAsFixed(1);
@@ -156,7 +180,7 @@ class QuickTrackButton extends StatelessWidget {
               if (config.unit == 'visits') unitLabel = 'visit';
               if (config.unit == 'meals') unitLabel = 'meal';
             }
-            snackbarText = '${metric.label} logged! ($displayVal $unitLabel) ✓';
+            snackbarText = '${widget.metric.label} logged! ($displayVal $unitLabel) ✓';
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -168,7 +192,7 @@ class QuickTrackButton extends StatelessWidget {
                     onPressed: () async {
                       await db.deleteEvent(eventId);
                       if (context.mounted) {
-                        onLogged();
+                        widget.onLogged();
                         ScaffoldMessenger.of(context).hideCurrentSnackBar();
                       }
                     },
@@ -191,8 +215,8 @@ class QuickTrackButton extends StatelessWidget {
 
   void _showValueSliderSheet(BuildContext context) {
     final profileRepo = context.read<ProfileRepository>();
-    final config = _getConfig(metric.id);
-    final savedValStr = profileRepo.getStringSetting('quick_track_default_value_${metric.id}');
+    final config = getCounterConfig(widget.metric.id);
+    final savedValStr = profileRepo.getStringSetting('quick_track_default_value_${widget.metric.id}');
     final defaultValue = savedValStr != null
         ? (double.tryParse(savedValStr) ?? config.fallbackDefault)
         : config.fallbackDefault;
@@ -202,7 +226,7 @@ class QuickTrackButton extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => QuickTrackValueSheet(
-        metric: metric,
+        metric: widget.metric,
         initialValue: defaultValue,
         unit: config.unit,
         step: config.step,
@@ -210,7 +234,7 @@ class QuickTrackButton extends StatelessWidget {
         max: config.max,
         onConfirm: (value, time, saveAsDefault) async {
           if (saveAsDefault) {
-            await profileRepo.setStringSetting('quick_track_default_value_${metric.id}', value.toString());
+            await profileRepo.setStringSetting('quick_track_default_value_${widget.metric.id}', value.toString());
           }
           if (context.mounted) {
             await _handleTap(context, customTime: time, customValue: value);
@@ -236,7 +260,7 @@ class QuickTrackButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             MetricInputCard(
-              metric: metric,
+              metric: widget.metric,
               onChanged: (value) async {
                 try {
                   final latency = DateTime.now()
@@ -248,8 +272,8 @@ class QuickTrackButton extends StatelessWidget {
                   await db.insertEvent(
                     EventsCompanion(
                       id: Value(eventId),
-                      category: Value(metric.category),
-                      label: Value(metric.label),
+                      category: Value(widget.metric.category),
+                      label: Value(widget.metric.label),
                       value: Value(value),
                       latencyMs: Value(latency),
                       triggerSource: const Value(TriggerSource.manual),
@@ -260,18 +284,19 @@ class QuickTrackButton extends StatelessWidget {
                   );
                   if (ctx.mounted) {
                     Navigator.pop(ctx);
-                    onLogged();
+                    widget.onLogged();
+                    _triggerBurst(context);
                     ScaffoldMessenger.of(ctx).clearSnackBars();
                     ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
                         content: Row(
                           children: [
-                            Expanded(child: Text('${metric.label} logged!')),
+                            Expanded(child: Text('${widget.metric.label} logged!')),
                             TextButton(
                               onPressed: () async {
                                 await db.deleteEvent(eventId);
                                 if (ctx.mounted) {
-                                  onLogged();
+                                  widget.onLogged();
                                   ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
                                 }
                               },
@@ -310,12 +335,12 @@ class QuickTrackButton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final config = _getConfig(metric.id);
+    final config = getCounterConfig(widget.metric.id);
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
 
     final todayEventsStream = (db.select(db.events)
-          ..where((t) => t.label.equals(metric.label))
+          ..where((t) => t.label.equals(widget.metric.label))
           ..where((t) => t.timestamp.isBiggerOrEqualValue(todayStart)))
         .watch();
 
@@ -327,7 +352,7 @@ class QuickTrackButton extends StatelessWidget {
         String displayLabel = 'Today: None yet';
 
         if (list.isNotEmpty) {
-          if (metric.id == 'core_meal_count') {
+          if (widget.metric.id == 'core_meal_count') {
             // Count meals by category
             final snacks = list.where((e) => e.value == '1').length;
             final meals = list.where((e) => e.value == '2').length;
@@ -348,7 +373,7 @@ class QuickTrackButton extends StatelessWidget {
 
             final formattedVal = _formatValueString(sum);
             
-            if (metric.id == 'core_toilet_urge') {
+            if (widget.metric.id == 'core_toilet_urge') {
               displayLabel = 'Today: ${sum.toInt()} visit${sum.toInt() == 1 ? '' : 's'}';
             } else {
               String unitLabel = config.unit;
@@ -367,64 +392,88 @@ class QuickTrackButton extends StatelessWidget {
           }
         }
 
-        return Material(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            onTap: () => _handleTap(context),
-            onLongPress: () async {
-              if (metric.inputType == MetricInputType.counter) {
-                _showValueSliderSheet(context);
-              } else {
-                final now = DateTime.now();
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: TimeOfDay.now(),
-                );
-                if (time != null && context.mounted) {
-                  final customTime = DateTime(
-                    now.year,
-                    now.month,
-                    now.day,
-                    time.hour,
-                    time.minute,
-                  );
-                  _handleTap(context, customTime: customTime);
-                }
-              }
-            },
+        return AnimatedScale(
+          scale: _scale,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutBack,
+          child: Material(
+            color: colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  MetricIcon(iconName: metric.emoji, size: 32),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          metric.label,
-                          style: textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+            child: InkWell(
+              onTapDown: (details) {
+                setState(() {
+                  _scale = 0.94; // shrink slightly
+                  _lastTapPosition = details.globalPosition;
+                });
+              },
+              onTapCancel: () {
+                setState(() {
+                  _scale = 1.0;
+                });
+              },
+              onTap: () {
+                setState(() {
+                  _scale = 1.0;
+                });
+                _handleTap(context);
+              },
+              onLongPress: () async {
+                setState(() {
+                  _scale = 1.0;
+                });
+                if (widget.metric.inputType == MetricInputType.counter) {
+                  _showValueSliderSheet(context);
+                } else {
+                  final now = DateTime.now();
+                  final time = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                  );
+                  if (time != null && context.mounted) {
+                    final customTime = DateTime(
+                      now.year,
+                      now.month,
+                      now.day,
+                      time.hour,
+                      time.minute,
+                    );
+                    _handleTap(context, customTime: customTime);
+                  }
+                }
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    MetricIcon(iconName: widget.metric.emoji, size: 32),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            widget.metric.label,
+                            style: textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          displayLabel,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(height: 4),
+                          Text(
+                            displayLabel,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

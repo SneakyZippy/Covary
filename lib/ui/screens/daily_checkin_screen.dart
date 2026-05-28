@@ -10,6 +10,7 @@ import '../../data/repositories/event_repository.dart';
 import '../../services/metric_service.dart';
 import '../widgets/metric_input_card.dart';
 import '../widgets/metric_icon.dart';
+import '../widgets/confetti_animation.dart';
 
 /// Defines the two ways a check-in can be performed.
 enum CheckinMode {
@@ -561,6 +562,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     }
 
     if (mounted) {
+      ConfettiOverlay.of(context)?.celebrate();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(

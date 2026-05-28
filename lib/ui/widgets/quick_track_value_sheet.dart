@@ -194,6 +194,19 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
           ),
           const SizedBox(height: 24),
 
+          // Dynamic portion preview
+          if (!isToilet) ...[
+            _PortionPreview(
+              metricId: widget.metric.id,
+              value: _currentValue,
+              minVal: widget.min,
+              maxVal: widget.max,
+              colorScheme: colorScheme,
+              textTheme: textTheme,
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Core Input Section
           if (isToilet) ...[
             // Toilet visits need no value input, just a clean confirmation
@@ -411,3 +424,164 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
     );
   }
 }
+
+// =============================================================================
+// Portion Size Preview Widget
+// =============================================================================
+
+class _PortionPreview extends StatelessWidget {
+  final String metricId;
+  final double value;
+  final double minVal;
+  final double maxVal;
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  const _PortionPreview({
+    required this.metricId,
+    required this.value,
+    required this.minVal,
+    required this.maxVal,
+    required this.colorScheme,
+    required this.textTheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String emoji = '📊';
+    String title = 'Portion';
+    double baseScale = 1.0;
+
+    final range = maxVal - minVal;
+    final normalized = range > 0 ? (value - minVal) / range : 0.0;
+
+    if (metricId == 'core_water_intake') {
+      baseScale = 0.75 + (normalized * 0.65); // ranges from 0.75 to 1.4
+      if (value < 250) {
+        emoji = '💧';
+        title = 'Quick Sip';
+      } else if (value < 500) {
+        emoji = '🥛';
+        title = 'Small Glass';
+      } else if (value < 750) {
+        emoji = '🥤';
+        title = 'Regular Bottle';
+      } else {
+        emoji = '🫙';
+        title = 'Mega Pitcher';
+      }
+    } else if (metricId == 'core_coffee_intake') {
+      baseScale = 0.8 + (normalized * 0.6); // ranges from 0.8 to 1.4
+      if (value <= 1.0) {
+        emoji = '☕';
+        title = 'Single Espresso';
+      } else if (value <= 2.0) {
+        emoji = '🍵';
+        title = 'Comforting Mug';
+      } else {
+        emoji = '🫖';
+        title = 'Huge Coffee Pot';
+      }
+    } else if (metricId == 'core_meal_count') {
+      if (value == 1.0) {
+        emoji = '🍪';
+        title = 'Light Snack';
+        baseScale = 0.85;
+      } else if (value == 2.0) {
+        emoji = '🍝';
+        title = 'Full Meal';
+        baseScale = 1.15;
+      } else {
+        emoji = '🍱';
+        title = 'Large Feast';
+        baseScale = 1.45;
+      }
+    } else if (metricId == 'core_alcohol_intake') {
+      baseScale = 0.8 + (normalized * 0.6);
+      if (value <= 1.0) {
+        emoji = '🍷';
+        title = 'Single Serving';
+      } else if (value <= 3.0) {
+        emoji = '🍺';
+        title = 'A Few Drinks';
+      } else {
+        emoji = '🍻';
+        title = 'Party Mode';
+      }
+    } else if (metricId.contains('smoked') || metricId == '4b4ab972-ef92-4344-8573-18bda9e259db') {
+      baseScale = 0.8 + (normalized * 0.6);
+      if (value <= 1.0) {
+        emoji = '🚬';
+        title = 'Just One';
+      } else if (value <= 3.0) {
+        emoji = '💨';
+        title = 'Moderate Session';
+      } else {
+        emoji = '🌫️';
+        title = 'Heavy Session';
+      }
+    } else {
+      baseScale = 0.9 + (normalized * 0.4);
+      emoji = '📦';
+      title = 'Custom Portion';
+    }
+
+    return Center(
+      child: Container(
+        width: 130,
+        height: 130,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              colorScheme.primary.withAlpha(25),
+              colorScheme.primary.withAlpha(0),
+            ],
+          ),
+          border: Border.all(
+            color: colorScheme.primary.withAlpha(20),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedScale(
+              scale: baseScale,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                transitionBuilder: (child, anim) => FadeTransition(
+                  opacity: anim,
+                  child: ScaleTransition(
+                    scale: anim,
+                    child: child,
+                  ),
+                ),
+                child: Text(
+                  emoji,
+                  key: ValueKey(emoji),
+                  style: const TextStyle(fontSize: 44),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.primary,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+

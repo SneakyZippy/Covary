@@ -9,6 +9,7 @@ import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/metric_definition.dart';
 import '../../data/repositories/event_repository.dart';
+import '../../data/repositories/profile_repository.dart';
 import '../../services/app_usage_service.dart';
 import '../../services/health_service.dart';
 import '../../services/metric_service.dart';
@@ -17,10 +18,12 @@ import '../widgets/metric_input_card.dart';
 import '../widgets/missed_session_card.dart';
 import '../widgets/quick_track_button.dart';
 import 'daily_checkin_screen.dart';
-import 'compliance_screen.dart';
 import 'permission_shield_screen.dart';
+import '../widgets/quick_track_value_sheet.dart';
 import 'activity_history_screen.dart';
 import '../../services/notification_service.dart';
+import '../widgets/staggered_entrance.dart';
+import '../widgets/confetti_animation.dart';
 
 /// The primary Home view.
 ///
@@ -272,122 +275,135 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         .where((m) => m.isEnabled && m.windowIds.contains('homescreen'))
         .toList();
 
-    return Scaffold(
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadTodayStats,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24.0,
-              vertical: 32.0,
-            ),
-            children: [
-              if (!_bannerPermanentlyDismissed && (_healthMissing || _usageMissing || _notificationsMissing))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 24.0),
-                  child: _buildPermissionBanner(colorScheme, textTheme),
+    return ConfettiOverlay(
+      child: Scaffold(
+        body: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: _loadTodayStats,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 32.0,
+              ),
+              children: [
+                if (!_bannerPermanentlyDismissed && (_healthMissing || _usageMissing || _notificationsMissing))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: _buildPermissionBanner(colorScheme, textTheme),
+                  ),
+                StaggeredEntrance(
+                  delay: Duration.zero,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _greeting(),
+                              style: textTheme.titleMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              profileService.nickname.isNotEmpty
+                                  ? profileService.nickname
+                                  : 'Researcher',
+                              style: textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const ActivityHistoryScreen()),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                                child: _buildActivityOverview(colorScheme, textTheme),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
+                const SizedBox(height: 24),
+  
+                if (_activeWindows.where((w) => !_completedWindowIds.contains(w.id)).isNotEmpty)
+                  StaggeredEntrance(
+                    delay: const Duration(milliseconds: 100),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _activeWindows
+                          .where((w) => !_completedWindowIds.contains(w.id))
+                          .map((window) => Column(
+                                children: [
+                                  _buildActiveWindowCard(window, colorScheme, textTheme),
+                                  const SizedBox(height: 24),
+                                ],
+                              ))
+                          .toList(),
+                    ),
+                  ),
+  
+                if (_missedWindows.isNotEmpty)
+                  StaggeredEntrance(
+                    delay: const Duration(milliseconds: 150),
+                    child: Column(
                       children: [
-                        Text(
-                          _greeting(),
-                          style: textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          profileService.nickname.isNotEmpty
-                              ? profileService.nickname
-                              : 'Researcher',
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const ActivityHistoryScreen()),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                            child: _buildActivityOverview(colorScheme, textTheme),
-                          ),
-                        ),
+                        ..._missedWindows.map((window) => _buildMissedSessionCard(window)),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              ..._activeWindows
-                  .where((w) => !_completedWindowIds.contains(w.id))
-                  .map((window) => Column(
-                        children: [
-                          _buildActiveWindowCard(window, colorScheme, textTheme),
-                          const SizedBox(height: 24),
-                        ],
-                      )),
-
-              if (_missedWindows.isNotEmpty) ...[
-                ..._missedWindows.map((window) => _buildMissedSessionCard(window)),
-                const SizedBox(height: 24),
-              ],
-
-              Padding(
-                padding: const EdgeInsets.only(bottom: 24.0),
-                child: Center(
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ComplianceScreen(),
+                
+                StaggeredEntrance(
+                  delay: const Duration(milliseconds: 200),
+                  child: _buildQuickActions(quickMetrics, colorScheme, textTheme),
+                ),
+                const SizedBox(height: 32),
+  
+                StaggeredEntrance(
+                  delay: const Duration(milliseconds: 250),
+                  child: _buildActionRow(colorScheme, textTheme),
+                ),
+                const SizedBox(height: 32),
+  
+                StaggeredEntrance(
+                  delay: const Duration(milliseconds: 300),
+                  child: _buildTrackingSuggestions(activeMetrics, colorScheme, textTheme),
+                ),
+  
+                StaggeredEntrance(
+                  delay: const Duration(milliseconds: 350),
+                  child: _buildTodayTimeline(colorScheme, textTheme),
+                ),
+                
+                if (activeMetrics.isEmpty && quickMetrics.isEmpty)
+                  StaggeredEntrance(
+                    delay: const Duration(milliseconds: 400),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: Text(
+                        'Head to Settings to enable metrics to track.',
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.error,
                         ),
-                      );
-                    },
-                    icon: Icon(Icons.verified_user_rounded, size: 16, color: colorScheme.primary),
-                    label: Text(
-                      'View Data Quality Metrics',
-                      style: textTheme.labelMedium?.copyWith(color: colorScheme.primary),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              
-              _buildQuickActions(quickMetrics, colorScheme, textTheme),
-              const SizedBox(height: 32),
-
-              _buildActionRow(colorScheme, textTheme),
-              const SizedBox(height: 32),
-
-              _buildTrackingSuggestions(activeMetrics, colorScheme, textTheme),
-
-              _buildTodayTimeline(colorScheme, textTheme),
-              
-              if (activeMetrics.isEmpty && quickMetrics.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: Text(
-                    'Head to Settings to enable metrics to track.',
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.error,
-                    ),
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -400,7 +416,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         Row(
           children: [
-            Icon(Icons.local_fire_department_rounded, size: 16, color: Colors.orange.shade400),
+            _StreakPulseIcon(icon: Icons.local_fire_department_rounded, size: 16, color: Colors.orange.shade400),
             const SizedBox(width: 4),
             Text(
               '$_currentStreak Day Streak',
@@ -1131,54 +1147,96 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _handleSuggestionTap(MetricDefinition metric) async {
     if (metric.inputType == MetricInputType.counter) {
-      try {
-        final eventRepo = context.read<EventRepository>();
-        final eventId = const Uuid().v4();
-        final now = DateTime.now();
-        await eventRepo.insertEvent(
-          EventsCompanion(
-            id: Value(eventId),
-            category: Value(metric.category),
-            label: Value(metric.label),
-            value: const Value('1'),
-            latencyMs: const Value(0),
-            triggerSource: const Value(TriggerSource.manual),
-            interactionType: const Value(InteractionType.click),
-            timestamp: Value(now),
-            recordedAt: Value(now),
-          ),
-        );
-        if (mounted) {
-          _loadTodayStats();
-          ScaffoldMessenger.of(context).clearSnackBars();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Expanded(child: Text('${metric.label} logged! ✓')),
-                  TextButton(
-                    onPressed: () async {
-                      await eventRepo.deleteEvent(eventId);
-                      if (mounted) {
-                        _loadTodayStats();
-                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      }
-                    },
-                    child: Text('UNDO', style: TextStyle(color: Theme.of(context).colorScheme.inversePrimary)),
-                  ),
-                ],
-              ),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
-      } catch (e) {
-        debugPrint('Error logging suggestion counter: $e');
-      }
+      _showSuggestionCounterSheet(context, metric);
     } else {
       _showSuggestionInputModal(context, metric);
     }
+  }
+
+  void _showSuggestionCounterSheet(BuildContext context, MetricDefinition metric) {
+    final profileRepo = context.read<ProfileRepository>();
+    final config = getCounterConfig(metric.id);
+    final savedValStr = profileRepo.getStringSetting('quick_track_default_value_${metric.id}');
+    final defaultValue = savedValStr != null
+        ? (double.tryParse(savedValStr) ?? config.fallbackDefault)
+        : config.fallbackDefault;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => QuickTrackValueSheet(
+        metric: metric,
+        initialValue: defaultValue,
+        unit: config.unit,
+        step: config.step,
+        min: config.min,
+        max: config.max,
+        onConfirm: (value, time, saveAsDefault) async {
+          if (saveAsDefault) {
+            await profileRepo.setStringSetting('quick_track_default_value_${metric.id}', value.toString());
+          }
+          if (context.mounted) {
+            try {
+              final eventRepo = context.read<EventRepository>();
+              final eventId = const Uuid().v4();
+              final now = DateTime.now();
+              
+              final valueStr = value == value.toInt()
+                  ? value.toInt().toString()
+                  : value.toString();
+
+              await eventRepo.insertEvent(
+                EventsCompanion(
+                  id: Value(eventId),
+                  category: Value(metric.category),
+                  label: Value(metric.label),
+                  value: Value(valueStr),
+                  latencyMs: const Value(0),
+                  triggerSource: const Value(TriggerSource.manual),
+                  interactionType: const Value(InteractionType.click),
+                  timestamp: Value(time),
+                  recordedAt: Value(now),
+                ),
+              );
+              
+              if (context.mounted) {
+                _loadTodayStats();
+                
+                // Trigger confetti burst overlay from center of screen
+                final size = MediaQuery.of(context).size;
+                ConfettiOverlay.of(context)?.burst(Offset(size.width / 2, size.height / 2));
+                
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        Expanded(child: Text('${metric.label} logged! ✓')),
+                        TextButton(
+                          onPressed: () async {
+                            await eventRepo.deleteEvent(eventId);
+                            if (context.mounted) {
+                              _loadTodayStats();
+                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                            }
+                          },
+                          child: Text('UNDO', style: TextStyle(color: Theme.of(context).colorScheme.inversePrimary)),
+                        ),
+                      ],
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              }
+            } catch (e) {
+              debugPrint('Error logging suggestion counter: $e');
+            }
+          }
+        },
+      ),
+    );
   }
 
   void _showSuggestionInputModal(BuildContext context, MetricDefinition metric) {
@@ -1260,6 +1318,63 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
+    );
+  }
+}
+
+// =============================================================================
+// Helper Widgets
+// =============================================================================
+
+class _StreakPulseIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  const _StreakPulseIcon({
+    required this.icon,
+    required this.color,
+    required this.size,
+  });
+
+  @override
+  State<_StreakPulseIcon> createState() => _StreakPulseIconState();
+}
+
+class _StreakPulseIconState extends State<_StreakPulseIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final scale = 1.0 + (_controller.value * 0.16); // gentle 16% pulse
+        return Transform.scale(
+          scale: scale,
+          child: Icon(
+            widget.icon,
+            size: widget.size,
+            color: widget.color,
+          ),
+        );
+      },
     );
   }
 }

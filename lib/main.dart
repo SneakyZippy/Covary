@@ -28,6 +28,7 @@ import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/profile_setup_screen.dart';
 import 'ui/screens/restore_selection_screen.dart';
 import 'ui/theme/app_theme.dart';
+import 'ui/widgets/confetti_animation.dart';
 
 // =============================================================================
 // App Entry Point
@@ -182,6 +183,7 @@ class CovaryApp extends StatelessWidget {
         primaryColor: themeService.primaryColor,
       ),
       themeMode: themeService.themeMode,
+      builder: (context, child) => ConfettiOverlay(child: child!),
       home: profileService.hasRestoredData
           ? const RestoreSelectionScreen()
           : !profileService.hasSeenOnboarding
