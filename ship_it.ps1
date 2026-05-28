@@ -6,7 +6,7 @@ Write-Host "--- Covary Shipping Process ---" -ForegroundColor Cyan
 if (-not (Test-Path "version.json")) {
     Write-Error "version.json not found!"
 }
-$json = Get-Content -Raw -Path "version.json" | ConvertFrom-Json
+$json = Get-Content -Raw -Encoding UTF8 -Path "version.json" | ConvertFrom-Json
 $currentVersion = $json.latest_version
 $newBuildNumber = [int]$json.build_number + 1
 $timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:sszzz"
@@ -20,7 +20,7 @@ $json.build_timestamp = $timestamp
 $json | ConvertTo-Json -Depth 10 | Out-File -FilePath "version.json" -Encoding utf8
 
 # 3. Update pubspec.yaml
-$pubspec = Get-Content -Path "pubspec.yaml"
+$pubspec = Get-Content -Encoding UTF8 -Path "pubspec.yaml"
 $newVersionString = "version: $currentVersion+$newBuildNumber"
 $pubspec = $pubspec -replace "^version: .*$", $newVersionString
 $pubspec | Out-File -FilePath "pubspec.yaml" -Encoding utf8
