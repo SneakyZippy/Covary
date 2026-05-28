@@ -1,7 +1,7 @@
 {
     "latest_version":  "1.3.0",
-    "build_number":  34,
-    "build_timestamp":  "2026-05-28T13:51:04+02:00",
+    "build_number":  35,
+    "build_timestamp":  "2026-05-28T17:54:42+02:00",
     "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "Release v1.3.0+34\n\n- **Confetti Celebrations**: Added celebratory confetti feedback animations when users complete tracking entries.\n- **Staggered Dashboard Entry**: Added beautiful, smooth staggered list entry animations for dashboard metric cards.\n- **Portion Size Visuals**: Implemented dynamic scaling and emoji-based portion size previews in the quick track bottom sheet.\n- **Aesthetic Refinements**: Polished micro-interactions and transitions across tracking screens."
+    "release_notes":  "Release v1.3.0+35\n\n- **Settings Consolidation**: Restructured settings into 4 clean, logical categories to reduce vertical clutter.\n- **Unified Export Menu**: Grouped all researcher email submissions and database backups under a single bottom sheet.\n- **Embedded Snooze Settings**: Replaced standalone cards with inline columns to optimize layout screen space."
 }

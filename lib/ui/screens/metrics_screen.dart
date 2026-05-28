@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -289,17 +288,32 @@ class _MetricTile extends StatelessWidget {
         ),
         child: ListTile(
           contentPadding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-          leading: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: metric.isEnabled ? colorScheme.primary.withAlpha(30) : colorScheme.surfaceContainerHighest,
-              shape: BoxShape.circle,
-            ),
-            child: MetricIcon(
-              iconName: metric.emoji, 
-              size: 24,
-              color: metric.isEnabled ? colorScheme.primary : colorScheme.outline,
-            ),
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ReorderableDragStartListener(
+                index: index,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Icon(
+                    Icons.drag_indicator_rounded,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: metric.isEnabled ? colorScheme.primary.withAlpha(30) : colorScheme.surfaceContainerHighest,
+                  shape: BoxShape.circle,
+                ),
+                child: MetricIcon(
+                  iconName: metric.emoji, 
+                  size: 24,
+                  color: metric.isEnabled ? colorScheme.primary : colorScheme.outline,
+                ),
+              ),
+            ],
           ),
           title: Text(
             metric.label,

@@ -16,6 +16,7 @@ class TrackingWindowsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Tracking Windows')),
       body: ReorderableListView.builder(
+        buildDefaultDragHandles: false,
         padding: const EdgeInsets.all(16),
         itemCount: windows.length,
         onReorder: (oldIndex, newIndex) {
@@ -79,17 +80,32 @@ class TrackingWindowsScreen extends StatelessWidget {
                 ] : null,
               ),
               child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isEnabled ? Theme.of(context).colorScheme.primary.withAlpha(30) : Theme.of(context).colorScheme.surfaceContainerHighest,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.schedule_rounded,
-                    color: isEnabled ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline,
-                  ),
+                contentPadding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Icon(
+                          Icons.drag_indicator_rounded,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isEnabled ? Theme.of(context).colorScheme.primary.withAlpha(30) : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.schedule_rounded,
+                        color: isEnabled ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ],
                 ),
                 title: Text(
                   window.label,

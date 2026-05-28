@@ -6,9 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../services/metric_service.dart';
-import '../../services/export_service.dart';
 import 'raw_data_screen.dart';
-import 'metrics_screen.dart';
 import 'profile_setup_screen.dart';
 import 'permission_shield_screen.dart';
 import 'compliance_screen.dart';
@@ -17,7 +15,6 @@ import '../../services/health_service.dart';
 import '../../services/app_usage_service.dart';
 import '../widgets/data_widgets.dart';
 import '../widgets/integrity_dashboard.dart';
-import '../widgets/settings_tiles.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 
 /// Screen showing high-level data insights and access to raw logs.
@@ -268,99 +265,6 @@ class _DataScreenState extends State<DataScreen> {
                     ),
                   ),
                 ),
-
-              // --- Management Section ---
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                  child: Text(
-                    'Management',
-                    style: textTheme.titleSmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      CompactMenuTile(
-                        title: 'Detailed Records',
-                        icon: Icons.list_alt_rounded,
-                        color: colorScheme.primary,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const RawDataScreen()),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      CompactMenuTile(
-                        title: 'Tracked Metrics',
-                        icon: Icons.settings_suggest_rounded,
-                        color: colorScheme.tertiary,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const MetricsScreen()),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // --- Data & Privacy Section ---
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
-                  child: Text(
-                    'Data & Privacy',
-                    style: textTheme.titleSmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      ActionCard(
-                        title: 'Export JSON',
-                        subtitle: 'Manual backup for research sharing',
-                        icon: Icons.share_rounded,
-                        onTap: () async {
-                          final exportService = context.read<ExportService>();
-                          final success = await exportService.exportData();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(success 
-                                  ? 'Export successful!' 
-                                  : 'Export failed. Check permissions.'),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      const StatusCard(
-                        title: 'Local Database',
-                        status: 'Active',
-                        icon: Icons.storage_rounded,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
             ],
           ),

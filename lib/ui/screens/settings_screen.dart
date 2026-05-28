@@ -22,6 +22,7 @@ import 'metrics_screen.dart';
 import 'tracking_windows_screen.dart';
 import 'onboarding_screen.dart';
 import 'meal_reminders_screen.dart';
+import 'raw_data_screen.dart';
 
 /// Settings screen for managing profile, notifications, and data.
 class SettingsScreen extends StatefulWidget {
@@ -175,12 +176,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            // --- Research Setup Section ---
+            // --- Alerts & Preferences ---
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
                 child: Text(
-                  'Research Setup',
+                  'Alerts & Preferences',
+                  style: textTheme.titleSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: [
+                      const _NotificationSettingsSection(),
+                      const Divider(height: 1, indent: 20, endIndent: 20),
+                      ListTile(
+                        leading: Icon(Icons.restaurant_rounded, color: colorScheme.primary),
+                        title: const Text('Meal Reminders'),
+                        subtitle: const Text('Schedule alerts with quick Snack/Meal/Feast buttons'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MealRemindersScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // --- Research & Sensing ---
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                child: Text(
+                  'Research & Sensing',
                   style: textTheme.titleSmall?.copyWith(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.w600,
@@ -227,65 +274,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                       ),
+                      const Divider(height: 1, indent: 56),
+                      ListTile(
+                        leading: Icon(Icons.security_rounded, color: colorScheme.secondary),
+                        title: const Text('Data Permissions'),
+                        subtitle: Text(kIsWeb
+                            ? 'Manage your data and exports'
+                            : (Platform.isAndroid
+                                ? 'Health Connect & App Usage access'
+                                : 'HealthKit access')),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PermissionShieldScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      ListTile(
+                        leading: Icon(Icons.apps_rounded, color: colorScheme.secondary),
+                        title: const Text('App Categories'),
+                        subtitle: const Text('Social Media & Entertainment apps'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const AppCategoryManagerScreen(),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // --- Notification Preferences ---
+            // --- Data & Backups ---
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
                 child: Text(
-                  'Notification Preferences',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: _NotificationSettingsSection(),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: ListTile(
-                    leading: Icon(Icons.restaurant_rounded, color: colorScheme.primary),
-                    title: const Text('Meal Reminders'),
-                    subtitle: const Text('Schedule alerts with quick Snack/Meal/Feast buttons'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const MealRemindersScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-
-            // --- Passive Sensing Section ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'Passive Sensing',
+                  'Data & Backups',
                   style: textTheme.titleSmall?.copyWith(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.w600,
@@ -301,78 +333,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   elevation: 0,
                   color: colorScheme.surfaceContainerHighest,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    leading: Icon(Icons.security_rounded, color: colorScheme.secondary),
-                    title: const Text('Data Permissions'),
-                    subtitle: Text(kIsWeb
-                        ? 'Manage your data and exports'
-                        : (Platform.isAndroid
-                            ? 'Health Connect & App Usage access'
-                            : 'HealthKit access')),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PermissionShieldScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            // --- App Categories ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    leading: Icon(Icons.apps_rounded, color: colorScheme.secondary),
-                    title: const Text('App Categories'),
-                    subtitle: const Text('Social Media & Entertainment apps'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const AppCategoryManagerScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            // --- Data Management Section ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'Data Management',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Consumer<SyncService>(
                     builder: (context, syncService, child) {
@@ -483,6 +444,130 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                           ],
+                          const Divider(height: 1, indent: 56),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.cloud_download_rounded,
+                                color: colorScheme.onPrimaryContainer,
+                                size: 20,
+                              ),
+                            ),
+                            title: const Text('Restore from Cloud Backup'),
+                            subtitle: const Text('Download and merge a research profile'),
+                            trailing: Icon(
+                              Icons.chevron_right_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            onTap: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  icon: Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: colorScheme.error,
+                                    size: 32,
+                                  ),
+                                  title: const Text('Restore Cloud Backup?'),
+                                  content: const Text(
+                                    'This will switch your app to the restored Research ID and merge the remote backup data into your local database. Your current local data will be kept and merged.',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: colorScheme.primary,
+                                      ),
+                                      child: const Text('Restore'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirm == true) {
+                                if (!context.mounted) return;
+                                final summary = await showDialog<SyncSummary?>(
+                                  context: context,
+                                  builder: (context) => const _SettingsRestoreDialog(),
+                                );
+                                if (context.mounted && summary != null) {
+                                  await showDialog(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (context) => SyncSummaryDialog(summary: summary),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                          const Divider(height: 1, indent: 56),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            leading: Icon(Icons.list_alt_rounded, color: colorScheme.primary),
+                            title: const Text('Detailed Records'),
+                            subtitle: const Text('View and delete individual database logs'),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const RawDataScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          const Divider(height: 1, indent: 56),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            leading: Icon(Icons.share_rounded, color: colorScheme.primary),
+                            title: const Text('Export & Sharing'),
+                            subtitle: const Text('Submit to researcher or download backups'),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => _showExportOptionsBottomSheet(context),
+                          ),
+                          const Divider(height: 1, indent: 56),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            leading: Icon(Icons.upload_rounded, color: colorScheme.secondary),
+                            title: const Text('Import Data (JSON)'),
+                            subtitle: const Text('Merge external Covary records'),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () async {
+                              final importService = context.read<ImportService>();
+                              final result = await importService.importData();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(result),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 4),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
                         ],
                       );
                     },
@@ -490,83 +575,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
+
+            // --- System & Info ---
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.cloud_download_rounded,
-                        color: colorScheme.onPrimaryContainer,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text('Restore from Cloud Backup'),
-                    subtitle: const Text('Download and merge a research profile'),
-                    trailing: Icon(
-                      Icons.chevron_right_rounded,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    onTap: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          icon: Icon(
-                            Icons.warning_amber_rounded,
-                            color: colorScheme.error,
-                            size: 32,
-                          ),
-                          title: const Text('Restore Cloud Backup?'),
-                          content: const Text(
-                            'This will switch your app to the restored Research ID and merge the remote backup data into your local database. Your current local data will be kept and merged.',
-                            textAlign: TextAlign.center,
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel'),
-                            ),
-                            FilledButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: colorScheme.primary,
-                              ),
-                              child: const Text('Restore'),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirm == true) {
-                        if (!context.mounted) return;
-                        final summary = await showDialog<SyncSummary?>(
-                          context: context,
-                          builder: (context) => const _SettingsRestoreDialog(),
-                        );
-                        if (context.mounted && summary != null) {
-                          await showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => SyncSummaryDialog(summary: summary),
-                          );
-                        }
-                      }
-                    },
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                child: Text(
+                  'System & Info',
+                  style: textTheme.titleSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
@@ -578,466 +597,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   elevation: 0,
                   color: colorScheme.surfaceContainerHighest,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.send_rounded,
-                        color: colorScheme.onPrimaryContainer,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text('Submit to Researcher'),
-                    subtitle: const Text('Email full export to Felix Z.'),
-                    trailing: FilledButton(
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            icon: Icon(Icons.mark_as_unread_rounded, color: colorScheme.primary, size: 32),
-                            title: const Text('Ready to Submit?'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  'In the next step, please select your Email app (e.g., Gmail, Outlook).',
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'The researcher\'s email address will be included in the message text — just copy and paste it into the "To" field.',
-                                  textAlign: TextAlign.center,
-                                  style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-                                ),
-                                const SizedBox(height: 20),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primaryContainer.withAlpha(80),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: colorScheme.primary.withAlpha(100)),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        'Researcher Email:',
-                                        style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const SelectableText(
-                                        'felix.zoeggeler@edu.fh-joanneum.at',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'The data export is automatically attached as a JSON file.',
-                                  style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                                  textAlign: TextAlign.center,
-                                ),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.help_outline_rounded, color: colorScheme.secondary),
+                        title: const Text('Show Tutorial Again'),
+                        subtitle: const Text('Review the research mission and setup tour'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Show Tutorial?'),
+                              content: const Text('This will take you back to the onboarding slides. Your current settings and data will not be deleted.'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Show')),
                               ],
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancel'),
-                              ),
-                              FilledButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Continue to Email'),
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (confirm == true) {
-                          if (!context.mounted) return;
-                          final exportService = context.read<ExportService>();
-                          final success = await exportService.submitToResearcher();
-                          if (context.mounted && success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Opening share sheet... Please pick your Email app.'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
+                          );
+                          if (confirm == true) {
+                            await profileService.resetOnboarding();
+                            if (context.mounted) {
+                              Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                                (route) => false,
+                              );
+                            }
                           }
-                        }
-                      },
-                      child: const Text('Submit'),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(10),
+                        },
                       ),
-                      child: Icon(
-                        Icons.download_rounded,
-                        color: colorScheme.onPrimaryContainer,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text('Export Data (JSON)'),
-                    subtitle: const Text('Download all local records'),
-                    trailing: FilledButton.tonal(
-                      onPressed: () async {
-                        final exportService = context.read<ExportService>();
-                        final success = await exportService.exportData();
-                        if (context.mounted && success) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Export successful! Share intent triggered.',
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                              duration: Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text('Export'),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.schedule_rounded,
-                        color: colorScheme.onPrimaryContainer,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text('Export Windows'),
-                    subtitle: const Text('Download tracking windows only'),
-                    trailing: FilledButton.tonal(
-                      onPressed: () async {
-                        final exportService = context.read<ExportService>();
-                        final success = await exportService.exportWindows();
-                        if (context.mounted && success) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Export successful! Share intent triggered.',
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                              duration: Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text('Export'),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.tune_rounded,
-                        color: colorScheme.onPrimaryContainer,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text('Export Metrics'),
-                    subtitle: const Text('Download custom metrics only'),
-                    trailing: FilledButton.tonal(
-                      onPressed: () async {
-                        final exportService = context.read<ExportService>();
-                        final success = await exportService.exportMetrics();
-                        if (context.mounted && success) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Export successful! Share intent triggered.',
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                              duration: Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text('Export'),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.upload_rounded,
-                        color: colorScheme.onSecondaryContainer,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text('Import Data (JSON)'),
-                    subtitle: const Text('Merge external Covary records'),
-                    trailing: FilledButton.tonal(
-                      onPressed: () async {
-                        final importService = context.read<ImportService>();
-                        final result = await importService.importData();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(result),
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text('Import'),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // --- Help & Feedback Section ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'Help & Feedback',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    leading: Icon(Icons.help_outline_rounded, color: colorScheme.secondary),
-                    title: const Text('Show Tutorial Again'),
-                    subtitle: const Text('Review the research mission and setup tour'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Show Tutorial?'),
-                          content: const Text('This will take you back to the onboarding slides. Your current settings and data will not be deleted.'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Show')),
-                          ],
+                      const Divider(height: 1, indent: 56),
+                      ListTile(
+                        leading: Icon(Icons.info_outline_rounded, color: colorScheme.secondary),
+                        title: const Text('Check for Updates'),
+                        subtitle: FutureBuilder<PackageInfo>(
+                          future: PackageInfo.fromPlatform(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              return Text('Version ${snapshot.data!.version}+${snapshot.data!.buildNumber}');
+                            }
+                            return const Text('Checking version...');
+                          },
                         ),
-                      );
-                      if (confirm == true) {
-                        await profileService.resetOnboarding();
-                        if (context.mounted) {
-                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-                            (route) => false,
-                          );
-                        }
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            // --- Developer Section ---
-            if (profileService.isDeveloperMode) ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                  child: Text(
-                    'Developer',
-                    style: textTheme.titleSmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Card(
-                    elevation: 0,
-                    color: colorScheme.surfaceContainerHighest,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: ListTile(
-                      leading: Icon(Icons.bug_report_rounded, color: colorScheme.primary),
-                      title: const Text('Debug Tools'),
-                      subtitle: const Text('Internal diagnostics and logs'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const DebugScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ],
-            
-            // --- About Section ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'About',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    leading: Icon(Icons.info_outline_rounded, color: colorScheme.secondary),
-                    title: const Text('Check for Updates'),
-                    subtitle: FutureBuilder<PackageInfo>(
-                      future: PackageInfo.fromPlatform(),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) {
-                          return Text('Version ${snapshot.data!.version}+${snapshot.data!.buildNumber}');
-                        }
-                        return const Text('Checking version...');
-                      },
-                    ),
-                    trailing: const Icon(Icons.refresh_rounded),
-                    onTap: () {
-                      UpdateService.checkAndPrompt(context, silent: false);
-                      setState(() {
-                        if (!profileService.isDeveloperMode) {
-                          _devTapCount++;
-                          if (_devTapCount >= 7) {
-                            profileService.setDeveloperMode(true);
-                            ScaffoldMessenger.of(context).clearSnackBars();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Developer mode enabled!')),
-                            );
-                          } else if (_devTapCount >= 3) {
-                            final remaining = 7 - _devTapCount;
-                            ScaffoldMessenger.of(context).clearSnackBars();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('You are $remaining steps away from being a developer.'),
-                                duration: const Duration(milliseconds: 1500),
+                        trailing: const Icon(Icons.refresh_rounded),
+                        onTap: () {
+                          UpdateService.checkAndPrompt(context, silent: false);
+                          setState(() {
+                            if (!profileService.isDeveloperMode) {
+                              _devTapCount++;
+                              if (_devTapCount >= 7) {
+                                profileService.setDeveloperMode(true);
+                                ScaffoldMessenger.of(context).clearSnackBars();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Developer mode enabled!')),
+                                );
+                              } else if (_devTapCount >= 3) {
+                                final remaining = 7 - _devTapCount;
+                                ScaffoldMessenger.of(context).clearSnackBars();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('You are $remaining steps away from being a developer.'),
+                                    duration: const Duration(milliseconds: 1500),
+                                  ),
+                                );
+                              }
+                            }
+                          });
+                        },
+                      ),
+                      if (profileService.isDeveloperMode) ...[
+                        const Divider(height: 1, indent: 56),
+                        ListTile(
+                          leading: Icon(Icons.bug_report_rounded, color: colorScheme.primary),
+                          title: const Text('Debug Tools'),
+                          subtitle: const Text('Internal diagnostics and logs'),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const DebugScreen(),
                               ),
                             );
-                          }
-                        }
-                      });
-                    },
+                          },
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -1049,6 +696,240 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  void _showExportOptionsBottomSheet(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Export & Sharing',
+                style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Share your data with researchers or download local config backups.',
+                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Submit to Researcher
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.send_rounded, color: colorScheme.onPrimaryContainer, size: 20),
+              ),
+              title: const Text('Submit to Researcher'),
+              subtitle: const Text('Email full research export to Felix Z.'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _submitDataToResearcher(context);
+              },
+            ),
+            const Divider(height: 16, indent: 56),
+
+            // Export Data (JSON)
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.download_rounded, color: colorScheme.onPrimaryContainer, size: 20),
+              ),
+              title: const Text('Export Full Data (JSON)'),
+              subtitle: const Text('Download all local logs and events'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final exportService = context.read<ExportService>();
+                final success = await exportService.exportData();
+                if (context.mounted && success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Export successful! Share intent triggered.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
+            const Divider(height: 16, indent: 56),
+
+            // Export Windows
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.schedule_rounded, color: colorScheme.onPrimaryContainer, size: 20),
+              ),
+              title: const Text('Export Tracking Windows'),
+              subtitle: const Text('Export time windows setup'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final exportService = context.read<ExportService>();
+                final success = await exportService.exportWindows();
+                if (context.mounted && success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Export successful! Share intent triggered.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
+            const Divider(height: 16, indent: 56),
+
+            // Export Metrics
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.tune_rounded, color: colorScheme.onPrimaryContainer, size: 20),
+              ),
+              title: const Text('Export Tracked Metrics'),
+              subtitle: const Text('Export custom metrics definitions'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final exportService = context.read<ExportService>();
+                final success = await exportService.exportMetrics();
+                if (context.mounted && success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Export successful! Share intent triggered.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitDataToResearcher(BuildContext context) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.mark_as_unread_rounded, color: colorScheme.primary, size: 32),
+        title: const Text('Ready to Submit?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'In the next step, please select your Email app (e.g., Gmail, Outlook).',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'The researcher\'s email address will be included in the message text — just copy and paste it into the "To" field.',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withAlpha(80),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.primary.withAlpha(100)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Researcher Email:',
+                    style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+                  ),
+                  const SizedBox(height: 4),
+                  const SelectableText(
+                    'felix.zoeggeler@edu.fh-joanneum.at',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'The data export is automatically attached as a JSON file.',
+              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continue to Email'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (!context.mounted) return;
+      final exportService = context.read<ExportService>();
+      final success = await exportService.submitToResearcher();
+      if (context.mounted && success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Opening share sheet... Please pick your Email app.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -1194,79 +1075,75 @@ class _NotificationSettingsSectionState
       return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
     }
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                Icon(Icons.notifications_active_rounded, size: 20, color: colorScheme.primary),
-                const SizedBox(width: 12),
-                Text(
-                  'Quick Snooze Slots',
-                  style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            children: [
+              Icon(Icons.notifications_active_rounded, size: 20, color: colorScheme.primary),
+              const SizedBox(width: 12),
+              Text(
+                'Quick Snooze Slots',
+                style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Text(
-              'Customize the quick snooze duration buttons that appear on check-in notifications (alongside "At time...").',
-              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-            ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Text(
+            'Customize the quick snooze duration buttons that appear on check-in notifications (alongside "At time...").',
+            style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(_durations.length, (index) {
-                final mins = _durations[index];
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: InkWell(
-                      onTap: () => _editSnoozeSlot(index),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.outlineVariant),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Slot ${index + 1}',
-                              style: textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(_durations.length, (index) {
+              final mins = _durations[index];
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: InkWell(
+                    onTap: () => _editSnoozeSlot(index),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colorScheme.outlineVariant),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Slot ${index + 1}',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _formatDuration(mins),
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.primary,
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatDuration(mins),
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                );
-              }),
-            ),
+                ),
+              );
+            }),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
