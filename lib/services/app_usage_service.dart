@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../data/repositories/profile_repository.dart';
@@ -160,7 +159,7 @@ class AppUsageService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   Future<bool> isPermissionGranted() async {
-    if (!Platform.isAndroid) return false;
+    if (kIsWeb || !Platform.isAndroid) return false;
     try {
       return await UsageStats.checkUsagePermission() ?? false;
     } catch (e) {
@@ -170,7 +169,7 @@ class AppUsageService extends ChangeNotifier {
   }
 
   Future<AppUsagePermissionStatus> checkPermissionStatus() async {
-    if (!Platform.isAndroid) return AppUsagePermissionStatus.denied;
+    if (kIsWeb || !Platform.isAndroid) return AppUsagePermissionStatus.denied;
 
     final granted = await isPermissionGranted();
     if (granted) {
@@ -188,7 +187,7 @@ class AppUsageService extends ChangeNotifier {
   }
 
   Future<void> openPermissionSettings() async {
-    if (!Platform.isAndroid) return;
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
       await _profileRepo.setBoolSetting(_kSettingsOpenedKey, true);
       await UsageStats.grantUsagePermission();
@@ -207,7 +206,7 @@ class AppUsageService extends ChangeNotifier {
 
   /// Returns total foreground time in minutes across all apps in the interval.
   Future<int?> fetchTotalScreenTimeMinutes({DateTime? startTime, DateTime? endTime}) async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || !Platform.isAndroid) return null;
     try {
       final stats = await _queryStats(startTime: startTime, endTime: endTime);
       if (stats == null) return null;
@@ -226,7 +225,7 @@ class AppUsageService extends ChangeNotifier {
 
   /// Returns total foreground time in minutes for a specific category.
   Future<int?> fetchCategoryUsage(String categoryName, {DateTime? startTime, DateTime? endTime}) async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || !Platform.isAndroid) return null;
     final apps = _categories[categoryName];
     if (apps == null || apps.isEmpty) return 0;
 
@@ -254,7 +253,7 @@ class AppUsageService extends ChangeNotifier {
 
   /// Returns per-app foreground time in minutes for all apps with >0 usage.
   Future<Map<String, int>?> fetchPerAppScreenTimeMinutes({DateTime? startTime, DateTime? endTime}) async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || !Platform.isAndroid) return null;
     try {
       final stats = await _queryStats(startTime: startTime, endTime: endTime);
       if (stats == null) return null;
@@ -286,7 +285,7 @@ class AppUsageService extends ChangeNotifier {
   /// Returns hourly usage breakdown for a specific day.
   /// Result map: {hourIndex (0-23): foregroundMinutes}
   Future<Map<int, int>?> fetchHourlyUsage(DateTime date) async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || !Platform.isAndroid) return null;
     
     final dayStart = DateTime(date.year, date.month, date.day, 0, 0, 0);
     final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
@@ -328,7 +327,7 @@ class AppUsageService extends ChangeNotifier {
   /// Returns a nested map of usage per hour per app for the given interval.
   /// Result map: {hourIndex (0-23): {packageName: foregroundMinutes}}
   Future<Map<int, Map<String, int>>?> fetchHourlyAppUsage({required DateTime startTime, required DateTime endTime}) async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || !Platform.isAndroid) return null;
     
     try {
       final events = await UsageStats.queryEvents(startTime, endTime);
@@ -381,7 +380,7 @@ class AppUsageService extends ChangeNotifier {
   }
 
   Future<Set<String>?> fetchInstalledPackages() async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || !Platform.isAndroid) return null;
     try {
       final now = DateTime.now();
       final since = now.subtract(const Duration(days: 30));

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
@@ -195,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final healthGranted = await healthService.hasPermissions();
     final usageGranted = await appUsageService.isPermissionGranted();
-    final notifGranted = await AwesomeNotifications().isNotificationAllowed();
+    final notifGranted = kIsWeb ? false : await AwesomeNotifications().isNotificationAllowed();
 
     // Check if the banner has ever been dismissed
     final dismissEvents = await eventRepo.getEventsByLabel('PermissionBannerDismissed');

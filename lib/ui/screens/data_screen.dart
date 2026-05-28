@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -64,7 +65,7 @@ class _DataScreenState extends State<DataScreen> {
     
     final h = await health.hasPermissions();
     final u = await usage.isPermissionGranted();
-    final n = await AwesomeNotifications().isNotificationAllowed();
+    final n = kIsWeb ? false : await AwesomeNotifications().isNotificationAllowed();
 
     if (mounted) {
       setState(() {

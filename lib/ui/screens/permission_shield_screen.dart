@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -78,6 +79,17 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
 
   /// Queries actual permission states from the OS and updates local state.
   Future<void> _checkPermissions() async {
+    if (kIsWeb) {
+      if (mounted) {
+        setState(() {
+          _healthGranted = false;
+          _usageStatus = AppUsagePermissionStatus.denied;
+          _notificationsGranted = false;
+          _batteryIgnored = false;
+        });
+      }
+      return;
+    }
     final healthService = context.read<HealthService>();
     final appUsageService = context.read<AppUsageService>();
 
@@ -198,17 +210,18 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
           _PermissionCard(
             icon: Icons.favorite_rounded,
             iconColor: colorScheme.error,
-            title: Platform.isAndroid ? 'Health Connect' : 'HealthKit',
+            title: kIsWeb ? 'Health App Integration' : (Platform.isAndroid ? 'Health Connect' : 'HealthKit'),
             subtitle: 'Sleep duration & step count',
-            explanation:
-                'Covary reads your nightly sleep duration and daily step '
-                'count from ${Platform.isAndroid ? 'Google Health Connect' : 'Apple HealthKit'}. These are the two objective '
-                'health variables in the research model.\n\n'
-                'All data stays on your device and is only exported when you '
-                'choose to share it.',
+            explanation: kIsWeb
+                ? 'Passive health data sync is not supported on the Web version of Covary. These metrics can only be synced on native Android or iOS.'
+                : 'Covary reads your nightly sleep duration and daily step '
+                  'count from ${Platform.isAndroid ? 'Google Health Connect' : 'Apple HealthKit'}. These are the two objective '
+                  'health variables in the research model.\n\n'
+                  'All data stays on your device and is only exported when you '
+                  'choose to share it.',
             isGranted: _healthGranted,
-            buttonLabel: _healthGranted ? 'Granted ✓' : 'Grant Health Access',
-            onGrant: _healthGranted
+            buttonLabel: kIsWeb ? 'Unavailable on Web' : (_healthGranted ? 'Granted ✓' : 'Grant Health Access'),
+            onGrant: kIsWeb || _healthGranted
                 ? null
                 : () async {
                     final service = context.read<HealthService>();
@@ -236,7 +249,7 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
           const SizedBox(height: 12),
 
           // ── App Usage Stats ──────────────────────────────────────────────
-          if (Platform.isAndroid) ...[
+          if (!kIsWeb && Platform.isAndroid) ...[
             if (_usageStatus == AppUsagePermissionStatus.restricted)
               _RestrictedSettingGuide(
                 onRetry: () async {
@@ -326,7 +339,7 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
           const SizedBox(height: 12),
 
           // ── Battery Optimization ─────────────────────────────────────────
-          if (Platform.isAndroid) ...[
+          if (!kIsWeb && Platform.isAndroid) ...[
             _PermissionCard(
               icon: Icons.battery_charging_full_rounded,
               iconColor: Colors.orange,
@@ -400,7 +413,7 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
           ),
 
           const SizedBox(height: 8),
-          if (Platform.isAndroid)
+          if (!kIsWeb && Platform.isAndroid)
             Text(
               'The 4-hour automatic sync will also run in the background.',
               style: textTheme.bodySmall?.copyWith(

@@ -2,6 +2,7 @@ import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 import 'dart:ui' show PlatformDispatcher;
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
@@ -223,6 +224,10 @@ void _logCrash(EventRepository eventRepo, String error, StackTrace? stack) {
 /// Initializes WorkManager and registers the periodic passive sync task.
 /// Extracted so it can run as part of deferred init.
 Future<void> _initWorkManager() async {
+  if (kIsWeb) {
+    debugPrint('[Main] WorkManager skipped on Web platform.');
+    return;
+  }
   if (!Platform.isAndroid) {
     debugPrint('[Main] WorkManager skipped on non-Android platform.');
     return;

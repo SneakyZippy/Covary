@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart' hide Column;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -26,6 +27,10 @@ class NotificationService {
   static GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   Future<void> init() async {
+    if (kIsWeb) {
+      debugPrint('[NotificationService] Skipped notification initialization on Web.');
+      return;
+    }
     await AwesomeNotifications().initialize(
       null,
       [
@@ -59,6 +64,7 @@ class NotificationService {
 
   /// Request permissions to send notifications
   Future<void> requestPermissions() async {
+    if (kIsWeb) return;
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     if (!isAllowed) {
       await AwesomeNotifications().requestPermissionToSendNotifications();
@@ -361,6 +367,7 @@ class NotificationService {
   }
 
   Future<void> checkPendingFatigueDialog() async {
+    if (kIsWeb) return;
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('show_fatigue_dialog') == true) {
       await prefs.setBool('show_fatigue_dialog', false);
@@ -417,6 +424,7 @@ class NotificationService {
   // ===========================================================================
 
   static Future<void> scheduleDailyReminders() async {
+    if (kIsWeb) return;
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     debugPrint('[NotificationService] scheduleDailyReminders: isAllowed=$isAllowed');
     if (!isAllowed) return;
@@ -567,6 +575,7 @@ class NotificationService {
   }
 
   static Future<void> scheduleMealReminders() async {
+    if (kIsWeb) return;
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     debugPrint('[NotificationService] scheduleMealReminders: isAllowed=$isAllowed');
     if (!isAllowed) return;
@@ -719,6 +728,7 @@ class NotificationService {
     Duration? delay,
     Map<String, String?>? payload,
   }) async {
+    if (kIsWeb) return;
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     if (!isAllowed) {
       debugPrint(

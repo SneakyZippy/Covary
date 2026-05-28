@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:drift/drift.dart' as drift;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -190,6 +191,10 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<void> _cancelAllNotifications() async {
+    if (kIsWeb) {
+      _showSnackbar('Notifications are not supported on Web.');
+      return;
+    }
     await AwesomeNotifications().cancelAll();
     if (mounted) _showSnackbar('All notifications cancelled.');
   }
@@ -262,6 +267,10 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<void> _viewScheduledNotifications() async {
+    if (kIsWeb) {
+      _showSnackbar('Notifications are not supported on Web.');
+      return;
+    }
     _showSnackbar('Fetching scheduled notifications...');
     try {
       final scheduled = await AwesomeNotifications().listScheduledNotifications();

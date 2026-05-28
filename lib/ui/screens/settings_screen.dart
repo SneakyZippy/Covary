@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -305,9 +306,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: ListTile(
                     leading: Icon(Icons.security_rounded, color: colorScheme.secondary),
                     title: const Text('Data Permissions'),
-                    subtitle: Text(Platform.isAndroid
-                        ? 'Health Connect & App Usage access'
-                        : 'HealthKit access'),
+                    subtitle: Text(kIsWeb
+                        ? 'Manage your data and exports'
+                        : (Platform.isAndroid
+                            ? 'Health Connect & App Usage access'
+                            : 'HealthKit access')),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () {
                       Navigator.of(context).push(
