@@ -21,6 +21,7 @@ class HealthService {
   /// Ensures the health plugin is configured before any API call.
   /// Must be called once before permissions, data reads, or writes.
   Future<void> _ensureConfigured() async {
+    if (kIsWeb) return;
     if (!_configured) {
       await _health.configure();
       _configured = true;
@@ -46,6 +47,7 @@ class HealthService {
   ///
   /// Returns `true` if all permissions are granted, `false` otherwise.
   Future<bool> requestPermissions() async {
+    if (kIsWeb) return false;
     try {
       // Step 0: Configure the health plugin (required since health 13.x).
       await _ensureConfigured();
@@ -94,6 +96,7 @@ class HealthService {
   /// Note: On Android, Health Connect does not expose a reliable "check without
   /// ask" API. This method attempts a small data fetch as a proxy check.
   Future<bool> hasPermissions() async {
+    if (kIsWeb) return false;
     try {
       await _ensureConfigured();
       // hasPermissions returns null if status is indeterminate (treat as false).
@@ -114,6 +117,7 @@ class HealthService {
   /// Sums all [HealthDataType.SLEEP_SESSION] records that ended within the
   /// window. Returns `null` if no data is available or an error occurs.
   Future<double?> fetchSleepDurationHours({DateTime? startTime, DateTime? endTime}) async {
+    if (kIsWeb) return null;
     try {
       await _ensureConfigured();
       final now = DateTime.now();
@@ -200,6 +204,7 @@ class HealthService {
   /// For bedtime, values before noon are treated as the next day (e.g. 01:30 AM -> 25.5) 
   /// to maintain a continuous linear scale for correlation calculations.
   Future<({double bedtime, double wakeup, double midpoint})?> fetchSleepTimes({DateTime? startTime, DateTime? endTime}) async {
+    if (kIsWeb) return null;
     try {
       await _ensureConfigured();
       final now = DateTime.now();
@@ -264,6 +269,7 @@ class HealthService {
   /// Uses Health Connect's optimized [getTotalStepsInInterval] API, which
   /// avoids iterating individual data points. Returns `null` on error.
   Future<int?> fetchStepCount({DateTime? startTime, DateTime? endTime}) async {
+    if (kIsWeb) return null;
     try {
       await _ensureConfigured();
       final now = DateTime.now();
@@ -284,6 +290,7 @@ class HealthService {
   /// This returns the raw data points (e.g., 30-minute buckets) as recorded by
   /// Health Connect, allowing for high-resolution circadian/time-of-day analysis.
   Future<List<HealthDataPoint>> fetchStepSegments({DateTime? startTime, DateTime? endTime}) async {
+    if (kIsWeb) return [];
     try {
       await _ensureConfigured();
       final now = DateTime.now();

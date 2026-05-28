@@ -48,18 +48,30 @@ class PassiveSensingService {
 
   /// Runs a passive sync cycle for all metrics over a range of days.
   Future<void> syncAll({int days = 1, DateTime? targetDate}) async {
+    if (kIsWeb) {
+      debugPrint('[PassiveSensingService] Sync skipped: passive sensing not supported on Web.');
+      return;
+    }
     await _syncInternal(days: days, targetDate: targetDate, health: true, usage: true);
     debugPrint('[PassiveSensingService] Sync cycle complete for $days days.');
   }
 
   /// Runs a passive sync cycle for health metrics only.
   Future<void> syncHealth({int days = 1, DateTime? targetDate}) async {
+    if (kIsWeb) {
+      debugPrint('[PassiveSensingService] Health sync skipped: passive sensing not supported on Web.');
+      return;
+    }
     await _syncInternal(days: days, targetDate: targetDate, health: true, usage: false);
     debugPrint('[PassiveSensingService] Health sync complete for $days days.');
   }
 
   /// Runs a passive sync cycle for app usage metrics only.
   Future<void> syncAppUsage({int days = 1, DateTime? targetDate}) async {
+    if (kIsWeb) {
+      debugPrint('[PassiveSensingService] App usage sync skipped: passive sensing not supported on Web.');
+      return;
+    }
     await _syncInternal(days: days, targetDate: targetDate, health: false, usage: true);
     debugPrint('[PassiveSensingService] App usage sync complete for $days days.');
   }
