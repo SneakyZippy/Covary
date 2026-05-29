@@ -13,6 +13,9 @@ import '../data/database/app_database.dart';
 import '../data/models/enums.dart';
 import '../data/models/meal_reminder.dart';
 import '../ui/theme/design_system.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'pwa_push_interop.dart';
+import 'supabase_config.dart';
 
 @pragma("vm:entry-point")
 class NotificationService {
@@ -30,7 +33,18 @@ class NotificationService {
 
   Future<void> init() async {
     if (kIsWeb) {
-      debugPrint('[NotificationService] Skipped notification initialization on Web.');
+      debugPrint('[NotificationService] PWA platform detected. Initializing Web Push permissions...');
+      try {
+        final permission = PwaPushInterop.getPermissionStatus();
+        debugPrint('[NotificationService] Initial Web Push permission status: $permission');
+        if (permission == 'granted') {
+          await scheduleDailyReminders();
+          await scheduleMealReminders();
+          _subscribeToMealChanges();
+        }
+      } catch (e) {
+        debugPrint('[NotificationService] Web Push initialization failed: $e');
+      }
       return;
     }
     await AwesomeNotifications().initialize(
@@ -67,7 +81,21 @@ class NotificationService {
 
   /// Request permissions to send notifications
   Future<void> requestPermissions() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      try {
+        debugPrint('[NotificationService] Requesting Web Push permissions...');
+        final permission = await PwaPushInterop.requestPermission();
+        debugPrint('[NotificationService] Web Push permission request result: $permission');
+        if (permission == 'granted') {
+          await scheduleDailyReminders();
+          await scheduleMealReminders();
+          _subscribeToMealChanges();
+        }
+      } catch (e) {
+        debugPrint('[NotificationService] Web Push request permission error: $e');
+      }
+      return;
+    }
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     if (!isAllowed) {
       await AwesomeNotifications().requestPermissionToSendNotifications();
@@ -439,7 +467,48 @@ class NotificationService {
   // ===========================================================================
 
   static Future<void> scheduleDailyReminders() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final userUuid = prefs.getString('user_uuid') ?? 'unknown_user';
+      
+      // Clear existing unsent pushes to prevent duplicates
+      await _clearWebPushes(userUuid);
+      
+      final db = AppDatabase.getInstance();
+      final windows = await db.getAllTrackingWindows();
+      
+      for (var window in windows) {
+        if (!window.isNotificationEnabled || !window.isEnabled) continue;
+        
+        // Compute next occurrence
+        final now = DateTime.now();
+        var scheduledTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          window.notificationHour,
+          window.notificationMinute,
+        );
+        if (scheduledTime.isBefore(now)) {
+          scheduledTime = scheduledTime.add(const Duration(days: 1));
+        }
+        
+        await _scheduleWebPush(
+          userUuid: userUuid,
+          scheduledFor: scheduledTime,
+          payload: {
+            'title': '${window.label} Check-in',
+            'body': 'Time for your ${window.label.toLowerCase()} update! Please take a moment to record your status.',
+            'data': {
+              'notification_type': 'daily_reminder',
+              'window_id': window.id,
+              'window_label': window.label,
+            }
+          },
+        );
+      }
+      return;
+    }
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     debugPrint('[NotificationService] scheduleDailyReminders: isAllowed=$isAllowed');
     if (!isAllowed) return;
@@ -590,7 +659,77 @@ class NotificationService {
   }
 
   static Future<void> scheduleMealReminders() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final userUuid = prefs.getString('user_uuid') ?? 'unknown_user';
+      final bool masterEnabled = prefs.getBool('meal_reminders_master_enabled') ?? true;
+      final String? remindersJson = prefs.getString('meal_reminders');
+
+      // Clear existing meal pushes from Supabase
+      try {
+        await Supabase.instance.client
+            .from('pwa_push_reminders')
+            .delete()
+            .eq('user_uuid', userUuid)
+            .eq('sent', false)
+            .filter('payload->data->>notification_type', 'eq', 'meal_reminder');
+      } catch (e) {
+        debugPrint('[NotificationService] Error clearing web meal reminders: $e');
+      }
+
+      if (!masterEnabled) {
+        debugPrint('[NotificationService] Meal reminders are globally disabled on Web.');
+        return;
+      }
+
+      List<MealReminder> reminders = [];
+      if (remindersJson != null) {
+        try {
+          final List<dynamic> decoded = json.decode(remindersJson);
+          reminders = decoded.map((item) => MealReminder.fromMap(item)).toList();
+        } catch (e) {
+          debugPrint('[NotificationService] Error parsing meal reminders: $e');
+        }
+      } else {
+        reminders = [
+          MealReminder(id: 'preset_breakfast', label: 'Breakfast', hour: 8, minute: 30, isEnabled: true),
+          MealReminder(id: 'preset_lunch', label: 'Lunch', hour: 12, minute: 30, isEnabled: true),
+          MealReminder(id: 'preset_dinner', label: 'Dinner', hour: 19, minute: 30, isEnabled: true),
+        ];
+      }
+
+      for (var reminder in reminders) {
+        if (!reminder.isEnabled) continue;
+
+        // Compute next occurrence
+        final now = DateTime.now();
+        var scheduledTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          reminder.hour,
+          reminder.minute,
+        );
+        if (scheduledTime.isBefore(now)) {
+          scheduledTime = scheduledTime.add(const Duration(days: 1));
+        }
+
+        await _scheduleWebPush(
+          userUuid: userUuid,
+          scheduledFor: scheduledTime,
+          payload: {
+            'title': '${reminder.label} Reminder',
+            'body': 'Time to track your meal. What did you have?',
+            'data': {
+              'notification_type': 'meal_reminder',
+              'reminder_id': reminder.id,
+              'reminder_label': reminder.label,
+            }
+          },
+        );
+      }
+      return;
+    }
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     debugPrint('[NotificationService] scheduleMealReminders: isAllowed=$isAllowed');
     if (!isAllowed) return;
@@ -798,7 +937,38 @@ class NotificationService {
     Duration? delay,
     Map<String, String?>? payload,
   }) async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final userUuid = prefs.getString('user_uuid') ?? 'unknown_user';
+      
+      final notificationType = payload?['notification_type'];
+      final reminderLabel = payload?['reminder_label'];
+
+      final bool isMeal = notificationType == 'meal_reminder';
+
+      final String title = isMeal
+          ? '${reminderLabel ?? 'Meal'} Reminder (Snoozed)'
+          : (payload?['window_label'] != null
+              ? '${payload!['window_label']} Check-in (Snoozed)'
+              : 'Time for a quick update!');
+
+      final String body = isMeal
+          ? 'Time to track your meal. What did you have?'
+          : 'Please take a moment to record your current status.';
+
+      final scheduledTime = DateTime.now().add(delay ?? const Duration(seconds: 10));
+
+      await _scheduleWebPush(
+        userUuid: userUuid,
+        scheduledFor: scheduledTime,
+        payload: {
+          'title': title,
+          'body': body,
+          'data': payload ?? {'metric_id': 'default'},
+        },
+      );
+      return;
+    }
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
     if (!isAllowed) {
       debugPrint(
@@ -941,5 +1111,49 @@ class NotificationService {
       return '${minutes ~/ 60}h';
     }
     return '${minutes}m';
+  }
+
+  // ===========================================================================
+  // PWA Web Push Helper Methods
+  // ===========================================================================
+
+  static Future<void> _scheduleWebPush({
+    required String userUuid,
+    required DateTime scheduledFor,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final String? subscriptionJson = await PwaPushInterop.subscribe(SupabaseConfig.vapidPublicKey);
+      if (subscriptionJson == null) {
+        debugPrint('[NotificationService] Failed to schedule Web Push: Not subscribed or permission denied.');
+        return;
+      }
+      final subscription = jsonDecode(subscriptionJson);
+
+      // Insert the notification task into public.pwa_push_reminders
+      await Supabase.instance.client.from('pwa_push_reminders').insert({
+        'user_uuid': userUuid,
+        'subscription': subscription,
+        'scheduled_for': scheduledFor.toUtc().toIso8601String(),
+        'payload': payload,
+        'sent': false,
+      });
+      debugPrint('[NotificationService] Scheduled Web Push for $scheduledFor');
+    } catch (e) {
+      debugPrint('[NotificationService] Error scheduling Web Push: $e');
+    }
+  }
+
+  static Future<void> _clearWebPushes(String userUuid) async {
+    try {
+      await Supabase.instance.client
+          .from('pwa_push_reminders')
+          .delete()
+          .eq('user_uuid', userUuid)
+          .eq('sent', false);
+      debugPrint('[NotificationService] Cleared future Web Pushes for $userUuid');
+    } catch (e) {
+      debugPrint('[NotificationService] Error clearing Web Pushes: $e');
+    }
   }
 }

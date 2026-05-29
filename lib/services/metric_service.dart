@@ -407,9 +407,10 @@ class MetricService extends ChangeNotifier {
           const CustomMetricsCompanion(
             label: Value('Mindless Scrolling'),
             inputType: Value(MetricInputType.counter),
+            windowIds: Value('homescreen'),
           ),
         );
-        debugPrint('[MetricService] Soft Migration v6: Changed core_screen_mindless inputType to counter and label to Mindless Scrolling');
+        debugPrint('[MetricService] Soft Migration v6: Changed core_screen_mindless inputType to counter, label to Mindless Scrolling, and windowIds to homescreen');
 
         final oldEvents = await _eventRepo.getEventsByLabel('Mindless Scrolling?');
         int migratedCount = 0;

@@ -2,6 +2,9 @@
 {{flutter_build_config}}
 
 _flutter.loader.load({
+  serviceWorkerSettings: {
+    serviceWorkerUrl: 'sw.js',
+  },
   onEntrypointLoaded: async function(engineInitializer) {
     const appRunner = await engineInitializer.initializeEngine();
     

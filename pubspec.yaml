@@ -48,6 +48,7 @@ dependencies:
   # Identity & persistence
   shared_preferences: ^2.5.3
   uuid: ^4.5.1
+  js: ^0.6.7
 
   # State management
   provider: ^6.1.4

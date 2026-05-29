@@ -353,7 +353,7 @@ class MetricPresets {
       category: EventCategory.behavior,
       inputType: MetricInputType.counter,
       isEnabled: true,
-      windowIds: ['anytime'],
+      windowIds: ['homescreen'],
       emoji: 'phonelink_erase',
       isActivityIndicator: false,
       retroReliableOverride: false,
