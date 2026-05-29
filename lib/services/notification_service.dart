@@ -20,6 +20,8 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
+  static StreamSubscription<int>? _mealSubscription;
+
   static const String _kSnoozeDurationsKey = 'notification_snooze_durations';
   static const List<int> _defaultSnoozeDurations = [15, 60]; // 15m, 1h
 
@@ -59,6 +61,7 @@ class NotificationService {
     if (isAllowed) {
       await scheduleDailyReminders();
       await scheduleMealReminders();
+      _subscribeToMealChanges();
     }
   }
 
@@ -73,7 +76,17 @@ class NotificationService {
     if (isAllowed) {
       await scheduleDailyReminders();
       await scheduleMealReminders();
+      _subscribeToMealChanges();
     }
+  }
+
+  static void _subscribeToMealChanges() {
+    if (_mealSubscription != null) return;
+    final db = AppDatabase.getInstance();
+    _mealSubscription = db.watchTodayCountForLabel('core_meal_count').listen((_) {
+      debugPrint('[NotificationService] Meal logged/deleted, rescheduling meal reminders.');
+      scheduleMealReminders();
+    });
   }
 
   // ===========================================================================
@@ -136,6 +149,8 @@ class NotificationService {
         receivedAction.payload,
         value: value,
       );
+
+      await scheduleMealReminders();
     } else {
       if (receivedAction.payload?['notification_type'] == 'meal_reminder') {
         await _logInteraction(
@@ -468,8 +483,8 @@ class NotificationService {
         continue;
       }
 
-      // Generate a stable integer ID from the UUID hash (modulo 1B to allow headroom for snooze ID)
-      final notificationId = window.id.hashCode.abs() % 1000000000;
+      // Generate a stable integer ID from the UUID hash (modulo 500M to allow headroom for snooze ID)
+      final notificationId = window.id.hashCode.abs() % 500000000;
       debugPrint('[NotificationService] Scheduling window ${window.label} (ID: $notificationId) at ${window.notificationHour}:${window.notificationMinute}');
       
       try {
@@ -618,13 +633,62 @@ class NotificationService {
       await prefs.setString('meal_reminders', encoded);
     }
 
+    final activeReminders = reminders.where((r) => r.isEnabled).toList();
+    activeReminders.sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
+
     int scheduledCount = 0;
     for (var reminder in reminders) {
       if (!reminder.isEnabled) continue;
 
-      // Stable ID above 2B to prevent collisions
-      final notificationId = (reminder.id.hashCode.abs() % 1000000000) + 2000000000;
-      debugPrint('[NotificationService] Scheduling meal reminder ${reminder.label} (ID: $notificationId) at ${reminder.hour}:${reminder.minute}');
+      final now = DateTime.now();
+      final reminderTimeToday = DateTime(now.year, now.month, now.day, reminder.hour, reminder.minute);
+
+      int startYear = now.year;
+      int startMonth = now.month;
+      int startDay = now.day;
+
+      if (now.isAfter(reminderTimeToday)) {
+        final tomorrow = now.add(const Duration(days: 1));
+        startYear = tomorrow.year;
+        startMonth = tomorrow.month;
+        startDay = tomorrow.day;
+      } else {
+        final int index = activeReminders.indexOf(reminder);
+        DateTime intervalStart;
+        if (activeReminders.length > 1) {
+          if (index > 0) {
+            final prev = activeReminders[index - 1];
+            intervalStart = DateTime(now.year, now.month, now.day, prev.hour, prev.minute);
+          } else {
+            final prev = activeReminders.last;
+            final yesterday = now.subtract(const Duration(days: 1));
+            intervalStart = DateTime(yesterday.year, yesterday.month, yesterday.day, prev.hour, prev.minute);
+          }
+        } else {
+          final yesterday = now.subtract(const Duration(days: 1));
+          intervalStart = DateTime(yesterday.year, yesterday.month, yesterday.day, reminder.hour, reminder.minute);
+        }
+
+        bool hasMealInInterval = false;
+        if (intervalStart.isBefore(now)) {
+          final db = AppDatabase.getInstance();
+          final events = await db.getEventsInDateRange(intervalStart, now);
+          hasMealInInterval = events.any((e) =>
+              e.category == EventCategory.nutrition && e.label == 'core_meal_count');
+        }
+
+        if (hasMealInInterval) {
+          debugPrint('[NotificationService] Meal already logged in interval for ${reminder.label}. Rescheduling to tomorrow.');
+          final tomorrow = now.add(const Duration(days: 1));
+          startYear = tomorrow.year;
+          startMonth = tomorrow.month;
+          startDay = tomorrow.day;
+        }
+      }
+
+      // Stable ID in the 1.0B - 1.5B range to prevent collisions and signed 32-bit overflow
+      final notificationId = (reminder.id.hashCode.abs() % 500000000) + 1000000000;
+      debugPrint('[NotificationService] Scheduling meal reminder ${reminder.label} (ID: $notificationId) at ${reminder.hour}:${reminder.minute} starting on $startYear-$startMonth-$startDay');
 
       try {
         await AwesomeNotifications().createNotification(
@@ -643,6 +707,9 @@ class NotificationService {
             wakeUpScreen: true,
           ),
           schedule: NotificationCalendar(
+            year: startYear,
+            month: startMonth,
+            day: startDay,
             hour: reminder.hour,
             minute: reminder.minute,
             second: 0,
@@ -689,6 +756,9 @@ class NotificationService {
               wakeUpScreen: true,
             ),
             schedule: NotificationCalendar(
+              year: startYear,
+              month: startMonth,
+              day: startDay,
               hour: reminder.hour,
               minute: reminder.minute,
               second: 0,
@@ -746,9 +816,9 @@ class NotificationService {
     final reminderLabel = payload?['reminder_label'];
 
     final notificationId = windowId != null 
-        ? ((windowId.hashCode.abs() % 1000000000) + 1000000000) 
+        ? ((windowId.hashCode.abs() % 500000000) + 500000000) 
         : (notificationType == 'meal_reminder' && reminderId != null
-            ? ((reminderId.hashCode.abs() % 1000000000) + 3000000000)
+            ? ((reminderId.hashCode.abs() % 500000000) + 1500000000)
             : 100);
 
     final bool isMeal = notificationType == 'meal_reminder';
