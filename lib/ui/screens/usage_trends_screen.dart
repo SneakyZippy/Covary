@@ -27,7 +27,7 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
   Aggregation _aggregation = Aggregation.daily;
   DayFilter _dayFilter = DayFilter.all;
   Set<String> _selectedLabels = {'category_time:social', 'category_time:entertainment'};
-  bool _showTop5 = false;
+  bool _showTop5 = true;
   bool _isStacked = false;
 
   // Processed Data
