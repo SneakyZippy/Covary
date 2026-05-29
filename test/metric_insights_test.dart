@@ -64,6 +64,10 @@ void main() {
       expect(MetricInsightsHelper.formatMetricValue('total_screen_time', 125.0), equals('2h 5m'));
       expect(MetricInsightsHelper.formatMetricValue('category_time:social', 60.0), equals('1h 0m'));
 
+      // Mindless scrolling formatting
+      expect(MetricInsightsHelper.formatMetricValue('Mindless Scrolling', 15.0), equals('15m'));
+      expect(MetricInsightsHelper.formatMetricValue('Mindless Scrolling', 75.0), equals('1h 15m'));
+
       // Defaults
       expect(MetricInsightsHelper.formatMetricValue('mood', 4.0), equals('4'));
       expect(MetricInsightsHelper.formatMetricValue('mood', 4.5), equals('4.5'));
@@ -81,6 +85,10 @@ void main() {
       // Screen time formatting
       expect(MetricInsightsHelper.formatAxisLabel('total_screen_time', 45), equals('45m'));
       expect(MetricInsightsHelper.formatAxisLabel('total_screen_time', 120), equals('2.0h'));
+
+      // Mindless scrolling axis formatting
+      expect(MetricInsightsHelper.formatAxisLabel('Mindless Scrolling', 15), equals('15m'));
+      expect(MetricInsightsHelper.formatAxisLabel('Mindless Scrolling', 90), equals('1.5h'));
 
       // Defaults
       expect(MetricInsightsHelper.formatAxisLabel('mood', 4), equals('4'));

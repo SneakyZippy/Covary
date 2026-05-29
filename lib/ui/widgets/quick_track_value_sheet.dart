@@ -496,6 +496,18 @@ class _PortionPreview extends StatelessWidget {
         title = 'Large Feast';
         baseScale = 1.45;
       }
+    } else if (metricId == 'core_screen_mindless') {
+      baseScale = 0.8 + (normalized * 0.6);
+      if (value <= 10.0) {
+        emoji = '📱';
+        title = 'Quick scroll';
+      } else if (value <= 30.0) {
+        emoji = '📲';
+        title = 'Medium Session';
+      } else {
+        emoji = '🧟';
+        title = 'Doom Scroll';
+      }
     } else if (metricId == 'core_alcohol_intake') {
       baseScale = 0.8 + (normalized * 0.6);
       if (value <= 1.0) {

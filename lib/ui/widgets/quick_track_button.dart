@@ -33,6 +33,13 @@ class CounterMetricConfig {
 }
 
 const Map<String, CounterMetricConfig> _counterConfigs = {
+  'core_screen_mindless': CounterMetricConfig(
+    unit: 'min',
+    step: 5.0,
+    min: 5.0,
+    max: 120.0,
+    fallbackDefault: 10.0,
+  ),
   'core_water_intake': CounterMetricConfig(
     unit: 'ml',
     step: 50,

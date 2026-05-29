@@ -398,6 +398,40 @@ class MetricService extends ChangeNotifier {
       await _profileRepo.setBoolSetting(syncKey, true);
     }
 
+    // --- SOFT MIGRATION v6: Update core_screen_mindless label and inputType, migrate old event labels ---
+    final syncKeyV6 = 'core_metrics_v6_sync';
+    if (!_profileRepo.getBoolSetting(syncKeyV6)) {
+      try {
+        await _metricRepo.updateCustomMetric(
+          'core_screen_mindless',
+          const CustomMetricsCompanion(
+            label: Value('Mindless Scrolling'),
+            inputType: Value(MetricInputType.counter),
+          ),
+        );
+        debugPrint('[MetricService] Soft Migration v6: Changed core_screen_mindless inputType to counter and label to Mindless Scrolling');
+
+        final oldEvents = await _eventRepo.getEventsByLabel('Mindless Scrolling?');
+        int migratedCount = 0;
+        for (final event in oldEvents) {
+          await _eventRepo.updateEvent(
+            event.id,
+            const EventsCompanion(
+              label: Value('Mindless Scrolling'),
+            ),
+          );
+          migratedCount++;
+        }
+        if (migratedCount > 0) {
+          debugPrint('[MetricService] Soft Migration v6: Migrated $migratedCount events to new label');
+        }
+        await _reload();
+      } catch (e) {
+        debugPrint('[MetricService] Error running soft migration v6: $e');
+      }
+      await _profileRepo.setBoolSetting(syncKeyV6, true);
+    }
+
     await _reload();
     debugPrint(
       '[MetricService] Initialized with ${_allMetrics.length} metrics '

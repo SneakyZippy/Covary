@@ -517,6 +517,33 @@ class _SessionCardState extends State<_SessionCard> {
   String _formatValue(String value) {
     if (value == 'true') return 'Yes';
     if (value == 'false') return 'No';
+
+    if (widget.session.events.isNotEmpty) {
+      final label = widget.session.events.first.label;
+      final valNum = double.tryParse(value);
+      if (valNum != null) {
+        if (label == 'Mindless Scrolling' || label == 'Mindless Scrolling?') {
+          return '${valNum.toInt()} min';
+        } else if (label == 'Water Intake') {
+          return '${valNum.toInt()} ml';
+        } else if (label == 'Coffee Intake') {
+          final isPlural = valNum != 1.0;
+          final formatted = valNum == valNum.toInt() ? valNum.toInt().toString() : valNum.toStringAsFixed(1);
+          return '$formatted cup${isPlural ? 's' : ''}';
+        } else if (label == 'Alcoholic Drink') {
+          final isPlural = valNum != 1.0;
+          final formatted = valNum == valNum.toInt() ? valNum.toInt().toString() : valNum.toStringAsFixed(1);
+          return '$formatted drink${isPlural ? 's' : ''}';
+        } else if (label == 'Bathroom Visit') {
+          final isPlural = valNum != 1.0;
+          return '${valNum.toInt()} visit${isPlural ? 's' : ''}';
+        } else if (label.startsWith('Bachelor Work')) {
+          final isPlural = valNum != 1.0;
+          return '${valNum.toInt()} block${isPlural ? 's' : ''}';
+        }
+      }
+    }
+
     if (value.length > 15) return '${value.substring(0, 12)}...';
     return value;
   }
@@ -592,6 +619,31 @@ class _EventRow extends StatelessWidget {
   String _formatValue(String value) {
     if (value == 'true') return 'Yes';
     if (value == 'false') return 'No';
+
+    final label = event.label;
+    final valNum = double.tryParse(value);
+    if (valNum != null) {
+      if (label == 'Mindless Scrolling' || label == 'Mindless Scrolling?') {
+        return '${valNum.toInt()} min';
+      } else if (label == 'Water Intake') {
+        return '${valNum.toInt()} ml';
+      } else if (label == 'Coffee Intake') {
+        final isPlural = valNum != 1.0;
+        final formatted = valNum == valNum.toInt() ? valNum.toInt().toString() : valNum.toStringAsFixed(1);
+        return '$formatted cup${isPlural ? 's' : ''}';
+      } else if (label == 'Alcoholic Drink') {
+        final isPlural = valNum != 1.0;
+        final formatted = valNum == valNum.toInt() ? valNum.toInt().toString() : valNum.toStringAsFixed(1);
+        return '$formatted drink${isPlural ? 's' : ''}';
+      } else if (label == 'Bathroom Visit') {
+        final isPlural = valNum != 1.0;
+        return '${valNum.toInt()} visit${isPlural ? 's' : ''}';
+      } else if (label.startsWith('Bachelor Work')) {
+        final isPlural = valNum != 1.0;
+        return '${valNum.toInt()} block${isPlural ? 's' : ''}';
+      }
+    }
+
     if (value.length > 15) return '${value.substring(0, 12)}...';
     return value;
   }

@@ -59,7 +59,7 @@ class MetricPresets {
       "Increment this counter for every 30-minute block of focused work completed on your Bachelor's thesis.\n\nGuidelines:\n• Only count blocks where you were actively researching, writing, coding, or editing with high focus.";
 
   static const String _descScreenMindless =
-      "Did you engage in mindless scrolling or doom-scrolling on social media in the last hour?\n\nGuidelines:\n• Mark 'Yes' if you found yourself compulsively reloading feeds or scrolling without a specific active purpose.";
+      "Log your mindless scrolling or doom-scrolling sessions on social media.\n\nGuidelines:\n• Record the duration of scrolling sessions without a specific active purpose.\n• Helps trace the exact patterns, triggers, and downstream effects on your focus and mood.";
 
   static const String _descSport =
       "Did you complete a session of structured exercise or intense physical activity today?\n\nGuidelines:\n• Mark 'Yes' for workouts, runs, gym sessions, sports, or brisk walks lasting at least 20-30 minutes.";
@@ -349,9 +349,9 @@ class MetricPresets {
     ),
     MetricDefinition(
       id: 'core_screen_mindless',
-      label: 'Mindless Scrolling?',
+      label: 'Mindless Scrolling',
       category: EventCategory.behavior,
-      inputType: MetricInputType.yesNo,
+      inputType: MetricInputType.counter,
       isEnabled: true,
       windowIds: ['anytime'],
       emoji: 'phonelink_erase',

@@ -924,7 +924,7 @@ class MetricInsightsHelper {
     if (label == 'sleep_duration_hours') {
       return '${val.toStringAsFixed(1)}h';
     }
-    if (label.contains('time') || label.contains('screen_time')) {
+    if (label.contains('time') || label.contains('screen_time') || label.toLowerCase().contains('scrolling') || label.toLowerCase().contains('mindless')) {
       if (val >= 60) {
         final h = val ~/ 60;
         final m = (val % 60).round();
@@ -945,7 +945,7 @@ class MetricInsightsHelper {
       final int h = hours.floor();
       return '${h.toString().padLeft(2, '0')}:00';
     }
-    if (label.contains('time') || label.contains('screen_time')) {
+    if (label.contains('time') || label.contains('screen_time') || label.toLowerCase().contains('scrolling') || label.toLowerCase().contains('mindless')) {
       if (val >= 60) {
         return '${(val / 60).toStringAsFixed(1)}h';
       }
