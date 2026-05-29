@@ -1,7 +1,7 @@
 {
     "latest_version":  "1.3.0",
-    "build_number":  35,
-    "build_timestamp":  "2026-05-28T17:54:42+02:00",
+    "build_number":  36,
+    "build_timestamp":  "2026-05-29T13:51:00+02:00",
     "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "Release v1.3.0+35\n\n- **Settings Consolidation**: Restructured settings into 4 clean, logical categories to reduce vertical clutter.\n- **Unified Export Menu**: Grouped all researcher email submissions and database backups under a single bottom sheet.\n- **Embedded Snooze Settings**: Replaced standalone cards with inline columns to optimize layout screen space."
+    "release_notes":  "Release v1.3.0+36\n\n- **Web Push Notifications**: Integrated background push notifications for PWA users utilizing Supabase Edge Functions.\n- **Cross-Platform Interop**: Created conditional stubs for web-only JS libraries to maintain Android/iOS native compilation."
 }
