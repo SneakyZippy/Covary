@@ -39,7 +39,7 @@ jobs:
       - name: Create dummy Supabase Config for analysis
         run: |
           mkdir -p lib/services
-          echo "class SupabaseConfig { static const String supabaseUrl = ''; static const String supabaseAnonKey = ''; }" > lib/services/supabase_config.dart
+          echo "class SupabaseConfig { static const String supabaseUrl = ''; static const String supabaseAnonKey = ''; static const String vapidPublicKey = ''; }" > lib/services/supabase_config.dart
 
       - name: Analyze project source
         run: flutter analyze
@@ -74,7 +74,7 @@ jobs:
       - name: Create dummy Supabase Config for build
         run: |
           mkdir -p lib/services
-          echo "class SupabaseConfig { static const String supabaseUrl = ''; static const String supabaseAnonKey = ''; }" > lib/services/supabase_config.dart
+          echo "class SupabaseConfig { static const String supabaseUrl = ''; static const String supabaseAnonKey = ''; static const String vapidPublicKey = ''; }" > lib/services/supabase_config.dart
 
       - name: Build Flutter Web
         run: flutter build web --base-href "/Covary/" --release
