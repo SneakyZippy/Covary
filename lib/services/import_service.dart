@@ -41,8 +41,20 @@ class ImportService {
         return 'Import cancelled.';
       }
 
-      final file = File(result.files.first.path!);
-      final content = await file.readAsString();
+      final String content;
+      if (kIsWeb) {
+        final bytes = result.files.first.bytes;
+        if (bytes == null) {
+          return 'Import failed: file content not loaded.';
+        }
+        content = utf8.decode(bytes);
+      } else {
+        final path = result.files.first.path;
+        if (path == null) {
+          return 'Import failed: file path is not available.';
+        }
+        content = await File(path).readAsString();
+      }
       final Map<String, dynamic> data = jsonDecode(content);
 
       // Handle both legacy (flat) and new (structured) formats

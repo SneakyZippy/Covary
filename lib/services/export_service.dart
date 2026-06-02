@@ -11,6 +11,7 @@ import '../data/repositories/metric_repository.dart';
 import '../data/repositories/tracking_window_repository.dart';
 import '../data/models/enums.dart';
 import 'profile_service.dart';
+import 'web_download_helper.dart';
 
 /// Service responsible for packaging the local Drift database into a
 /// structured JSON file and exposing it via the native share intent.
@@ -139,6 +140,22 @@ class ExportService {
           .replaceAll(':', '-')
           .replaceAll('.', '-');
       final fileName = 'covary_${type}_${uuid}_$timestamp.json';
+
+      if (kIsWeb) {
+        WebDownloadHelper.downloadFile(bytesOrText: jsonString, fileName: fileName);
+
+        // Log the HCI meta event prior to download
+        await _eventRepo.insertEvent(
+          EventsCompanion.insert(
+            category: EventCategory.meta,
+            label: 'data_exported_$type',
+            value: 'true',
+            triggerSource: TriggerSource.manual,
+            interactionType: InteractionType.click,
+          ),
+        );
+        return true;
+      }
 
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/$fileName');
