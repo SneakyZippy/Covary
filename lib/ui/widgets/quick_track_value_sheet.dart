@@ -33,11 +33,13 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
   late double _currentValue;
   int _selectedTimeIndex = 0; // 0: Now, 1: 15m ago, 2: 30m ago, 3: 1h ago, 4: Custom
   DateTime? _customTime;
+  late DateTime _selectedDate;
   bool _saveAsDefault = false;
 
   @override
   void initState() {
     super.initState();
+    _selectedDate = DateTime.now();
     // Clamp initial value to min/max just in case
     _currentValue = widget.initialValue.clamp(widget.min, widget.max);
   }
@@ -65,28 +67,34 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
 
   DateTime _getSelectedDateTime() {
     final now = DateTime.now();
+    DateTime baseTime;
     switch (_selectedTimeIndex) {
       case 1:
-        return now.subtract(const Duration(minutes: 15));
+        baseTime = now.subtract(const Duration(minutes: 15));
+        break;
       case 2:
-        return now.subtract(const Duration(minutes: 30));
+        baseTime = now.subtract(const Duration(minutes: 30));
+        break;
       case 3:
-        return now.subtract(const Duration(hours: 1));
+        baseTime = now.subtract(const Duration(hours: 1));
+        break;
       case 4:
-        if (_customTime != null) {
-          return DateTime(
-            now.year,
-            now.month,
-            now.day,
-            _customTime!.hour,
-            _customTime!.minute,
-          );
-        }
-        return now;
+        baseTime = _customTime ?? now;
+        break;
       case 0:
       default:
-        return now;
+        baseTime = now;
+        break;
     }
+
+    return DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      baseTime.hour,
+      baseTime.minute,
+      baseTime.second,
+    );
   }
 
   Future<void> _selectCustomTime() async {
@@ -106,6 +114,21 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
           time.minute,
         );
         _selectedTimeIndex = 4;
+      });
+    }
+  }
+
+  Future<void> _selectCustomDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (date != null) {
+      setState(() {
+        _selectedDate = DateTime(date.year, date.month, date.day);
       });
     }
   }
@@ -332,6 +355,10 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Inline picker row: Happened at [Time] on [Date]
+          _buildInlinePickerRow(colorScheme, textTheme, displayDateTime),
           const SizedBox(height: 20),
 
           // Save as Default portion toggle (hide for toilet visits as it is always 1)
@@ -381,30 +408,147 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
           const SizedBox(height: 24),
 
           // Confirm button
-          FilledButton.icon(
-            onPressed: () {
-              widget.onConfirm(
-                _currentValue,
-                displayDateTime,
-                _saveAsDefault,
+          Builder(
+            builder: (context) {
+              final today = DateTime.now();
+              final isSameDay = displayDateTime.year == today.year &&
+                                displayDateTime.month == today.month &&
+                                displayDateTime.day == today.day;
+              final yesterday = today.subtract(const Duration(days: 1));
+              final isYesterday = displayDateTime.year == yesterday.year &&
+                                  displayDateTime.month == yesterday.month &&
+                                  displayDateTime.day == yesterday.day;
+
+              String dateSuffix;
+              if (isSameDay) {
+                dateSuffix = 'at ${timeFormatter.format(displayDateTime)}';
+              } else if (isYesterday) {
+                dateSuffix = 'at ${timeFormatter.format(displayDateTime)} (Yesterday)';
+              } else {
+                dateSuffix = 'at ${timeFormatter.format(displayDateTime)} on ${DateFormat('MMM d').format(displayDateTime)}';
+              }
+
+              return FilledButton.icon(
+                onPressed: () {
+                  widget.onConfirm(
+                    _currentValue,
+                    displayDateTime,
+                    _saveAsDefault,
+                  );
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.check_circle_outline_rounded),
+                label: Text(
+                  isToilet
+                      ? 'Log 1 Visit $dateSuffix'
+                      : 'Log ${_formatDisplayValue(_currentValue, widget.unit, widget.metric.id)} $dateSuffix',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
               );
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.check_circle_outline_rounded),
-            label: Text(
-              isToilet
-                  ? 'Log 1 Visit at ${timeFormatter.format(displayDateTime)}'
-                  : 'Log ${_formatDisplayValue(_currentValue, widget.unit, widget.metric.id)} at ${timeFormatter.format(displayDateTime)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            }
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlinePickerRow(ColorScheme colorScheme, TextTheme textTheme, DateTime displayDateTime) {
+    final now = DateTime.now();
+    final isToday = displayDateTime.year == now.year &&
+                    displayDateTime.month == now.month &&
+                    displayDateTime.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = displayDateTime.year == yesterday.year &&
+                        displayDateTime.month == yesterday.month &&
+                        displayDateTime.day == yesterday.day;
+
+    final dateStr = isToday
+        ? 'Today'
+        : (isYesterday ? 'Yesterday' : DateFormat('EEE, MMM d').format(displayDateTime));
+    final timeStr = DateFormat('HH:mm').format(displayDateTime);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withAlpha(80),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withAlpha(50),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.schedule_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Text(
+            'Happened at ',
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+          ),
+          InkWell(
+            onTap: () {
+              _selectCustomTime();
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                timeStr,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          Text(
+            ' on ',
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              _selectCustomDate();
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isToday ? colorScheme.surfaceContainerHighest : colorScheme.tertiaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!isToday) ...[
+                    Icon(Icons.calendar_today_rounded, size: 14, color: colorScheme.onTertiaryContainer),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    dateStr,
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isToday ? colorScheme.onSurface : colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

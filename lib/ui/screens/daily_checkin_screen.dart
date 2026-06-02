@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
@@ -270,32 +271,116 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   }
 
   Widget _buildTimePickerButton(String metricId, DateTime currentTime, ColorScheme colorScheme) {
+    final now = DateTime.now();
+    final isToday = currentTime.year == now.year &&
+                    currentTime.month == now.month &&
+                    currentTime.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = currentTime.year == yesterday.year &&
+                        currentTime.month == yesterday.month &&
+                        currentTime.day == yesterday.day;
+
+    final dateStr = isToday
+        ? 'Today'
+        : (isYesterday ? 'Yesterday' : DateFormat('MMM d').format(currentTime));
     final timeStr = "${currentTime.hour.toString().padLeft(2, '0')}:${currentTime.minute.toString().padLeft(2, '0')}";
-    return TextButton.icon(
-      onPressed: () async {
-        final time = await showTimePicker(
-          context: context,
-          initialTime: TimeOfDay.fromDateTime(currentTime),
-        );
-        if (time != null && mounted) {
-          final now = DateTime.now();
-          var newTime = DateTime(
-            now.year, now.month, now.day, time.hour, time.minute,
-          );
-          if (newTime.isAfter(now)) {
-            newTime = newTime.subtract(const Duration(days: 1));
-          }
-          setState(() {
-            final existing = _sessionData[metricId];
-            _sessionData[metricId] = (existing?.$1 ?? '', existing?.$2 ?? 0, newTime);
-          });
-        }
-      },
-      icon: Icon(Icons.access_time_rounded, size: 16, color: colorScheme.onSurfaceVariant),
-      label: Text(
-        'Happened at $timeStr',
-        style: TextStyle(color: colorScheme.onSurfaceVariant),
-      ),
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Happened at ',
+          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
+        InkWell(
+          onTap: () async {
+            final time = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(currentTime),
+            );
+            if (time != null && mounted) {
+              final newTime = DateTime(
+                currentTime.year,
+                currentTime.month,
+                currentTime.day,
+                time.hour,
+                time.minute,
+              );
+              setState(() {
+                final existing = _sessionData[metricId];
+                _sessionData[metricId] = (existing?.$1 ?? '', existing?.$2 ?? 0, newTime);
+              });
+            }
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              timeStr,
+              style: textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ),
+        Text(
+          ' on ',
+          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
+        InkWell(
+          onTap: () async {
+            final date = await showDatePicker(
+              context: context,
+              initialDate: currentTime,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
+            if (date != null && mounted) {
+              final newTime = DateTime(
+                date.year,
+                date.month,
+                date.day,
+                currentTime.hour,
+                currentTime.minute,
+              );
+              setState(() {
+                final existing = _sessionData[metricId];
+                _sessionData[metricId] = (existing?.$1 ?? '', existing?.$2 ?? 0, newTime);
+              });
+            }
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isToday ? colorScheme.surfaceContainerHighest : colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isToday) ...[
+                  Icon(Icons.calendar_today_rounded, size: 10, color: colorScheme.onTertiaryContainer),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  dateStr,
+                  style: textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isToday ? colorScheme.onSurface : colorScheme.onTertiaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -419,12 +504,26 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final now = DateTime.now();
+            final isToday = customTime.year == now.year &&
+                            customTime.month == now.month &&
+                            customTime.day == now.day;
+            final yesterday = now.subtract(const Duration(days: 1));
+            final isYesterday = customTime.year == yesterday.year &&
+                                customTime.month == yesterday.month &&
+                                customTime.day == yesterday.day;
+
+            final dateStr = isToday
+                ? 'Today'
+                : (isYesterday ? 'Yesterday' : DateFormat('MMM d').format(customTime));
             final timeStr = "${customTime.hour.toString().padLeft(2, '0')}:${customTime.minute.toString().padLeft(2, '0')}";
-            
+            final colorScheme = Theme.of(context).colorScheme;
+            final textTheme = Theme.of(context).textTheme;
+
             return Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+                color: colorScheme.surface,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: Column(
@@ -464,39 +563,107 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                       }
                     },
                   ),
-            const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: () async {
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: TimeOfDay.fromDateTime(customTime),
-                );
-                if (time != null && context.mounted) {
-                  setModalState(() {
-                    final now = DateTime.now();
-                    customTime = DateTime(
-                      now.year, now.month, now.day, time.hour, time.minute,
-                    );
-                    if (customTime.isAfter(now)) {
-                      customTime = customTime.subtract(const Duration(days: 1));
-                    }
-                  });
-                }
-              },
-              icon: Icon(Icons.access_time_rounded, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-              label: Text(
-                'Happened at $timeStr',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Happened at ',
+                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      InkWell(
+                        onTap: () async {
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.fromDateTime(customTime),
+                          );
+                          if (time != null && context.mounted) {
+                            setModalState(() {
+                              customTime = DateTime(
+                                customTime.year,
+                                customTime.month,
+                                customTime.day,
+                                time.hour,
+                                time.minute,
+                              );
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            timeStr,
+                            style: textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        ' on ',
+                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: customTime,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (date != null && context.mounted) {
+                            setModalState(() {
+                              customTime = DateTime(
+                                date.year,
+                                date.month,
+                                date.day,
+                                customTime.hour,
+                                customTime.minute,
+                              );
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isToday ? colorScheme.surfaceContainerHighest : colorScheme.tertiaryContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isToday) ...[
+                                Icon(Icons.calendar_today_rounded, size: 10, color: colorScheme.onTertiaryContainer),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(
+                                dateStr,
+                                style: textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isToday ? colorScheme.onSurface : colorScheme.onTertiaryContainer,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      );
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _submitSession(List<MetricDefinition> metrics, DateTime effectiveTargetTime) async {

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
@@ -257,75 +258,197 @@ class _QuickTrackButtonState extends State<QuickTrackButton> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MetricInputCard(
-              metric: widget.metric,
-              onChanged: (value) async {
-                try {
-                  final latency = DateTime.now()
-                      .difference(openedAt)
-                      .inMilliseconds;
-                  final db = ctx.read<AppDatabase>();
-                  final eventId = uuid.v4();
-                  final now = DateTime.now();
-                  await db.insertEvent(
-                    EventsCompanion(
-                      id: Value(eventId),
-                      category: Value(widget.metric.category),
-                      label: Value(widget.metric.label),
-                      value: Value(value),
-                      latencyMs: Value(latency),
-                      triggerSource: const Value(TriggerSource.manual),
-                      interactionType: const Value(InteractionType.click),
-                      timestamp: Value(customTime ?? now),
-                      recordedAt: Value(now),
-                    ),
-                  );
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx);
-                    widget.onLogged();
-                    _triggerBurst(context);
-                    ScaffoldMessenger.of(ctx).clearSnackBars();
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      SnackBar(
-                        content: Row(
-                          children: [
-                            Expanded(child: Text('${widget.metric.label} logged!')),
-                            TextButton(
-                              onPressed: () async {
-                                await db.deleteEvent(eventId);
-                                if (ctx.mounted) {
-                                  widget.onLogged();
-                                  ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
-                                }
-                              },
-                              child: Text('UNDO', style: TextStyle(color: Theme.of(ctx).colorScheme.inversePrimary)),
+      builder: (ctx) {
+        DateTime selectedTime = customTime ?? DateTime.now();
+
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final now = DateTime.now();
+            final isToday = selectedTime.year == now.year &&
+                            selectedTime.month == now.month &&
+                            selectedTime.day == now.day;
+            final yesterday = now.subtract(const Duration(days: 1));
+            final isYesterday = selectedTime.year == yesterday.year &&
+                                selectedTime.month == yesterday.month &&
+                                selectedTime.day == yesterday.day;
+
+            final dateStr = isToday
+                ? 'Today'
+                : (isYesterday ? 'Yesterday' : DateFormat('MMM d').format(selectedTime));
+            final timeStr = "${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}";
+            final colorScheme = Theme.of(ctx).colorScheme;
+            final textTheme = Theme.of(ctx).textTheme;
+
+            return Container(
+              padding: EdgeInsets.only(
+                top: 24,
+                left: 24,
+                right: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MetricInputCard(
+                    metric: widget.metric,
+                    onChanged: (value) async {
+                      try {
+                        final latency = DateTime.now()
+                            .difference(openedAt)
+                            .inMilliseconds;
+                        final db = ctx.read<AppDatabase>();
+                        final eventId = uuid.v4();
+                        final now = DateTime.now();
+                        await db.insertEvent(
+                          EventsCompanion(
+                            id: Value(eventId),
+                            category: Value(widget.metric.category),
+                            label: Value(widget.metric.label),
+                            value: Value(value),
+                            latencyMs: Value(latency),
+                            triggerSource: const Value(TriggerSource.manual),
+                            interactionType: const Value(InteractionType.click),
+                            timestamp: Value(selectedTime),
+                            recordedAt: Value(now),
+                          ),
+                        );
+                        if (ctx.mounted) {
+                          Navigator.pop(ctx);
+                          widget.onLogged();
+                          _triggerBurst(context);
+                          ScaffoldMessenger.of(ctx).clearSnackBars();
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  Expanded(child: Text('${widget.metric.label} logged!')),
+                                  TextButton(
+                                    onPressed: () async {
+                                      await db.deleteEvent(eventId);
+                                      if (ctx.mounted) {
+                                        widget.onLogged();
+                                        ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+                                      }
+                                    },
+                                    child: Text('UNDO', style: TextStyle(color: Theme.of(ctx).colorScheme.inversePrimary)),
+                                  ),
+                                ],
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 5),
                             ),
-                          ],
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 5),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('Error logging metric: $e');
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Happened at ',
+                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
-                    );
-                  }
-                } catch (e) {
-                  debugPrint('Error logging metric: $e');
-                  if (ctx.mounted) Navigator.pop(ctx);
-                }
-              },
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
+                      InkWell(
+                        onTap: () async {
+                          final time = await showTimePicker(
+                            context: ctx,
+                            initialTime: TimeOfDay.fromDateTime(selectedTime),
+                          );
+                          if (time != null && ctx.mounted) {
+                            setModalState(() {
+                              selectedTime = DateTime(
+                                selectedTime.year,
+                                selectedTime.month,
+                                selectedTime.day,
+                                time.hour,
+                                time.minute,
+                              );
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            timeStr,
+                            style: textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        ' on ',
+                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: ctx,
+                            initialDate: selectedTime,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (date != null && ctx.mounted) {
+                            setModalState(() {
+                              selectedTime = DateTime(
+                                date.year,
+                                date.month,
+                                date.day,
+                                selectedTime.hour,
+                                selectedTime.minute,
+                              );
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isToday ? colorScheme.surfaceContainerHighest : colorScheme.tertiaryContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isToday) ...[
+                                Icon(Icons.calendar_today_rounded, size: 10, color: colorScheme.onTertiaryContainer),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(
+                                dateStr,
+                                style: textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isToday ? colorScheme.onSurface : colorScheme.onTertiaryContainer,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
