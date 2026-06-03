@@ -145,7 +145,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // 3. Privacy
       const OnboardingStaticSlide(
         title: 'Privacy First',
-        description: 'Your data never leaves your phone. Everything is stored locally and is only shared when you choose to manually export it.',
+        description: 'By default, your data is stored locally. If you choose to enable the optional Cloud Backup, your data will be synced to Supabase (meaning it is no longer local-only). On PWA (Web), scheduled notification details are stored on Supabase to deliver browser push alerts.',
         icon: Icons.lock_person_rounded,
         color: Colors.teal,
       ),

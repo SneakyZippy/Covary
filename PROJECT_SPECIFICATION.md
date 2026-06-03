@@ -6,11 +6,8 @@
 The goal is to move beyond simple data collection and provide users with a "Behavioral Feedback Loop"—allowing them to see, in real-time and on-device, how their actions (e.g., screen time, exercise) correlate with their mental state (e.g., mood, stress).
 
 ## 2. Core Philosophy
-- **Local-First:** All sensitive data is stored exclusively on the user's device in a local SQLite database.
-- **Opt-In Cloud Backup:** Users can optionally enable secure synchronization to a private Supabase instance. This remains disabled by default.
-- **Privacy by Design:** No default cloud synchronization, third-party trackers, or analytics scripts are bundled.
-- **Transparency:** Users have full visibility and control over their "Universal Event" log.
-- **Data Portability:** While analysis happens on-device, users can trigger manual JSON exports/imports or use the cloud sync to move their profiles between devices.
+- **Local-First:** All sensitive data is stored exclusively on the user's device in a local SQLite database by default. If a user enables the optional Cloud Backup, their records are synced to Supabase (meaning it is no longer local-only).
+- **Opt-In Cloud Backup:** Users can optionally enable secure synchronization to a private Supabase instance. This remains disabled by default. On PWA (Web), scheduled notification details (names and times) are stored on Supabase to enable push notifications.
 
 ## 3. Technical Architecture
 - **Framework:** Flutter (Material 3 UI).

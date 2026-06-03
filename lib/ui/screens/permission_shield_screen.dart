@@ -9,6 +9,8 @@ import '../../services/app_usage_service.dart';
 import '../../services/health_service.dart';
 import '../../services/passive_sensing_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/sync_service.dart';
+import '../../services/pwa_push_interop.dart';
 
 /// The Permission Shield — a research consent & permission onboarding screen.
 ///
@@ -80,11 +82,12 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
   /// Queries actual permission states from the OS and updates local state.
   Future<void> _checkPermissions() async {
     if (kIsWeb) {
+      final pwaPermission = PwaPushInterop.getPermissionStatus();
       if (mounted) {
         setState(() {
           _healthGranted = false;
           _usageStatus = AppUsagePermissionStatus.denied;
-          _notificationsGranted = false;
+          _notificationsGranted = pwaPermission == 'granted';
           _batteryIgnored = false;
         });
       }
@@ -306,33 +309,40 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
             iconColor: Colors.teal,
             title: 'Notifications',
             subtitle: 'EMA Prompts & Reminders',
-            explanation:
-                'Covary needs notification access to send you Ecological '
-                'Momentary Assessment (EMA) prompts during the day.\n\n'
-                'You will receive 4 daily reminders (Morning, Lunch, Afternoon, '
-                'Bedtime) and you can adjust the schedule in Settings.',
+            explanation: kIsWeb
+                ? 'On PWA (Web), scheduled notification details (names and times) are stored on Supabase to enable push notifications to your browser.'
+                : 'Covary needs notification access to send you Ecological '
+                  'Momentary Assessment (EMA) prompts during the day.\n\n'
+                  'You will receive 4 daily reminders (Morning, Lunch, Afternoon, '
+                  'Bedtime) and you can adjust the schedule in Settings.',
             isGranted: _notificationsGranted,
             buttonLabel: _notificationsGranted
                 ? 'Granted ✓'
-                : 'Open Notification Settings',
+                : (kIsWeb ? 'Grant PWA Push Access' : 'Open Notification Settings'),
             onGrant: _notificationsGranted
                 ? null
                 : () async {
-                    final allowed = await AwesomeNotifications()
-                        .requestPermissionToSendNotifications(
-                          permissions: [
-                            NotificationPermission.Alert,
-                            NotificationPermission.Sound,
-                            NotificationPermission.Badge,
-                            NotificationPermission.Vibration,
-                            NotificationPermission.Light,
-                          ],
-                        );
-                    if (!allowed) {
-                      // Fallback to notification settings page if prompt is denied or unavailable
-                      await AwesomeNotifications().showNotificationConfigPage();
+                    if (kIsWeb) {
+                      final service = context.read<NotificationService>();
+                      await service.requestPermissions();
+                      _checkPermissions();
+                    } else {
+                      final allowed = await AwesomeNotifications()
+                          .requestPermissionToSendNotifications(
+                            permissions: [
+                              NotificationPermission.Alert,
+                              NotificationPermission.Sound,
+                              NotificationPermission.Badge,
+                              NotificationPermission.Vibration,
+                              NotificationPermission.Light,
+                            ],
+                          );
+                      if (!allowed) {
+                        // Fallback to notification settings page if prompt is denied or unavailable
+                        await AwesomeNotifications().showNotificationConfigPage();
+                      }
+                      _checkPermissions();
                     }
-                    _checkPermissions();
                   },
           ),
 
@@ -484,14 +494,18 @@ class _ResearchContextCard extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.lock_outline_rounded,
+                  context.select<SyncService, bool>((s) => s.syncEnabled)
+                      ? Icons.cloud_done_rounded
+                      : Icons.lock_outline_rounded,
                   size: 14,
                   color: colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Local-only · No cloud · Manual export only',
+                    context.select<SyncService, bool>((s) => s.syncEnabled)
+                        ? 'Cloud Backup active (synced to Supabase)'
+                        : 'Local-first · Opt-in Cloud Backup · Manual export',
                     style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
