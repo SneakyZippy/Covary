@@ -243,6 +243,7 @@ class ImportService {
     
     // Normalize snake_case keys to camelCase if present
     if (map.containsKey('latency_ms')) map['latencyMs'] ??= map['latency_ms'];
+    if (map.containsKey('notification_delay_ms')) map['notificationDelayMs'] ??= map['notification_delay_ms'];
     if (map.containsKey('trigger_source')) map['triggerSource'] ??= map['trigger_source'];
     if (map.containsKey('interaction_type')) map['interactionType'] ??= map['interaction_type'];
     if (map.containsKey('session_id')) map['sessionId'] ??= map['session_id'];
@@ -250,6 +251,9 @@ class ImportService {
 
     // Ensure correct types
     map['latencyMs'] = _toInt(map['latencyMs'], 0);
+    if (map.containsKey('notificationDelayMs') && map['notificationDelayMs'] != null) {
+      map['notificationDelayMs'] = _toInt(map['notificationDelayMs'], 0);
+    }
 
     // Apply defaults for non-nullable fields
     map['id'] ??= uuid.v4();

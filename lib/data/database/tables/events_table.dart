@@ -24,6 +24,9 @@ class Events extends Table {
   /// HCI metric: milliseconds from opening the input form to pressing save.
   IntColumn get latencyMs => integer().withDefault(const Constant(0))();
 
+  /// HCI metric: milliseconds from notification display to pressing save.
+  IntColumn get notificationDelayMs => integer().nullable()();
+
   /// How the event was triggered: Manual, Notification, or System.
   TextColumn get triggerSource => textEnum<TriggerSource>()();
 

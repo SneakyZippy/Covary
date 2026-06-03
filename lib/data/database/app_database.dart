@@ -14,6 +14,8 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase._(super.e);
 
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+
   /// Singleton instance of the database.
   static AppDatabase? _instance;
 
@@ -23,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
   
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -104,6 +106,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 15) {
         // Add isActivityIndicator column to CustomMetrics table.
         await addColumnSafe(customMetrics, customMetrics.isActivityIndicator);
+      }
+      if (from < 16) {
+        // Add notificationDelayMs column to events table.
+        await addColumnSafe(events, events.notificationDelayMs);
       }
     },
   );

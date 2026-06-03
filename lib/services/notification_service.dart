@@ -205,7 +205,11 @@ class NotificationService {
           );
         }
 
-        await _navigateToGuidedCheckin(sessionId: sessionId, windowId: windowId);
+        await _navigateToGuidedCheckin(
+          sessionId: sessionId,
+          windowId: windowId,
+          notificationDisplayedAt: receivedAction.displayedDate ?? receivedAction.actionDate,
+        );
       }
     }
   }
@@ -219,7 +223,11 @@ class NotificationService {
     return null;
   }
 
-  static Future<void> _navigateToGuidedCheckin({String? sessionId, String? windowId}) async {
+  static Future<void> _navigateToGuidedCheckin({
+    String? sessionId,
+    String? windowId,
+    DateTime? notificationDisplayedAt,
+  }) async {
     final context = await _waitForContext();
     if (context == null) {
       debugPrint(
@@ -235,9 +243,8 @@ class NotificationService {
             mode: CheckinMode.guided,
             sessionId: sessionId,
             fulfilledSlotId: windowId,
-            // Bug 3 fix: mark the session as notification-triggered so all
-            // metric events inside it carry the correct triggerSource.
             triggerSource: TriggerSource.notification,
+            notificationDisplayedAt: notificationDisplayedAt,
           ),
         ),
       );

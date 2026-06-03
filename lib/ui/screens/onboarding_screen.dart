@@ -23,11 +23,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   late final DateTime _startTime;
+  late DateTime _pageOpenedAt;
+  final Map<String, int> _slideLatencies = {};
+
+  static const List<String> _pageKeys = [
+    'onboarding_slide_welcome_ms',
+    'onboarding_slide_method_ms',
+    'onboarding_slide_privacy_ms',
+    'onboarding_slide_support_ms',
+    'onboarding_slide_preset_ms',
+    'onboarding_slide_schedule_ms',
+    'onboarding_slide_metrics_ms',
+  ];
 
   @override
   void initState() {
     super.initState();
     _startTime = DateTime.now();
+    _pageOpenedAt = DateTime.now();
   }
 
   @override
@@ -37,16 +50,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _onPageChanged(int index) {
+    final now = DateTime.now();
+    final elapsed = now.difference(_pageOpenedAt).inMilliseconds;
+    if (_currentPage >= 0 && _currentPage < _pageKeys.length) {
+      final key = _pageKeys[_currentPage];
+      _slideLatencies[key] = (_slideLatencies[key] ?? 0) + elapsed;
+    }
+
     setState(() {
       _currentPage = index;
+      _pageOpenedAt = now;
     });
   }
 
   Future<void> _completeOnboarding() async {
     final profileService = context.read<ProfileService>();
-    final latency = DateTime.now().difference(_startTime).inMilliseconds;
+    final now = DateTime.now();
+
+    final elapsed = now.difference(_pageOpenedAt).inMilliseconds;
+    if (_currentPage >= 0 && _currentPage < _pageKeys.length) {
+      final key = _pageKeys[_currentPage];
+      _slideLatencies[key] = (_slideLatencies[key] ?? 0) + elapsed;
+    }
+
+    final latency = now.difference(_startTime).inMilliseconds;
     
-    await profileService.completeOnboarding(latencyMs: latency);
+    await profileService.completeOnboarding(
+      latencyMs: latency,
+      slideLatencies: _slideLatencies,
+    );
     
     if (mounted) {
       if (profileService.isFirstLaunch) {

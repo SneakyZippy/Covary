@@ -34,6 +34,9 @@ class DailyCheckinScreen extends StatefulWidget {
   /// tapping a push notification.
   final TriggerSource triggerSource;
 
+  /// When the notification was displayed, for calculating prompt response delay.
+  final DateTime? notificationDisplayedAt;
+
   const DailyCheckinScreen({
     super.key,
     this.mode = CheckinMode.guided,
@@ -41,6 +44,7 @@ class DailyCheckinScreen extends StatefulWidget {
     this.fulfilledSlotId,
     this.sessionId,
     this.triggerSource = TriggerSource.manual,
+    this.notificationDisplayedAt,
   });
 
   @override
@@ -672,6 +676,11 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final sessionId = widget.sessionId ?? const Uuid().v4();
 
+    int? notificationDelayMs;
+    if (widget.notificationDisplayedAt != null) {
+      notificationDelayMs = DateTime.now().difference(widget.notificationDisplayedAt!).inMilliseconds;
+    }
+
     for (var metric in metrics) {
       if (metric.inputType == MetricInputType.counter) continue;
 
@@ -684,6 +693,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
             label: Value(metric.label),
             value: Value(data.$1),
             latencyMs: Value(data.$2),
+            notificationDelayMs: Value(notificationDelayMs),
             triggerSource: Value(widget.triggerSource),
             interactionType: const Value(InteractionType.click),
             timestamp: Value(data.$3 ?? effectiveTargetTime),

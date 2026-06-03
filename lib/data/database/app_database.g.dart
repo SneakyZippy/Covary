@@ -73,6 +73,16 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _notificationDelayMsMeta =
+      const VerificationMeta('notificationDelayMs');
+  @override
+  late final GeneratedColumn<int> notificationDelayMs = GeneratedColumn<int>(
+    'notification_delay_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   late final GeneratedColumnWithTypeConverter<TriggerSource, String>
   triggerSource = GeneratedColumn<String>(
@@ -121,6 +131,7 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     label,
     value,
     latencyMs,
+    notificationDelayMs,
     triggerSource,
     interactionType,
     sessionId,
@@ -167,6 +178,15 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
       context.handle(
         _latencyMsMeta,
         latencyMs.isAcceptableOrUnknown(data['latency_ms']!, _latencyMsMeta),
+      );
+    }
+    if (data.containsKey('notification_delay_ms')) {
+      context.handle(
+        _notificationDelayMsMeta,
+        notificationDelayMs.isAcceptableOrUnknown(
+          data['notification_delay_ms']!,
+          _notificationDelayMsMeta,
+        ),
       );
     }
     if (data.containsKey('session_id')) {
@@ -216,6 +236,10 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
         DriftSqlType.int,
         data['${effectivePrefix}latency_ms'],
       )!,
+      notificationDelayMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}notification_delay_ms'],
+      ),
       triggerSource: $EventsTable.$convertertriggerSource.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -275,6 +299,9 @@ class Event extends DataClass implements Insertable<Event> {
   /// HCI metric: milliseconds from opening the input form to pressing save.
   final int latencyMs;
 
+  /// HCI metric: milliseconds from notification display to pressing save.
+  final int? notificationDelayMs;
+
   /// How the event was triggered: Manual, Notification, or System.
   final TriggerSource triggerSource;
 
@@ -294,6 +321,7 @@ class Event extends DataClass implements Insertable<Event> {
     required this.label,
     required this.value,
     required this.latencyMs,
+    this.notificationDelayMs,
     required this.triggerSource,
     required this.interactionType,
     this.sessionId,
@@ -312,6 +340,9 @@ class Event extends DataClass implements Insertable<Event> {
     map['label'] = Variable<String>(label);
     map['value'] = Variable<String>(value);
     map['latency_ms'] = Variable<int>(latencyMs);
+    if (!nullToAbsent || notificationDelayMs != null) {
+      map['notification_delay_ms'] = Variable<int>(notificationDelayMs);
+    }
     {
       map['trigger_source'] = Variable<String>(
         $EventsTable.$convertertriggerSource.toSql(triggerSource),
@@ -339,6 +370,9 @@ class Event extends DataClass implements Insertable<Event> {
       label: Value(label),
       value: Value(value),
       latencyMs: Value(latencyMs),
+      notificationDelayMs: notificationDelayMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notificationDelayMs),
       triggerSource: Value(triggerSource),
       interactionType: Value(interactionType),
       sessionId: sessionId == null && nullToAbsent
@@ -364,6 +398,9 @@ class Event extends DataClass implements Insertable<Event> {
       label: serializer.fromJson<String>(json['label']),
       value: serializer.fromJson<String>(json['value']),
       latencyMs: serializer.fromJson<int>(json['latencyMs']),
+      notificationDelayMs: serializer.fromJson<int?>(
+        json['notificationDelayMs'],
+      ),
       triggerSource: $EventsTable.$convertertriggerSource.fromJson(
         serializer.fromJson<String>(json['triggerSource']),
       ),
@@ -386,6 +423,7 @@ class Event extends DataClass implements Insertable<Event> {
       'label': serializer.toJson<String>(label),
       'value': serializer.toJson<String>(value),
       'latencyMs': serializer.toJson<int>(latencyMs),
+      'notificationDelayMs': serializer.toJson<int?>(notificationDelayMs),
       'triggerSource': serializer.toJson<String>(
         $EventsTable.$convertertriggerSource.toJson(triggerSource),
       ),
@@ -404,6 +442,7 @@ class Event extends DataClass implements Insertable<Event> {
     String? label,
     String? value,
     int? latencyMs,
+    Value<int?> notificationDelayMs = const Value.absent(),
     TriggerSource? triggerSource,
     InteractionType? interactionType,
     Value<String?> sessionId = const Value.absent(),
@@ -415,6 +454,9 @@ class Event extends DataClass implements Insertable<Event> {
     label: label ?? this.label,
     value: value ?? this.value,
     latencyMs: latencyMs ?? this.latencyMs,
+    notificationDelayMs: notificationDelayMs.present
+        ? notificationDelayMs.value
+        : this.notificationDelayMs,
     triggerSource: triggerSource ?? this.triggerSource,
     interactionType: interactionType ?? this.interactionType,
     sessionId: sessionId.present ? sessionId.value : this.sessionId,
@@ -428,6 +470,9 @@ class Event extends DataClass implements Insertable<Event> {
       label: data.label.present ? data.label.value : this.label,
       value: data.value.present ? data.value.value : this.value,
       latencyMs: data.latencyMs.present ? data.latencyMs.value : this.latencyMs,
+      notificationDelayMs: data.notificationDelayMs.present
+          ? data.notificationDelayMs.value
+          : this.notificationDelayMs,
       triggerSource: data.triggerSource.present
           ? data.triggerSource.value
           : this.triggerSource,
@@ -450,6 +495,7 @@ class Event extends DataClass implements Insertable<Event> {
           ..write('label: $label, ')
           ..write('value: $value, ')
           ..write('latencyMs: $latencyMs, ')
+          ..write('notificationDelayMs: $notificationDelayMs, ')
           ..write('triggerSource: $triggerSource, ')
           ..write('interactionType: $interactionType, ')
           ..write('sessionId: $sessionId, ')
@@ -466,6 +512,7 @@ class Event extends DataClass implements Insertable<Event> {
     label,
     value,
     latencyMs,
+    notificationDelayMs,
     triggerSource,
     interactionType,
     sessionId,
@@ -481,6 +528,7 @@ class Event extends DataClass implements Insertable<Event> {
           other.label == this.label &&
           other.value == this.value &&
           other.latencyMs == this.latencyMs &&
+          other.notificationDelayMs == this.notificationDelayMs &&
           other.triggerSource == this.triggerSource &&
           other.interactionType == this.interactionType &&
           other.sessionId == this.sessionId &&
@@ -494,6 +542,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
   final Value<String> label;
   final Value<String> value;
   final Value<int> latencyMs;
+  final Value<int?> notificationDelayMs;
   final Value<TriggerSource> triggerSource;
   final Value<InteractionType> interactionType;
   final Value<String?> sessionId;
@@ -506,6 +555,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     this.label = const Value.absent(),
     this.value = const Value.absent(),
     this.latencyMs = const Value.absent(),
+    this.notificationDelayMs = const Value.absent(),
     this.triggerSource = const Value.absent(),
     this.interactionType = const Value.absent(),
     this.sessionId = const Value.absent(),
@@ -519,6 +569,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     required String label,
     required String value,
     this.latencyMs = const Value.absent(),
+    this.notificationDelayMs = const Value.absent(),
     required TriggerSource triggerSource,
     required InteractionType interactionType,
     this.sessionId = const Value.absent(),
@@ -536,6 +587,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     Expression<String>? label,
     Expression<String>? value,
     Expression<int>? latencyMs,
+    Expression<int>? notificationDelayMs,
     Expression<String>? triggerSource,
     Expression<String>? interactionType,
     Expression<String>? sessionId,
@@ -549,6 +601,8 @@ class EventsCompanion extends UpdateCompanion<Event> {
       if (label != null) 'label': label,
       if (value != null) 'value': value,
       if (latencyMs != null) 'latency_ms': latencyMs,
+      if (notificationDelayMs != null)
+        'notification_delay_ms': notificationDelayMs,
       if (triggerSource != null) 'trigger_source': triggerSource,
       if (interactionType != null) 'interaction_type': interactionType,
       if (sessionId != null) 'session_id': sessionId,
@@ -564,6 +618,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     Value<String>? label,
     Value<String>? value,
     Value<int>? latencyMs,
+    Value<int?>? notificationDelayMs,
     Value<TriggerSource>? triggerSource,
     Value<InteractionType>? interactionType,
     Value<String?>? sessionId,
@@ -577,6 +632,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
       label: label ?? this.label,
       value: value ?? this.value,
       latencyMs: latencyMs ?? this.latencyMs,
+      notificationDelayMs: notificationDelayMs ?? this.notificationDelayMs,
       triggerSource: triggerSource ?? this.triggerSource,
       interactionType: interactionType ?? this.interactionType,
       sessionId: sessionId ?? this.sessionId,
@@ -607,6 +663,9 @@ class EventsCompanion extends UpdateCompanion<Event> {
     }
     if (latencyMs.present) {
       map['latency_ms'] = Variable<int>(latencyMs.value);
+    }
+    if (notificationDelayMs.present) {
+      map['notification_delay_ms'] = Variable<int>(notificationDelayMs.value);
     }
     if (triggerSource.present) {
       map['trigger_source'] = Variable<String>(
@@ -639,6 +698,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
           ..write('label: $label, ')
           ..write('value: $value, ')
           ..write('latencyMs: $latencyMs, ')
+          ..write('notificationDelayMs: $notificationDelayMs, ')
           ..write('triggerSource: $triggerSource, ')
           ..write('interactionType: $interactionType, ')
           ..write('sessionId: $sessionId, ')
@@ -1932,6 +1992,7 @@ typedef $$EventsTableCreateCompanionBuilder =
       required String label,
       required String value,
       Value<int> latencyMs,
+      Value<int?> notificationDelayMs,
       required TriggerSource triggerSource,
       required InteractionType interactionType,
       Value<String?> sessionId,
@@ -1946,6 +2007,7 @@ typedef $$EventsTableUpdateCompanionBuilder =
       Value<String> label,
       Value<String> value,
       Value<int> latencyMs,
+      Value<int?> notificationDelayMs,
       Value<TriggerSource> triggerSource,
       Value<InteractionType> interactionType,
       Value<String?> sessionId,
@@ -1990,6 +2052,11 @@ class $$EventsTableFilterComposer
 
   ColumnFilters<int> get latencyMs => $composableBuilder(
     column: $table.latencyMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get notificationDelayMs => $composableBuilder(
+    column: $table.notificationDelayMs,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2055,6 +2122,11 @@ class $$EventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get notificationDelayMs => $composableBuilder(
+    column: $table.notificationDelayMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get triggerSource => $composableBuilder(
     column: $table.triggerSource,
     builder: (column) => ColumnOrderings(column),
@@ -2102,6 +2174,11 @@ class $$EventsTableAnnotationComposer
 
   GeneratedColumn<int> get latencyMs =>
       $composableBuilder(column: $table.latencyMs, builder: (column) => column);
+
+  GeneratedColumn<int> get notificationDelayMs => $composableBuilder(
+    column: $table.notificationDelayMs,
+    builder: (column) => column,
+  );
 
   GeneratedColumnWithTypeConverter<TriggerSource, String> get triggerSource =>
       $composableBuilder(
@@ -2158,6 +2235,7 @@ class $$EventsTableTableManager
                 Value<String> label = const Value.absent(),
                 Value<String> value = const Value.absent(),
                 Value<int> latencyMs = const Value.absent(),
+                Value<int?> notificationDelayMs = const Value.absent(),
                 Value<TriggerSource> triggerSource = const Value.absent(),
                 Value<InteractionType> interactionType = const Value.absent(),
                 Value<String?> sessionId = const Value.absent(),
@@ -2170,6 +2248,7 @@ class $$EventsTableTableManager
                 label: label,
                 value: value,
                 latencyMs: latencyMs,
+                notificationDelayMs: notificationDelayMs,
                 triggerSource: triggerSource,
                 interactionType: interactionType,
                 sessionId: sessionId,
@@ -2184,6 +2263,7 @@ class $$EventsTableTableManager
                 required String label,
                 required String value,
                 Value<int> latencyMs = const Value.absent(),
+                Value<int?> notificationDelayMs = const Value.absent(),
                 required TriggerSource triggerSource,
                 required InteractionType interactionType,
                 Value<String?> sessionId = const Value.absent(),
@@ -2196,6 +2276,7 @@ class $$EventsTableTableManager
                 label: label,
                 value: value,
                 latencyMs: latencyMs,
+                notificationDelayMs: notificationDelayMs,
                 triggerSource: triggerSource,
                 interactionType: interactionType,
                 sessionId: sessionId,

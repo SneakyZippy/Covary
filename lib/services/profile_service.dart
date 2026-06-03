@@ -313,7 +313,10 @@ class ProfileService extends ChangeNotifier {
   }
 
   /// Marks the onboarding as complete and logs the time spent.
-  Future<void> completeOnboarding({int latencyMs = 0}) async {
+  Future<void> completeOnboarding({
+    int latencyMs = 0,
+    Map<String, int>? slideLatencies,
+  }) async {
     _hasSeenOnboarding = true;
     await _profileRepo.setHasSeenOnboarding(true);
 
@@ -326,6 +329,19 @@ class ProfileService extends ChangeNotifier {
         triggerSource: const Value(TriggerSource.manual),
         interactionType: const Value(InteractionType.click),
       ));
+
+      if (slideLatencies != null) {
+        for (var entry in slideLatencies.entries) {
+          await _eventRepo.insertEvent(EventsCompanion(
+            category: const Value(EventCategory.meta),
+            label: Value(entry.key),
+            value: Value(entry.value.toString()),
+            latencyMs: Value(entry.value),
+            triggerSource: const Value(TriggerSource.manual),
+            interactionType: const Value(InteractionType.click),
+          ));
+        }
+      }
     } catch (e) {
       debugPrint('[ProfileService] Error logging onboarding completion: $e');
     }
