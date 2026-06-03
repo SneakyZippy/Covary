@@ -15,6 +15,7 @@ abstract class EventRepository {
   Future<List<Event>> getEventsInDateRange(DateTime start, DateTime end);
   Future<void> clearAllEvents();
   Future<void> insertRawMap(Map<String, dynamic> map);
+  Future<void> insertEventOrReplace(Event event);
   Future<Event?> findSystemEvent({
     required EventCategory category,
     required String label,
@@ -92,6 +93,11 @@ class DriftEventRepository implements EventRepository {
   Future<void> insertRawMap(Map<String, dynamic> map) async {
     final entity = _db.events.map(map);
     await _db.into(_db.events).insert(entity, mode: InsertMode.insertOrReplace);
+  }
+
+  @override
+  Future<void> insertEventOrReplace(Event event) async {
+    await _db.into(_db.events).insert(event, mode: InsertMode.insertOrReplace);
   }
 
   @override

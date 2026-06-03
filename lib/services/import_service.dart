@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import '../data/database/app_database.dart' show EventsCompanion;
+import '../data/database/app_database.dart' show EventsCompanion, Event, CustomMetric, TrackingWindow;
 import '../data/repositories/event_repository.dart';
 import '../data/repositories/metric_repository.dart';
 import '../data/repositories/tracking_window_repository.dart';
@@ -82,24 +82,10 @@ class ImportService {
         for (final w in windows) {
           try {
             final rawMap = w as Map<String, dynamic>;
-            final map = _normalize(rawMap);
-            
-            // Schema v10: Ensure notification fields exist with correct types
-            final int startH = _toInt(map['start_hour'], 0);
-            final int startM = _toInt(map['start_minute'], 0);
-            
-            map['is_notification_enabled'] = _toBool(map['is_notification_enabled'], false);
-            map['is_enabled'] = _toBool(map['is_enabled'], true);
-            map['start_hour'] = startH;
-            map['start_minute'] = startM;
-            map['end_hour'] = _toInt(map['end_hour'], 23);
-            map['end_minute'] = _toInt(map['end_minute'], 59);
-            map['notification_hour'] = _toInt(map['notification_hour'], startH);
-            map['notification_minute'] = _toInt(map['notification_minute'], startM);
-            map['label'] ??= 'Imported Window';
-            map['id'] ??= uuid.v4();
+            final sanitized = _sanitizeWindowJson(rawMap);
+            final window = TrackingWindow.fromJson(sanitized);
 
-            await _trackingWindowRepo.insertRawMap(map);
+            await _trackingWindowRepo.insertTrackingWindow(window.toCompanion(true));
             windowCount++;
           } catch (e, stack) {
             debugPrint('[ImportService] Error importing window: $e');
@@ -114,25 +100,16 @@ class ImportService {
         for (final m in metrics) {
           try {
             final rawMap = m as Map<String, dynamic>;
-            final map = _normalize(rawMap);
-
-            // Schema v6 rename: slot_ids -> window_ids
-            if (map.containsKey('slot_ids')) {
-              map['window_ids'] ??= map['slot_ids'];
-            }
-            map['id'] ??= uuid.v4();
-            map['label'] ??= 'Imported Metric';
-            map['category'] ??= 'behavior';
-            map['input_type'] ??= 'yesNo';
-            map['window_ids'] ??= 'anytime';
-            map['is_enabled'] = _toBool(map['is_enabled'], true);
+            final sanitized = _sanitizeMetricJson(rawMap);
             
             // Category normalization (Habit -> Behavior)
-            if (map['category'] == 'habit') {
-              map['category'] = 'behavior';
+            if (sanitized['category'] == 'habit') {
+              sanitized['category'] = 'behavior';
             }
+            
+            final metric = CustomMetric.fromJson(sanitized);
 
-            await _metricRepo.insertRawMap(map);
+            await _metricRepo.insertCustomMetric(metric.toCompanion(true));
             metricCount++;
           } catch (e, stack) {
             debugPrint('[ImportService] Error importing metric: $e');
@@ -147,24 +124,16 @@ class ImportService {
         for (final e in events) {
           try {
             final rawMap = e as Map<String, dynamic>;
-            final map = _normalize(rawMap);
-
-            // Ensure HCI metrics exist (latencies, trigger, interaction)
-            map['trigger_source'] ??= 'manual';
-            map['interaction_type'] ??= 'click';
-            map['id'] ??= uuid.v4();
-            map['timestamp'] ??= DateTime.now().toIso8601String();
-            map['category'] ??= 'behavior';
-            map['label'] ??= 'Imported Event';
-            map['value'] ??= '0';
-            map['latency_ms'] = _toInt(map['latency_ms'], 0);
-
+            final sanitized = _sanitizeEventJson(rawMap);
+            
             // Category normalization (Habit -> Behavior)
-            if (map['category'] == 'habit') {
-              map['category'] = 'behavior';
+            if (sanitized['category'] == 'habit') {
+              sanitized['category'] = 'behavior';
             }
 
-            await _eventRepo.insertRawMap(map);
+            final event = Event.fromJson(sanitized);
+
+            await _eventRepo.insertEventOrReplace(event);
             eventCount++;
           } catch (err, stack) {
             debugPrint('[ImportService] Error importing event: $err');
@@ -222,11 +191,94 @@ class ImportService {
     return int.tryParse(value.toString()) ?? defaultValue;
   }
 
-  bool _toBool(dynamic value, bool defaultValue) {
+  bool? _toBool(dynamic value, bool? defaultValue) {
     if (value == null) return defaultValue;
     if (value is bool) return value;
     if (value == 'true' || value == 1) return true;
     if (value == 'false' || value == 0) return false;
     return defaultValue;
+  }
+
+  Map<String, dynamic> _sanitizeWindowJson(Map<String, dynamic> json) {
+    final map = Map<String, dynamic>.from(json);
+    
+    // Normalize snake_case keys to camelCase if present
+    if (map.containsKey('start_hour')) map['startHour'] ??= map['start_hour'];
+    if (map.containsKey('start_minute')) map['startMinute'] ??= map['start_minute'];
+    if (map.containsKey('end_hour')) map['endHour'] ??= map['end_hour'];
+    if (map.containsKey('end_minute')) map['endMinute'] ??= map['end_minute'];
+    if (map.containsKey('is_notification_enabled')) map['isNotificationEnabled'] ??= map['is_notification_enabled'];
+    if (map.containsKey('notification_hour')) map['notificationHour'] ??= map['notification_hour'];
+    if (map.containsKey('notification_minute')) map['notificationMinute'] ??= map['notification_minute'];
+    if (map.containsKey('is_enabled')) map['isEnabled'] ??= map['is_enabled'];
+
+    // Ensure correct types
+    map['startHour'] = _toInt(map['startHour'], 0);
+    map['startMinute'] = _toInt(map['startMinute'], 0);
+    map['endHour'] = _toInt(map['endHour'], 23);
+    map['endMinute'] = _toInt(map['endMinute'], 59);
+    map['notificationHour'] = _toInt(map['notificationHour'], map['startHour']);
+    map['notificationMinute'] = _toInt(map['notificationMinute'], map['startMinute']);
+    map['isNotificationEnabled'] = _toBool(map['isNotificationEnabled'], false);
+    map['isEnabled'] = _toBool(map['isEnabled'], true);
+
+    // Apply defaults for non-nullable fields
+    map['id'] ??= uuid.v4();
+    map['label'] ??= 'Unnamed Window';
+    return map;
+  }
+
+  Map<String, dynamic> _sanitizeMetricJson(Map<String, dynamic> json) {
+    final map = Map<String, dynamic>.from(json);
+    
+    // Normalize snake_case keys to camelCase if present
+    if (map.containsKey('input_type')) map['inputType'] ??= map['input_type'];
+    if (map.containsKey('window_ids')) map['windowIds'] ??= map['window_ids'];
+    if (map.containsKey('is_enabled')) map['isEnabled'] ??= map['is_enabled'];
+    if (map.containsKey('is_retro_reliable')) map['isRetroReliable'] ??= map['is_retro_reliable'];
+    if (map.containsKey('is_activity_indicator')) map['isActivityIndicator'] ??= map['is_activity_indicator'];
+
+    // Schema v6 rename: slot_ids -> window_ids / windowIds
+    if (map.containsKey('slot_ids')) map['windowIds'] ??= map['slot_ids'];
+    if (map.containsKey('slotIds')) map['windowIds'] ??= map['slotIds'];
+
+    // Ensure correct types
+    map['isEnabled'] = _toBool(map['isEnabled'], true);
+    if (map.containsKey('isRetroReliable')) {
+      map['isRetroReliable'] = _toBool(map['isRetroReliable'], null);
+    }
+    map['isActivityIndicator'] = _toBool(map['isActivityIndicator'], true);
+
+    // Apply defaults for non-nullable fields
+    map['id'] ??= uuid.v4();
+    map['label'] ??= 'Unnamed Metric';
+    map['category'] ??= 'behavior';
+    map['inputType'] ??= 'scale1To5';
+    map['windowIds'] ??= 'anytime';
+    return map;
+  }
+
+  Map<String, dynamic> _sanitizeEventJson(Map<String, dynamic> json) {
+    final map = Map<String, dynamic>.from(json);
+    
+    // Normalize snake_case keys to camelCase if present
+    if (map.containsKey('latency_ms')) map['latencyMs'] ??= map['latency_ms'];
+    if (map.containsKey('trigger_source')) map['triggerSource'] ??= map['trigger_source'];
+    if (map.containsKey('interaction_type')) map['interactionType'] ??= map['interaction_type'];
+    if (map.containsKey('session_id')) map['sessionId'] ??= map['session_id'];
+    if (map.containsKey('recorded_at')) map['recordedAt'] ??= map['recorded_at'];
+
+    // Ensure correct types
+    map['latencyMs'] = _toInt(map['latencyMs'], 0);
+
+    // Apply defaults for non-nullable fields
+    map['id'] ??= uuid.v4();
+    map['timestamp'] ??= DateTime.now().toIso8601String();
+    map['category'] ??= 'behavior';
+    map['label'] ??= 'unlabeled';
+    map['value'] ??= '';
+    map['triggerSource'] ??= 'manual';
+    map['interactionType'] ??= 'click';
+    return map;
   }
 }

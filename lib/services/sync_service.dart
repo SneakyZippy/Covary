@@ -251,10 +251,10 @@ class SyncService extends ChangeNotifier {
               final localEvent = localEventsMap[event.id];
               if (localEvent == null) {
                 eventsAdded++;
-                await _eventRepo.insertRawMap(event.toJson());
+                await _eventRepo.insertEventOrReplace(event);
               } else if (localEvent != event) {
                 eventsUpdated++;
-                await _eventRepo.insertRawMap(event.toJson());
+                await _eventRepo.insertEventOrReplace(event);
               }
             } catch (err) {
               debugPrint('[SyncService] Failed to merge event: $err');
@@ -426,10 +426,10 @@ class SyncService extends ChangeNotifier {
             final localEvent = localEventsMap[event.id];
             if (localEvent == null) {
               eventsAdded++;
-              await _eventRepo.insertRawMap(event.toJson());
+              await _eventRepo.insertEventOrReplace(event);
             } else if (localEvent != event) {
               eventsUpdated++;
-              await _eventRepo.insertRawMap(event.toJson());
+              await _eventRepo.insertEventOrReplace(event);
             }
           } catch (err) {
             debugPrint('[SyncService] Failed to merge event: $err');
