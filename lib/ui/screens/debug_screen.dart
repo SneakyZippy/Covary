@@ -18,6 +18,9 @@ import '../../services/notification_service.dart';
 import '../../services/passive_sensing_service.dart';
 import '../../services/update_service.dart';
 import '../../services/profile_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/pwa_push_interop.dart';
+import '../../services/supabase_config.dart';
 import '../widgets/dialog_utils.dart';
 
 class DebugScreen extends StatefulWidget {
@@ -268,9 +271,76 @@ class _DebugScreenState extends State<DebugScreen> {
 
   Future<void> _viewScheduledNotifications() async {
     if (kIsWeb) {
-      _showSnackbar('Notifications are not supported on Web.');
+      _showSnackbar('Diagnostics check: Loading permission and Supabase records...');
+      try {
+        final profileService = context.read<ProfileService>();
+        final userUuid = profileService.uuid;
+        
+        final permission = PwaPushInterop.getPermissionStatus();
+        final String? subscription = await PwaPushInterop.subscribe(SupabaseConfig.vapidPublicKey);
+        
+        final List<dynamic> response = await Supabase.instance.client
+            .from('pwa_push_reminders')
+            .select()
+            .eq('user_uuid', userUuid)
+            .eq('sent', false);
+
+        if (!mounted) return;
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('PWA Push Notifications'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('PWA Diagnostics:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('Browser Permission: $permission'),
+                  Text('Push Subscription: ${subscription != null ? "Active ✓" : "Inactive / Denied ✗"}'),
+                  const SizedBox(height: 8),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text('Unsent Reminders on Supabase:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  if (response.isEmpty)
+                    const Text('No future reminders scheduled on Supabase.')
+                  else
+                    ...response.map((n) {
+                      final payload = n['payload'] as Map<String, dynamic>? ?? {};
+                      final scheduledForStr = n['scheduled_for'] as String? ?? 'N/A';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('ID: ${n['id']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Title: ${payload['title']}'),
+                            Text('Body: ${payload['body']}'),
+                            Text('Scheduled For: $scheduledForStr'),
+                          ],
+                        ),
+                      );
+                    }),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      } catch (e) {
+        if (mounted) _showSnackbar('Error: $e');
+      }
       return;
     }
+
     _showSnackbar('Fetching scheduled notifications...');
     try {
       final scheduled = await AwesomeNotifications().listScheduledNotifications();
