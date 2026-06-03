@@ -11,6 +11,21 @@ window.pwaPush = {
     return Notification.permission;
   },
 
+  getSubscription: async function() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return null;
+    }
+    const readyPromise = navigator.serviceWorker.ready;
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000));
+    try {
+      const registration = await Promise.race([readyPromise, timeoutPromise]);
+      const subscription = await registration.pushManager.getSubscription();
+      return subscription ? JSON.stringify(subscription) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
   subscribeToPush: async function(vapidPublicKey) {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       throw new Error('Push notifications are not supported in this browser.');

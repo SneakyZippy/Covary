@@ -20,7 +20,6 @@ import '../../services/update_service.dart';
 import '../../services/profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/pwa_push_interop.dart';
-import '../../services/supabase_config.dart';
 import '../widgets/dialog_utils.dart';
 
 class DebugScreen extends StatefulWidget {
@@ -277,7 +276,7 @@ class _DebugScreenState extends State<DebugScreen> {
         final userUuid = profileService.uuid;
         
         final permission = PwaPushInterop.getPermissionStatus();
-        final String? subscription = await PwaPushInterop.subscribe(SupabaseConfig.vapidPublicKey);
+        final String? subscription = await PwaPushInterop.getSubscription();
         
         final List<dynamic> response = await Supabase.instance.client
             .from('pwa_push_reminders')

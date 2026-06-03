@@ -10,6 +10,9 @@ external Object _jsRequestPermission();
 @JS('pwaPush.getPermissionStatus')
 external String _jsGetPermissionStatus();
 
+@JS('pwaPush.getSubscription')
+external Object _jsGetSubscription();
+
 @JS('pwaPush.subscribeToPush')
 external Object _jsSubscribeToPush(String vapidPublicKey);
 
@@ -42,6 +45,17 @@ class PwaPushInterop {
     } catch (e) {
       debugPrint('[PwaPushInterop] getPermissionStatus failed: $e');
       return 'unsupported';
+    }
+  }
+
+  static Future<String?> getSubscription() async {
+    try {
+      final promise = _jsGetSubscription();
+      final result = await js_util.promiseToFuture(promise);
+      return result?.toString();
+    } catch (e) {
+      debugPrint('[PwaPushInterop] getSubscription failed: $e');
+      return null;
     }
   }
 

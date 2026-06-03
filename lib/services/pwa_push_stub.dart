@@ -11,6 +11,10 @@ class PwaPushInterop {
     return 'unsupported';
   }
 
+  static Future<String?> getSubscription() async {
+    return null;
+  }
+
   static Future<String?> subscribe(String vapidPublicKey) async {
     return null;
   }
