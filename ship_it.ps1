@@ -40,18 +40,9 @@ git push
 git tag $tag
 git push origin $tag
 
-# 6. Backup to Google Drive
 $sourceApk = "build\app\outputs\flutter-apk\app-release.apk"
-$driveTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$destApk = "$env:USERPROFILE\My Drive\Covary\Builds\Covary_v${currentVersion}_b${newBuildNumber}_${driveTimestamp}.apk"
-$destDir = Split-Path $destApk
-if (-not (Test-Path $destDir)) {
-    New-Item -ItemType Directory -Force -Path $destDir | Out-Null
-}
-Copy-Item -Path $sourceApk -Destination $destApk -Force
-Write-Host "Backup created: $destApk" -ForegroundColor Gray
 
-# 7. GitHub Release
+# 6. GitHub Release
 Write-Host "Creating GitHub Release..." -ForegroundColor Yellow
 $notesFile = "release_notes_temp.txt"
 # Ensure we use UTF8 without BOM for maximum compatibility with gh CLI

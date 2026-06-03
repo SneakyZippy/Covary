@@ -34,10 +34,7 @@ Every user interaction must record:
     3. Stage and commit the version bump: `git commit -am "Bump version to v<version>"`
     4. Push the commit to GitHub: `git push`
     5. Run the release build: `flutter build apk --release`
-    6. Create a timestamped **Safety Backup** in Google Drive (wrap path in quotes):
-       - Source: `build\app\outputs\flutter-apk\app-release.apk`
-       - Destination: `"%USERPROFILE%\My Drive\Covary\Builds\Covary_v<version>_b<build_number>_<timestamp>.apk"`
-    7. Extract `release_notes` from `version.json` and create a GitHub Release with the APK:
+    6. Extract `release_notes` from `version.json` and create a GitHub Release with the APK:
        - Command: `gh release create v<version> build\app\outputs\flutter-apk\app-release.apk --title "Release v<version>" --notes "<extracted_release_notes>"`
 
 
