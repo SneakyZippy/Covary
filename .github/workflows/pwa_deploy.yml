@@ -36,10 +36,6 @@ jobs:
       - name: Run Code Generation (Drift)
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Create dummy Supabase Config for analysis
-        run: |
-          mkdir -p lib/services
-          echo "class SupabaseConfig { static const String supabaseUrl = ''; static const String supabaseAnonKey = ''; static const String vapidPublicKey = ''; }" > lib/services/supabase_config.dart
 
       - name: Analyze project source
         run: flutter analyze
@@ -71,10 +67,6 @@ jobs:
       - name: Run Code Generation (Drift)
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Create dummy Supabase Config for build
-        run: |
-          mkdir -p lib/services
-          echo "class SupabaseConfig { static const String supabaseUrl = ''; static const String supabaseAnonKey = ''; static const String vapidPublicKey = ''; }" > lib/services/supabase_config.dart
 
       - name: Build Flutter Web
         run: flutter build web --base-href "/Covary/" --release
