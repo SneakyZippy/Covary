@@ -1,6 +1,14 @@
 // Custom Master Service Worker for Covary PWA
-// Imports Flutter's default caching service worker dynamically
-importScripts('flutter_service_worker.js?v=' + (self.serviceWorkerVersion || '1'));
+
+// Install event - skip waiting to activate immediately
+self.addEventListener('install', function(event) {
+  self.skipWaiting();
+});
+
+// Activate event - claim clients to start controlling them immediately
+self.addEventListener('activate', function(event) {
+  event.waitUntil(self.clients.claim());
+});
 
 // Listen for Web Push notification payloads dispatched from Supabase Edge Functions
 self.addEventListener('push', function(event) {
