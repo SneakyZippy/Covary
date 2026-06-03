@@ -275,7 +275,7 @@ class _DebugScreenState extends State<DebugScreen> {
       try {
         final syncService = context.read<SyncService>();
         if (!syncService.isSupabaseInitialized) {
-          _showSnackbar('Supabase client not initialized. Check internet connection or API settings.');
+          _showSnackbar('Supabase client not initialized. Error: ${syncService.syncErrorMessage ?? "Unknown initialization error"}');
           return;
         }
 
