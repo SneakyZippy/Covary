@@ -186,67 +186,112 @@ class ActivitySummaryCard extends StatelessWidget {
 }
 
 // =============================================================================
-// Mini Heatmap
+// Compliance Card
 // =============================================================================
 
-/// A compact 14-day compliance heatmap displayed on the Insights screen.
-class MiniHeatmap extends StatelessWidget {
-  final Map<DateTime, bool> complianceMap;
+/// A compact compliance card displaying overall rate and last 7 days status.
+class ComplianceCard extends StatelessWidget {
+  final Map<DateTime, double> complianceMap;
 
-  const MiniHeatmap({super.key, required this.complianceMap});
+  const ComplianceCard({super.key, required this.complianceMap});
+
+  double _calculateAverage() {
+    if (complianceMap.isEmpty) return 0.0;
+    final sum = complianceMap.values.fold(0.0, (prev, element) => prev + element);
+    return sum / complianceMap.length;
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
+    final avg = _calculateAverage();
+    final percentage = (avg * 100).toStringAsFixed(0);
+
+    // Sort dates to get the last 7 days for the micro-timeline
     final sortedDates = complianceMap.keys.toList()..sort((a, b) => a.compareTo(b));
-    final firstRow = sortedDates.take(7).toList();
-    final secondRow = sortedDates.skip(7).take(7).toList();
+    final last7Days = sortedDates.length >= 7 
+        ? sortedDates.sublist(sortedDates.length - 7) 
+        : sortedDates;
 
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Activity',
-              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+              'Compliance',
+              style: textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
             ),
             const SizedBox(height: 12),
-            FittedBox(child: _buildHeatRow(firstRow, colorScheme)),
-            const SizedBox(height: 4),
-            FittedBox(child: _buildHeatRow(secondRow, colorScheme)),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: CircularProgressIndicator(
+                    value: avg,
+                    strokeWidth: 4.5,
+                    backgroundColor: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  ),
+                ),
+                Text(
+                  '$percentage%',
+                  style: textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: last7Days.map((d) {
+                final ratio = complianceMap[d] ?? 0.0;
+                
+                Color dotColor;
+                Border? dotBorder;
+
+                if (ratio >= 0.99) {
+                  dotColor = colorScheme.primary;
+                } else if (ratio > 0.0) {
+                  dotColor = colorScheme.primary.withValues(alpha: 0.4);
+                } else {
+                  dotColor = Colors.transparent;
+                  dotBorder = Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    width: 1,
+                  );
+                }
+
+                return Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: dotColor,
+                    border: dotBorder,
+                  ),
+                );
+              }).toList(),
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildHeatRow(List<DateTime> dates, ColorScheme colorScheme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: dates.map((d) {
-        final active = complianceMap[d] ?? false;
-        return Container(
-          width: 10,
-          height: 10,
-          margin: const EdgeInsets.all(1.5),
-          decoration: BoxDecoration(
-            color: active ? colorScheme.primary : colorScheme.surface,
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(
-              color: active ? colorScheme.primary : colorScheme.outlineVariant.withAlpha(50),
-              width: 0.5,
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }

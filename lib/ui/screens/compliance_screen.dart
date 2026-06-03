@@ -15,6 +15,9 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   bool _isLoading = true;
   Map<DateTime, double> _complianceMap = {};
   double _recallRatio = 0.0;
+  double _overallCompliance = 0.0;
+  int _completedSessions = 0;
+  int _totalPossibleSessions = 0;
 
   @override
   void initState() {
@@ -63,6 +66,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     final totalWindows = metricService.allWindows.where((w) => w.isEnabled).length;
 
     final Map<DateTime, double> tempMap = {};
+    double sumRatios = 0.0;
     for (int i = 0; i < 14; i++) {
       final date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
       
@@ -78,12 +82,27 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           : (sessionsThisDay > 0 ? 1.0 : 0.0);
       
       tempMap[date] = ratio;
+      sumRatios += ratio;
+    }
+
+    int completedCount = 0;
+    for (int i = 0; i < 14; i++) {
+      final date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final sessionsThisDay = sessionEvents.where((e) => 
+        e.timestamp.year == date.year && 
+        e.timestamp.month == date.month && 
+        e.timestamp.day == date.day
+      ).length;
+      completedCount += sessionsThisDay;
     }
 
     if (mounted) {
       setState(() {
         _complianceMap = tempMap;
         _recallRatio = total > 0 ? (total - recall) / total : 1.0;
+        _overallCompliance = sumRatios / 14;
+        _completedSessions = completedCount;
+        _totalPossibleSessions = totalWindows * 14;
         _isLoading = false;
       });
     }
@@ -104,11 +123,13 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
             padding: const EdgeInsets.all(24),
             children: [
               _buildHeader(textTheme, colorScheme),
-              const SizedBox(height: 32),
-              _buildHeatmap(textTheme, colorScheme),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+              _buildOverallScoreCard(textTheme, colorScheme),
+              const SizedBox(height: 24),
+              _buildComplianceRingsGrid(textTheme, colorScheme),
+              const SizedBox(height: 24),
               _buildRecallCard(textTheme, colorScheme),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               _buildInfoCard(textTheme, colorScheme),
             ],
           ),
@@ -132,73 +153,205 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     );
   }
 
-  Widget _buildHeatmap(TextTheme textTheme, ColorScheme colorScheme) {
-    final sortedDates = _complianceMap.keys.toList()..sort((a, b) => a.compareTo(b));
+  Widget _buildOverallScoreCard(TextTheme textTheme, ColorScheme colorScheme) {
+    final percentage = (_overallCompliance * 100).toStringAsFixed(0);
+    final isTargetMet = _overallCompliance >= 0.8;
     
     return Card(
       elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withAlpha(150),
+      color: colorScheme.primaryContainer.withValues(alpha: 0.15),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.3), width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: CircularProgressIndicator(
+                    value: _overallCompliance,
+                    strokeWidth: 6,
+                    backgroundColor: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  ),
+                ),
+                Text(
+                  '$percentage%',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Consistency Score',
+                    style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        isTargetMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                        size: 14,
+                        color: isTargetMet ? Colors.green.shade400 : Colors.orange.shade400,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isTargetMet ? 'Target Met (>80%)' : 'Below Target (<80%)',
+                        style: textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isTargetMet ? Colors.green.shade400 : Colors.orange.shade400,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Completed $_completedSessions of $_totalPossibleSessions scheduled check-ins over the last 14 days.',
+                    style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComplianceRingsGrid(TextTheme textTheme, ColorScheme colorScheme) {
+    final sortedDates = _complianceMap.keys.toList()..sort((a, b) => a.compareTo(b));
+    final row1 = sortedDates.take(7).toList();
+    final row2 = sortedDates.skip(7).take(7).toList();
+    
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '14-Day Activity',
+              '14-Day Session History',
               style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: sortedDates.map((date) {
-                final ratio = _complianceMap[date] ?? 0.0;
-                final active = ratio > 0;
-                
-                // Shade intensity: 0.0 (Missed) -> 1.0 (Full)
-                // We use a dark base for partial logs as requested by the user.
-                final Color cellColor = active 
-                    ? Color.lerp(const Color(0xFF0A1F0A), colorScheme.primary, ratio)!
-                    : colorScheme.surface;
-
-                return Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: cellColor,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: active ? cellColor : colorScheme.outlineVariant,
-                      width: 1,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: active ? Colors.white : colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+            _buildRingsRow(row1, textTheme, colorScheme),
+            const SizedBox(height: 16),
+            _buildRingsRow(row2, textTheme, colorScheme),
             const SizedBox(height: 20),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _LegendItem(color: colorScheme.primary, label: 'Full'),
-                const SizedBox(width: 12),
-                _LegendItem(color: Color.lerp(const Color(0xFF0A1F0A), colorScheme.primary, 0.4)!, label: 'Partial'),
-                const SizedBox(width: 12),
-                _LegendItem(color: colorScheme.surface, label: 'Missed'),
+                _LegendItem(color: colorScheme.primary, label: 'Full (100%)'),
+                const SizedBox(width: 16),
+                _LegendItem(color: colorScheme.primary.withValues(alpha: 0.4), label: 'Partial'),
+                const SizedBox(width: 16),
+                _LegendItem(
+                  color: Colors.transparent, 
+                  label: 'Missed (0%)', 
+                  hasBorder: true,
+                  borderColor: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRingsRow(List<DateTime> dates, TextTheme textTheme, ColorScheme colorScheme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: dates.map((date) {
+        final ratio = _complianceMap[date] ?? 0.0;
+        final isFull = ratio >= 0.99;
+        final isMissed = ratio <= 0.01;
+        
+        final weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final weekdayStr = weekdayNames[date.weekday - 1].substring(0, 1);
+        
+        Color progressColor = colorScheme.primary;
+        Color bgRingColor = colorScheme.outlineVariant.withValues(alpha: 0.3);
+        Widget ringCenter;
+
+        if (isFull) {
+          ringCenter = Icon(
+            Icons.check_rounded,
+            size: 14,
+            color: colorScheme.primary,
+          );
+        } else if (isMissed) {
+          ringCenter = Text(
+            '${date.day}',
+            style: textTheme.bodySmall?.copyWith(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          );
+        } else {
+          ringCenter = Text(
+            '${date.day}',
+            style: textTheme.bodySmall?.copyWith(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+          );
+        }
+
+        return Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                weekdayStr,
+                style: textTheme.bodySmall?.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Tooltip(
+                message: '${date.month}/${date.day}: ${(ratio * 100).toStringAsFixed(0)}% compliance',
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: CircularProgressIndicator(
+                        value: isMissed ? 0.0 : ratio,
+                        strokeWidth: 3.2,
+                        backgroundColor: bgRingColor,
+                        valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                      ),
+                    ),
+                    ringCenter,
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -280,8 +433,15 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
 class _LegendItem extends StatelessWidget {
   final Color color;
   final String label;
+  final bool hasBorder;
+  final Color? borderColor;
 
-  const _LegendItem({required this.color, required this.label});
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    this.hasBorder = false,
+    this.borderColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -293,7 +453,12 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            border: Border.all(
+              color: hasBorder 
+                  ? (borderColor ?? Theme.of(context).colorScheme.outlineVariant)
+                  : Colors.transparent,
+              width: 1.2,
+            ),
           ),
         ),
         const SizedBox(width: 6),

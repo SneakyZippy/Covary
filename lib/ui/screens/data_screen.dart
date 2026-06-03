@@ -31,7 +31,7 @@ class _DataScreenState extends State<DataScreen> {
   bool _healthEnabled = false;
   bool _usageEnabled = false;
   bool _notificationsEnabled = false;
-  Map<DateTime, bool> _complianceMap = {};
+  Map<DateTime, double> _complianceMap = {};
   List<Event> _recentEvents = [];
 
   @override
@@ -90,24 +90,36 @@ class _DataScreenState extends State<DataScreen> {
 
   Future<void> _loadComplianceData() async {
     final eventRepo = context.read<EventRepository>();
+    final metricService = context.read<MetricService>();
     final now = DateTime.now();
     final fourteenDaysAgo = now.subtract(const Duration(days: 14));
     
     final events = await eventRepo.getEventsInDateRange(fourteenDaysAgo, now);
-    final researchEvents = events.where((e) => 
-      e.category != EventCategory.meta && 
-      e.category != EventCategory.appUsage
+    
+    // Filter meta events for compliance
+    final sessionEvents = events.where((e) => 
+      e.category == EventCategory.meta && 
+      e.label == 'SessionCompleted'
     ).toList();
 
-    final Map<DateTime, bool> tempMap = {};
+    final totalWindows = metricService.allWindows.where((w) => w.isEnabled).length;
+
+    final Map<DateTime, double> tempMap = {};
     for (int i = 0; i < 14; i++) {
       final date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
-      final hasData = researchEvents.any((e) => 
+      
+      final sessionsThisDay = sessionEvents.where((e) => 
         e.timestamp.year == date.year && 
         e.timestamp.month == date.month && 
         e.timestamp.day == date.day
-      );
-      tempMap[date] = hasData;
+      ).length;
+
+      // Ratio of completed windows vs available windows
+      final ratio = totalWindows > 0 
+          ? (sessionsThisDay / totalWindows).clamp(0.0, 1.0) 
+          : (sessionsThisDay > 0 ? 1.0 : 0.0);
+      
+      tempMap[date] = ratio;
     }
 
     if (mounted) {
@@ -231,7 +243,7 @@ class _DataScreenState extends State<DataScreen> {
                               MaterialPageRoute(builder: (_) => const ComplianceScreen()),
                             ),
                             borderRadius: BorderRadius.circular(24),
-                            child: MiniHeatmap(complianceMap: _complianceMap),
+                            child: ComplianceCard(complianceMap: _complianceMap),
                           ),
                         ),
                       ],
