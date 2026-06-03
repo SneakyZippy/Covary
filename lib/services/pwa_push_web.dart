@@ -16,6 +16,12 @@ external Object _jsSubscribeToPush(String vapidPublicKey);
 @JS('pwaPush.unsubscribeFromPush')
 external Object _jsUnsubscribeFromPush();
 
+@JS('pwaPush.getQueuedEvents')
+external Object _jsGetQueuedEvents();
+
+@JS('pwaPush.clearQueuedEvents')
+external Object _jsClearQueuedEvents();
+
 class PwaPushInterop {
   static bool get isSupported => true;
 
@@ -57,6 +63,28 @@ class PwaPushInterop {
       return result as bool;
     } catch (e) {
       debugPrint('[PwaPushInterop] unsubscribe failed: $e');
+      return false;
+    }
+  }
+
+  static Future<String?> getQueuedEvents() async {
+    try {
+      final promise = _jsGetQueuedEvents();
+      final result = await js_util.promiseToFuture(promise);
+      return result?.toString();
+    } catch (e) {
+      debugPrint('[PwaPushInterop] getQueuedEvents failed: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> clearQueuedEvents() async {
+    try {
+      final promise = _jsClearQueuedEvents();
+      final result = await js_util.promiseToFuture(promise);
+      return result as bool;
+    } catch (e) {
+      debugPrint('[PwaPushInterop] clearQueuedEvents failed: $e');
       return false;
     }
   }

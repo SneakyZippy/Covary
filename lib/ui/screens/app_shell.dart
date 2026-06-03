@@ -43,8 +43,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       try {
         context.read<SyncService>().syncNow();
+        NotificationService.processWebPushQueue();
       } catch (e) {
-        debugPrint('[AppShell] Failed to trigger auto-sync on resume: $e');
+        debugPrint('[AppShell] Failed to trigger auto-sync/pwa-queue on resume: $e');
       }
     }
   }

@@ -42,6 +42,7 @@ class NotificationService {
           await scheduleMealReminders();
           _subscribeToMealChanges();
         }
+        await processWebPushQueue();
       } catch (e) {
         debugPrint('[NotificationService] Web Push initialization failed: $e');
       }
@@ -483,6 +484,11 @@ class NotificationService {
       
       final db = AppDatabase.getInstance();
       final windows = await db.getAllTrackingWindows();
+      final snoozeDurations = await getSnoozeDurations();
+      final webActions = snoozeDurations.map((mins) => {
+        'action': 'snooze_${mins}m',
+        'title': '+ ${_formatDurationLabel(mins)}',
+      }).toList();
       
       for (var window in windows) {
         if (!window.isNotificationEnabled || !window.isEnabled) continue;
@@ -510,7 +516,8 @@ class NotificationService {
               'notification_type': 'daily_reminder',
               'window_id': window.id,
               'window_label': window.label,
-            }
+            },
+            'actions': webActions,
           },
         );
       }
@@ -731,7 +738,12 @@ class NotificationService {
               'notification_type': 'meal_reminder',
               'reminder_id': reminder.id,
               'reminder_label': reminder.label,
-            }
+            },
+            'actions': [
+              {'action': 'meal_snack', 'title': '🍪 Snack'},
+              {'action': 'meal_meal', 'title': '🍲 Meal'},
+              {'action': 'meal_feast', 'title': '🍖 Feast'},
+            ],
           },
         );
       }
@@ -965,6 +977,18 @@ class NotificationService {
 
       final scheduledTime = DateTime.now().add(delay ?? const Duration(seconds: 10));
 
+      final snoozeDurations = await getSnoozeDurations();
+      final webActions = isMeal
+          ? [
+              {'action': 'meal_snack', 'title': '🍪 Snack'},
+              {'action': 'meal_meal', 'title': '🍲 Meal'},
+              {'action': 'meal_feast', 'title': '🍖 Feast'},
+            ]
+          : snoozeDurations.map((mins) => {
+              'action': 'snooze_${mins}m',
+              'title': '+ ${_formatDurationLabel(mins)}',
+            }).toList();
+
       await _scheduleWebPush(
         userUuid: userUuid,
         scheduledFor: scheduledTime,
@@ -972,6 +996,7 @@ class NotificationService {
           'title': title,
           'body': body,
           'data': payload ?? {'metric_id': 'default'},
+          'actions': webActions,
         },
       );
       return;
@@ -1130,6 +1155,12 @@ class NotificationService {
     required Map<String, dynamic> payload,
   }) async {
     try {
+      final data = Map<String, dynamic>.from(payload['data'] ?? {});
+      data['user_uuid'] = userUuid;
+      data['supabase_url'] = SupabaseConfig.supabaseUrl;
+      data['supabase_anon_key'] = SupabaseConfig.supabaseAnonKey;
+      payload['data'] = data;
+
       final String? subscriptionJson = await PwaPushInterop.subscribe(SupabaseConfig.vapidPublicKey);
       if (subscriptionJson == null) {
         debugPrint('[NotificationService] Failed to schedule Web Push: Not subscribed or permission denied.');
@@ -1161,6 +1192,68 @@ class NotificationService {
       debugPrint('[NotificationService] Cleared future Web Pushes for $userUuid');
     } catch (e) {
       debugPrint('[NotificationService] Error clearing Web Pushes: $e');
+    }
+  }
+
+  static Future<void> processWebPushQueue() async {
+    if (!kIsWeb) return;
+    try {
+      final eventsJson = await PwaPushInterop.getQueuedEvents();
+      if (eventsJson == null || eventsJson == '[]' || eventsJson.isEmpty) {
+        return;
+      }
+      debugPrint('[NotificationService] Processing PWA queued events: $eventsJson');
+      final List<dynamic> list = jsonDecode(eventsJson);
+      final db = AppDatabase.getInstance();
+      
+      for (final event in list) {
+        final type = event['type'];
+        final timestampStr = event['timestamp'];
+        final timestamp = timestampStr != null ? DateTime.parse(timestampStr) : DateTime.now();
+
+        if (type == 'interaction') {
+          final interactionTypeStr = event['interactionType'];
+          final interactionType = InteractionType.values.firstWhere(
+            (e) => e.name == interactionTypeStr,
+            orElse: () => InteractionType.click,
+          );
+          final payload = event['payload'] != null ? Map<String, String?>.from(event['payload']) : null;
+          final value = event['value']?.toString();
+          
+          await _logInteraction(
+            db,
+            interactionType,
+            payload,
+            value: value,
+          );
+
+          if (interactionType == InteractionType.swipeAway) {
+            if (payload?['notification_type'] != 'meal_reminder') {
+              await _incrementAndCheckDismissCount();
+            }
+          }
+        } else if (type == 'meal') {
+          final value = event['value'] ?? '1.0';
+          await db.insertEvent(
+            EventsCompanion(
+              category: const Value(EventCategory.nutrition),
+              label: const Value('core_meal_count'),
+              value: Value(value),
+              latencyMs: const Value(0),
+              triggerSource: const Value(TriggerSource.notification),
+              interactionType: const Value(InteractionType.click),
+              timestamp: Value(timestamp),
+              recordedAt: Value(timestamp),
+            ),
+          );
+          await scheduleMealReminders();
+        }
+      }
+      
+      await PwaPushInterop.clearQueuedEvents();
+      debugPrint('[NotificationService] PWA queued events cleared.');
+    } catch (e) {
+      debugPrint('[NotificationService] Error processing Web Push Queue: $e');
     }
   }
 }

@@ -39,6 +39,62 @@ window.pwaPush = {
       return await subscription.unsubscribe();
     }
     return false;
+  },
+
+  getQueuedEvents: async function() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('covary_pwa_events', 1);
+      request.onupgradeneeded = function(e) {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('queued_events')) {
+          db.createObjectStore('queued_events', { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      request.onsuccess = function(e) {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('queued_events')) {
+          resolve("[]");
+          return;
+        }
+        const transaction = db.transaction(['queued_events'], 'readonly');
+        const store = transaction.objectStore('queued_events');
+        const getRequest = store.getAll();
+        getRequest.onsuccess = function() {
+          resolve(JSON.stringify(getRequest.result));
+        };
+        getRequest.onerror = function() {
+          reject(getRequest.error);
+        };
+      };
+      request.onerror = function(e) {
+        reject(e.target.error);
+      };
+    });
+  },
+
+  clearQueuedEvents: async function() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('covary_pwa_events', 1);
+      request.onsuccess = function(e) {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('queued_events')) {
+          resolve(true);
+          return;
+        }
+        const transaction = db.transaction(['queued_events'], 'readwrite');
+        const store = transaction.objectStore('queued_events');
+        const clearRequest = store.clear();
+        clearRequest.onsuccess = function() {
+          resolve(true);
+        };
+        clearRequest.onerror = function() {
+          reject(clearRequest.error);
+        };
+      };
+      request.onerror = function(e) {
+        reject(e.target.error);
+      };
+    });
   }
 };
 

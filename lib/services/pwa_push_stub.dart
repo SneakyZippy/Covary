@@ -18,4 +18,12 @@ class PwaPushInterop {
   static Future<bool> unsubscribe() async {
     return false;
   }
+
+  static Future<String?> getQueuedEvents() async {
+    return null;
+  }
+
+  static Future<bool> clearQueuedEvents() async {
+    return false;
+  }
 }
