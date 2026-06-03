@@ -18,6 +18,7 @@ import '../../services/notification_service.dart';
 import '../../services/passive_sensing_service.dart';
 import '../../services/update_service.dart';
 import '../../services/profile_service.dart';
+import '../../services/sync_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/pwa_push_interop.dart';
 import '../widgets/dialog_utils.dart';
@@ -272,6 +273,12 @@ class _DebugScreenState extends State<DebugScreen> {
     if (kIsWeb) {
       _showSnackbar('Diagnostics check: Loading permission and Supabase records...');
       try {
+        final syncService = context.read<SyncService>();
+        if (!syncService.isSupabaseInitialized) {
+          _showSnackbar('Supabase client not initialized. Check internet connection or API settings.');
+          return;
+        }
+
         final profileService = context.read<ProfileService>();
         final userUuid = profileService.uuid;
         

@@ -76,6 +76,9 @@ class SyncService extends ChangeNotifier {
   /// The last recorded sync error message, or null if successful.
   String? get syncErrorMessage => _syncErrorMessage;
 
+  /// Whether the Supabase client was successfully initialized.
+  bool get isSupabaseInitialized => _isSupabaseInitialized;
+
   /// Reads user preference and initializes the Supabase client if keys are available.
   Future<void> init() async {
     _syncEnabled = _profileRepo.getBoolSetting(_kSupabaseSyncEnabled, defaultValue: false);
