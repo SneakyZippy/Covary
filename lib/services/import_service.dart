@@ -164,26 +164,6 @@ class ImportService {
     }
   }
 
-  /// Normalizes a map to snake_case to match Drift's expected JSON format.
-  Map<String, dynamic> _normalize(Map<String, dynamic> input) {
-    final result = <String, dynamic>{};
-    input.forEach((key, value) {
-      final normalizedKey = key
-          .replaceAllMapped(RegExp(r'([A-Z])'), (match) {
-            return '_${match.group(0)!.toLowerCase()}';
-          })
-          .replaceAll('__', '_')
-          .toLowerCase();
-      
-      final cleanKey = normalizedKey.startsWith('_') 
-          ? normalizedKey.substring(1) 
-          : normalizedKey;
-          
-      result[cleanKey] = value;
-    });
-    return result;
-  }
-
   int _toInt(dynamic value, int defaultValue) {
     if (value == null) return defaultValue;
     if (value is int) return value;
