@@ -23,6 +23,7 @@ import 'permission_shield_screen.dart';
 import '../widgets/quick_track_value_sheet.dart';
 import 'activity_history_screen.dart';
 import '../../services/notification_service.dart';
+import '../../services/pwa_push_interop.dart';
 import '../widgets/staggered_entrance.dart';
 import '../widgets/confetti_animation.dart';
 
@@ -194,9 +195,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final appUsageService = context.read<AppUsageService>();
     final eventRepo = context.read<EventRepository>();
 
-    final healthGranted = await healthService.hasPermissions();
-    final usageGranted = await appUsageService.isPermissionGranted();
-    final notifGranted = kIsWeb ? false : await AwesomeNotifications().isNotificationAllowed();
+    final healthGranted = kIsWeb ? true : await healthService.hasPermissions();
+    final usageGranted = kIsWeb ? true : await appUsageService.isPermissionGranted();
+    final notifGranted = kIsWeb
+        ? PwaPushInterop.getPermissionStatus() == 'granted'
+        : await AwesomeNotifications().isNotificationAllowed();
 
     // Check if the banner has ever been dismissed
     final dismissEvents = await eventRepo.getEventsByLabel('PermissionBannerDismissed');

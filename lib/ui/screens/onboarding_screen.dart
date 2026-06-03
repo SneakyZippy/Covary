@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../services/profile_service.dart';
@@ -11,6 +12,7 @@ import 'profile_setup_screen.dart';
 import 'package:covary/ui/screens/app_shell.dart';
 import '../../services/sync_service.dart';
 import '../widgets/sync_summary_dialog.dart';
+
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -204,6 +206,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       Colors.cyan,
     ];
 
+    final isWebIos = kIsWeb && Theme.of(context).platform == TargetPlatform.iOS;
+    final safeAreaMin = isWebIos
+        ? const EdgeInsets.only(top: 50.0, bottom: 36.0)
+        : EdgeInsets.zero;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -223,6 +230,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           
           SafeArea(
+            minimum: safeAreaMin,
             child: Column(
               children: [
                 Align(
