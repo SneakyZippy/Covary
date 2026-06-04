@@ -9,6 +9,7 @@ import '../data/repositories/event_repository.dart';
 import '../data/models/enums.dart';
 import 'app_usage_service.dart';
 import 'health_service.dart';
+import 'weather_sensing_service.dart';
 
 /// Orchestrates all passive data collection for the Covary EMA study.
 ///
@@ -113,6 +114,14 @@ class PassiveSensingService {
 
     if (health) await _syncHealth(healthSessionId, start, end, referenceTime);
     if (usage) await _syncAppUsage(appUsageSessionId, start, end, referenceTime);
+
+    // Weather Sync (Passive environmental telemetry)
+    try {
+      final weather = WeatherSensingService(eventRepo: _eventRepo);
+      await weather.syncWeather(date, sessionId: healthSessionId);
+    } catch (e) {
+      debugPrint('[PassiveSensingService] Weather sync error: $e');
+    }
   }
 
   // ---------------------------------------------------------------------------
