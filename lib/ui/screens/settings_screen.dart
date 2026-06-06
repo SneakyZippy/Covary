@@ -48,57 +48,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       body: SafeArea(
         child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
           slivers: [
             // --- Logo & Branding ---
             SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 48, bottom: 24),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.primary.withAlpha(40),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Image.asset('assets/icon/app_icon.png'),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'COVARY',
-                        style: textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 4,
-                          color: colorScheme.primary,
-                        ),
-                      ),
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(32),
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.surfaceContainerHighest.withAlpha(60),
+                      colorScheme.surfaceContainer.withAlpha(30),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  border: Border.all(
+                    color: colorScheme.primary.withAlpha(30),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(40),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-
-            // --- Header ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                child: Text(
-                  'Settings',
-                  style: textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
+                child: Column(
+                  children: [
+                    _GlowingAppIcon(colorScheme: colorScheme),
+                    const SizedBox(height: 16),
+                    Text(
+                      'COVARY',
+                      style: textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 6,
+                        color: colorScheme.primary,
+                        shadows: [
+                          Shadow(
+                            color: colorScheme.primary.withAlpha(120),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'HCI BEHAVIORAL RESEARCH PLATFORM',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant.withAlpha(180),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -110,68 +116,126 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   horizontal: 16,
                   vertical: 8,
                 ),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      colors: [
+                        colorScheme.surfaceContainerHighest.withAlpha(80),
+                        colorScheme.surfaceContainer.withAlpha(50),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withAlpha(80),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(20),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    leading: CircleAvatar(
-                      backgroundColor: colorScheme.primaryContainer,
-                      child: Icon(
-                        Icons.person_rounded,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    title: Text(
-                      profileService.nickname.isNotEmpty
-                          ? profileService.nickname
-                          : 'Set Nickname',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      profileService.uuid.substring(0, 8).toUpperCase(),
-                      style: textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    trailing: Icon(
-                      Icons.chevron_right_rounded,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ProfileSetupScreen(),
+                  clipBehavior: Clip.antiAlias,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ProfileSetupScreen(),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    colorScheme.primary,
+                                    colorScheme.secondary,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorScheme.primary.withAlpha(40),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.person_rounded,
+                                color: colorScheme.onPrimary,
+                                size: 26,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    profileService.nickname.isNotEmpty
+                                        ? profileService.nickname
+                                        : 'Set Nickname',
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'RESEARCH ID: ',
+                                        style: textTheme.bodySmall?.copyWith(
+                                          color: colorScheme.onSurfaceVariant.withAlpha(180),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      Text(
+                                        profileService.uuid.substring(0, 8).toUpperCase(),
+                                        style: textTheme.bodySmall?.copyWith(
+                                          fontFamily: 'monospace',
+                                          color: colorScheme.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: colorScheme.onSurfaceVariant.withAlpha(150),
+                            ),
+                          ],
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
 
             // --- Appearance Section ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'Appearance',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
+            const SliverToBoxAdapter(
+              child: _SettingsSectionHeader(title: 'Appearance'),
             ),
             const SliverToBoxAdapter(
               child: Padding(
@@ -181,200 +245,160 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             // --- Alerts & Preferences ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'Alerts & Preferences',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
+            const SliverToBoxAdapter(
+              child: _SettingsSectionHeader(title: 'Alerts & Preferences'),
             ),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              child: _SettingsCardGroup(
+                children: [
+                  const _NotificationSettingsSection(),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
                   ),
-                  child: Column(
-                    children: [
-                      const _NotificationSettingsSection(),
-                      const Divider(height: 1, indent: 20, endIndent: 20),
-                      ListTile(
-                        leading: Icon(Icons.restaurant_rounded, color: colorScheme.primary),
-                        title: const Text('Meal Reminders'),
-                        subtitle: const Text('Schedule alerts with quick Snack/Meal/Feast buttons'),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const MealRemindersScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      if (kIsWeb) ...[
-                        const Divider(height: 1, indent: 20, endIndent: 20),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer.withAlpha(40),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: colorScheme.primary.withAlpha(50),
-                              ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.info_outline_rounded,
-                                  color: colorScheme.primary,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'PWA Web Push: To receive notifications in web browsers, scheduled reminder names and times are stored securely on Supabase so they can be pushed to your device.',
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                  _SettingsTile(
+                    leading: Icon(Icons.restaurant_rounded, color: colorScheme.primary, size: 20),
+                    title: 'Meal Reminders',
+                    subtitle: 'Schedule alerts with quick Snack/Meal/Feast buttons',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MealRemindersScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (kIsWeb) ...[
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      height: 1,
+                      color: colorScheme.outlineVariant.withAlpha(80),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer.withAlpha(30),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: colorScheme.primary.withAlpha(50),
                           ),
                         ),
-                      ],
-                    ],
-                  ),
-                ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              color: colorScheme.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'PWA Web Push: To receive notifications in web browsers, scheduled reminder names and times are stored securely on Supabase so they can be pushed to your device.',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
 
             // --- Research & Sensing ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'Research & Sensing',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
+            const SliverToBoxAdapter(
+              child: _SettingsSectionHeader(title: 'Research & Sensing'),
             ),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              child: _SettingsCardGroup(
+                children: [
+                  _SettingsTile(
+                    leading: Icon(Icons.tune_rounded, color: colorScheme.primary, size: 20),
+                    title: 'Tracked Metrics',
+                    subtitle: 'Manage habits and measurement scales',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MetricsScreen(),
+                        ),
+                      );
+                    },
                   ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Icon(Icons.tune_rounded, color: colorScheme.primary),
-                        title: const Text('Tracked Metrics'),
-                        subtitle: const Text('Manage habits and measurement scales'),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const MetricsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1, indent: 56),
-                      ListTile(
-                        leading: Icon(Icons.schedule_rounded, color: colorScheme.primary),
-                        title: const Text('Tracking Windows'),
-                        subtitle: const Text('Define custom time slots for metrics'),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const TrackingWindowsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1, indent: 56),
-                      ListTile(
-                        leading: Icon(Icons.security_rounded, color: colorScheme.secondary),
-                        title: const Text('Data Permissions'),
-                        subtitle: Text(kIsWeb
-                            ? 'Manage your data and exports'
-                            : (Platform.isAndroid
-                                ? 'Health Connect & App Usage access'
-                                : 'HealthKit access')),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const PermissionShieldScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1, indent: 56),
-                      ListTile(
-                        leading: Icon(Icons.apps_rounded, color: colorScheme.secondary),
-                        title: const Text('App Categories'),
-                        subtitle: const Text('Social Media & Entertainment apps'),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const AppCategoryManagerScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
                   ),
-                ),
+                  _SettingsTile(
+                    leading: Icon(Icons.schedule_rounded, color: colorScheme.primary, size: 20),
+                    title: 'Tracking Windows',
+                    subtitle: 'Define custom time slots for metrics',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TrackingWindowsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
+                  ),
+                  _SettingsTile(
+                    leading: Icon(Icons.security_rounded, color: colorScheme.secondary, size: 20),
+                    title: 'Data Permissions',
+                    subtitle: kIsWeb
+                        ? 'Manage your data and exports'
+                        : (Platform.isAndroid
+                            ? 'Health Connect & App Usage access'
+                            : 'HealthKit access'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PermissionShieldScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
+                  ),
+                  _SettingsTile(
+                    leading: Icon(Icons.apps_rounded, color: colorScheme.secondary, size: 20),
+                    title: 'App Categories',
+                    subtitle: 'Social Media & Entertainment apps',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AppCategoryManagerScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
 
-            // --- Data & Backups ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'Data & Backups',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
+            // --- Cloud Backup & Sync ---
+            const SliverToBoxAdapter(
+              child: _SettingsSectionHeader(title: 'Cloud Backup & Sync'),
             ),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Consumer<SyncService>(
+              child: _SettingsCardGroup(
+                children: [
+                  Consumer<SyncService>(
                     builder: (context, syncService, child) {
                       final hasErrorMessage = syncService.syncErrorMessage != null;
                       final lastSyncStr = syncService.lastSyncTime != null
@@ -383,34 +407,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       return Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SwitchListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 8,
+                          _SettingsSwitchTile(
+                            leading: Icon(
+                              Icons.cloud_upload_rounded,
+                              color: colorScheme.primary,
+                              size: 20,
                             ),
-                            secondary: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.cloud_upload_rounded,
-                                color: colorScheme.onPrimaryContainer,
-                                size: 20,
-                              ),
-                            ),
-                            title: const Text('Enable Cloud Backup'),
-                            subtitle: Text(
-                              syncService.isSyncing
-                                  ? 'Syncing to cloud...'
-                                  : hasErrorMessage
-                                      ? 'Error: ${syncService.syncErrorMessage}'
-                                      : lastSyncStr,
-                              style: TextStyle(
-                                color: hasErrorMessage ? colorScheme.error : null,
-                              ),
-                            ),
+                            title: 'Enable Cloud Backup',
+                            subtitle: syncService.isSyncing
+                                ? 'Syncing to cloud...'
+                                : hasErrorMessage
+                                    ? 'Error: ${syncService.syncErrorMessage}'
+                                    : lastSyncStr,
                             value: syncService.syncEnabled,
                             onChanged: (bool value) async {
                               await syncService.setSyncEnabled(value);
@@ -425,16 +433,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             },
                           ),
                           if (syncService.syncEnabled) ...[
-                            const Divider(height: 1, indent: 20, endIndent: 20),
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 20),
+                              height: 1,
+                              color: colorScheme.outlineVariant.withAlpha(80),
+                            ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
                               child: Container(
-                                padding: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primaryContainer.withAlpha(40),
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: colorScheme.primary.withAlpha(20),
+                                  borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: colorScheme.primary.withAlpha(50),
+                                    color: colorScheme.primary.withAlpha(40),
                                   ),
                                 ),
                                 child: Row(
@@ -451,6 +463,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         'Note: Cloud backup is enabled. Your events are securely synchronized to Supabase, which means your data is no longer local-only.',
                                         style: textTheme.bodySmall?.copyWith(
                                           color: colorScheme.onSurfaceVariant,
+                                          height: 1.35,
                                         ),
                                       ),
                                     ),
@@ -459,55 +472,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                              padding: const EdgeInsets.all(20),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Research ID (UUID)',
-                                              style: textTheme.labelSmall?.copyWith(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surfaceContainerHighest.withAlpha(100),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: colorScheme.outlineVariant.withAlpha(80),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'RESEARCH ID (UUID)',
+                                                style: textTheme.labelSmall?.copyWith(
+                                                  color: colorScheme.primary,
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 1.0,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              SelectableText(
+                                                profileService.uuid,
+                                                style: textTheme.bodyMedium?.copyWith(
+                                                  fontFamily: 'monospace',
+                                                  fontWeight: FontWeight.w500,
+                                                  color: colorScheme.onSurface,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(12),
+                                            onTap: () {
+                                              Clipboard.setData(
+                                                ClipboardData(text: profileService.uuid),
+                                              );
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Research ID copied to clipboard.'),
+                                                  behavior: SnackBarBehavior.floating,
+                                                  duration: Duration(seconds: 2),
+                                                ),
+                                              );
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: colorScheme.primary.withAlpha(20),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: Icon(
+                                                Icons.copy_rounded,
                                                 color: colorScheme.primary,
-                                                fontWeight: FontWeight.bold,
+                                                size: 20,
                                               ),
                                             ),
-                                            const SizedBox(height: 4),
-                                            SelectableText(
-                                              profileService.uuid,
-                                              style: textTheme.bodyMedium?.copyWith(
-                                                fontFamily: 'monospace',
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.copy_rounded,
-                                          color: colorScheme.primary,
-                                          size: 20,
-                                        ),
-                                        onPressed: () {
-                                          Clipboard.setData(
-                                            ClipboardData(text: profileService.uuid),
-                                          );
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Research ID copied to clipboard.'),
-                                              behavior: SnackBarBehavior.floating,
-                                              duration: Duration(seconds: 2),
-                                            ),
-                                          );
-                                        },
-                                        tooltip: 'Copy ID',
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(height: 16),
                                   _ManualBackupButton(syncService: syncService),
@@ -515,30 +551,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                           ],
-                          const Divider(height: 1, indent: 56),
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 8,
-                            ),
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.cloud_download_rounded,
-                                color: colorScheme.onPrimaryContainer,
-                                size: 20,
-                              ),
-                            ),
-                            title: const Text('Restore from Cloud Backup'),
-                            subtitle: const Text('Download and merge a research profile'),
-                            trailing: Icon(
-                              Icons.chevron_right_rounded,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            height: 1,
+                            color: colorScheme.outlineVariant.withAlpha(80),
+                          ),
+                          _SettingsTile(
+                            leading: Icon(Icons.cloud_download_rounded, color: colorScheme.primary, size: 20),
+                            title: 'Restore from Cloud Backup',
+                            subtitle: 'Download and merge a research profile',
                             onTap: () async {
                               final confirm = await showDialog<bool>(
                                 context: context,
@@ -585,179 +606,178 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               }
                             },
                           ),
-                          const Divider(height: 1, indent: 56),
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 4,
-                            ),
-                            leading: Icon(Icons.list_alt_rounded, color: colorScheme.primary),
-                            title: const Text('Detailed Records'),
-                            subtitle: const Text('View and delete individual database logs'),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const RawDataScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                          const Divider(height: 1, indent: 56),
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 4,
-                            ),
-                            leading: Icon(Icons.share_rounded, color: colorScheme.primary),
-                            title: const Text('Export & Sharing'),
-                            subtitle: const Text('Submit to researcher or download backups'),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () => _showExportOptionsBottomSheet(context),
-                          ),
-                          const Divider(height: 1, indent: 56),
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 4,
-                            ),
-                            leading: Icon(Icons.upload_rounded, color: colorScheme.secondary),
-                            title: const Text('Import Data (JSON)'),
-                            subtitle: const Text('Merge external Covary records'),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () async {
-                              final importService = context.read<ImportService>();
-                              final result = await importService.importData();
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(result),
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(seconds: 4),
-                                  ),
-                                );
-                              }
-                            },
-                          ),
                         ],
                       );
                     },
                   ),
-                ),
+                ],
+              ),
+            ),
+
+            // --- Local Data & Files ---
+            const SliverToBoxAdapter(
+              child: _SettingsSectionHeader(title: 'Local Data & Files'),
+            ),
+            SliverToBoxAdapter(
+              child: _SettingsCardGroup(
+                children: [
+                  _SettingsTile(
+                    leading: Icon(Icons.list_alt_rounded, color: colorScheme.primary, size: 20),
+                    title: 'Detailed Records',
+                    subtitle: 'View and delete individual database logs',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const RawDataScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
+                  ),
+                  _SettingsTile(
+                    leading: Icon(Icons.share_rounded, color: colorScheme.primary, size: 20),
+                    title: 'Export & Sharing',
+                    subtitle: 'Submit to researcher or download backups',
+                    onTap: () => _showExportOptionsBottomSheet(context),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
+                  ),
+                  _SettingsTile(
+                    leading: Icon(Icons.upload_rounded, color: colorScheme.secondary, size: 20),
+                    title: 'Import Data (JSON)',
+                    subtitle: 'Merge external Covary records',
+                    onTap: () async {
+                      final importService = context.read<ImportService>();
+                      final result = await importService.importData();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(result),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
 
             // --- System & Info ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                child: Text(
-                  'System & Info',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
+            const SliverToBoxAdapter(
+              child: _SettingsSectionHeader(title: 'System & Info'),
             ),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              child: _SettingsCardGroup(
+                children: [
+                  _SettingsTile(
+                    leading: Icon(Icons.help_outline_rounded, color: colorScheme.secondary, size: 20),
+                    title: 'Show Tutorial Again',
+                    subtitle: 'Review the research mission and setup tour',
+                    onTap: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Show Tutorial?'),
+                          content: const Text('This will take you back to the onboarding slides. Your current settings and data will not be deleted.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Show')),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await profileService.resetOnboarding();
+                        if (context.mounted) {
+                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                            (route) => false,
+                          );
+                        }
+                      }
+                    },
                   ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Icon(Icons.help_outline_rounded, color: colorScheme.secondary),
-                        title: const Text('Show Tutorial Again'),
-                        subtitle: const Text('Review the research mission and setup tour'),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Show Tutorial?'),
-                              content: const Text('This will take you back to the onboarding slides. Your current settings and data will not be deleted.'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Show')),
-                              ],
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
+                  ),
+                  _SettingsTile(
+                    leading: Icon(Icons.info_outline_rounded, color: colorScheme.secondary, size: 20),
+                    title: 'Check for Updates',
+                    subtitleWidget: FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return Text(
+                            'Version ${snapshot.data!.version}+${snapshot.data!.buildNumber}',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           );
-                          if (confirm == true) {
-                            await profileService.resetOnboarding();
-                            if (context.mounted) {
-                              Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-                                (route) => false,
-                              );
-                            }
-                          }
-                        },
-                      ),
-                      const Divider(height: 1, indent: 56),
-                      ListTile(
-                        leading: Icon(Icons.info_outline_rounded, color: colorScheme.secondary),
-                        title: const Text('Check for Updates'),
-                        subtitle: FutureBuilder<PackageInfo>(
-                          future: PackageInfo.fromPlatform(),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              return Text('Version ${snapshot.data!.version}+${snapshot.data!.buildNumber}');
-                            }
-                            return const Text('Checking version...');
-                          },
-                        ),
-                        trailing: const Icon(Icons.refresh_rounded),
-                        onTap: () {
-                          UpdateService.checkAndPrompt(context, silent: false);
-                          setState(() {
-                            if (!profileService.isDeveloperMode) {
-                              _devTapCount++;
-                              if (_devTapCount >= 7) {
-                                profileService.setDeveloperMode(true);
-                                ScaffoldMessenger.of(context).clearSnackBars();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Developer mode enabled!')),
-                                );
-                              } else if (_devTapCount >= 3) {
-                                final remaining = 7 - _devTapCount;
-                                ScaffoldMessenger.of(context).clearSnackBars();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('You are $remaining steps away from being a developer.'),
-                                    duration: const Duration(milliseconds: 1500),
-                                  ),
-                                );
-                              }
-                            }
-                          });
-                        },
-                      ),
-                      if (profileService.isDeveloperMode) ...[
-                        const Divider(height: 1, indent: 56),
-                        ListTile(
-                          leading: Icon(Icons.bug_report_rounded, color: colorScheme.primary),
-                          title: const Text('Debug Tools'),
-                          subtitle: const Text('Internal diagnostics and logs'),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const DebugScreen(),
+                        }
+                        return Text(
+                          'Checking version...',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        );
+                      },
+                    ),
+                    trailing: Icon(Icons.refresh_rounded, color: colorScheme.primary, size: 20),
+                    onTap: () {
+                      UpdateService.checkAndPrompt(context, silent: false);
+                      setState(() {
+                        if (!profileService.isDeveloperMode) {
+                          _devTapCount++;
+                          if (_devTapCount >= 7) {
+                            profileService.setDeveloperMode(true);
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Developer mode enabled!')),
+                            );
+                          } else if (_devTapCount >= 3) {
+                            final remaining = 7 - _devTapCount;
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('You are $remaining steps away from being a developer.'),
+                                duration: const Duration(milliseconds: 1500),
                               ),
                             );
-                          },
-                        ),
-                      ],
-                    ],
+                          }
+                        }
+                      });
+                    },
                   ),
-                ),
+                  if (profileService.isDeveloperMode) ...[
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      height: 1,
+                      color: colorScheme.outlineVariant.withAlpha(80),
+                    ),
+                    _SettingsTile(
+                      leading: Icon(Icons.bug_report_rounded, color: colorScheme.primary, size: 20),
+                      title: 'Debug Tools',
+                      subtitle: 'Internal diagnostics and logs',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DebugScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
               ),
             ),
 
@@ -1031,96 +1051,142 @@ class _ThemeSettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeService = context.watch<ThemeService>();
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Theme Mode', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('System'),
-                  selected: themeService.themeMode == ThemeMode.system,
-                  onSelected: (_) => themeService.setThemeMode(ThemeMode.system),
-                  avatar: const Icon(Icons.brightness_auto, size: 18),
-                ),
-                ChoiceChip(
-                  label: const Text('Light'),
-                  selected: themeService.themeMode == ThemeMode.light,
-                  onSelected: (_) => themeService.setThemeMode(ThemeMode.light),
-                  avatar: const Icon(Icons.light_mode, size: 18),
-                ),
-                ChoiceChip(
-                  label: const Text('Dark'),
-                  selected: themeService.themeMode == ThemeMode.dark,
-                  onSelected: (_) => themeService.setThemeMode(ThemeMode.dark),
-                  avatar: const Icon(Icons.dark_mode, size: 18),
-                ),
-              ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceContainerHighest.withAlpha(70),
+            colorScheme.surfaceContainer.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withAlpha(80),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(20),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Theme Mode',
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
             ),
-            const SizedBox(height: 24),
-            Text('Accent Color', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 12),
-            Wrap(
+          ),
+          const SizedBox(height: 12),
+          _ThemeSegmentPicker(
+            currentMode: themeService.themeMode,
+            onChanged: (mode) => themeService.setThemeMode(mode),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Accent Color',
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Center(
+            child: Wrap(
               spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
               children: AppAccentColor.values.map((colorEnum) {
                 final isSelected = themeService.accentColor == colorEnum;
                 Color displayColor;
+                String colorName;
                 switch (colorEnum) {
                   case AppAccentColor.aquamarine:
                     displayColor = const Color(0xFF38debb);
+                    colorName = 'Aquamarine';
                     break;
                   case AppAccentColor.deepViolet:
                     displayColor = const Color(0xFF5203d5);
+                    colorName = 'Deep Violet';
                     break;
                   case AppAccentColor.gold:
                     displayColor = const Color(0xFFdec65a);
+                    colorName = 'Gold';
                     break;
                   case AppAccentColor.azure:
                     displayColor = const Color(0xFF60a5fa);
+                    colorName = 'Azure';
                     break;
                   case AppAccentColor.emerald:
                     displayColor = const Color(0xFF34d399);
+                    colorName = 'Emerald';
                     break;
                   case AppAccentColor.coral:
                     displayColor = const Color(0xFFfb923c);
+                    colorName = 'Coral';
                     break;
                   case AppAccentColor.ruby:
                     displayColor = const Color(0xFFfb7185);
+                    colorName = 'Ruby';
                     break;
                 }
 
-                return GestureDetector(
-                  onTap: () => themeService.setAccentColor(colorEnum),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: displayColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? colorScheme.onSurface : Colors.transparent,
-                        width: 3,
+                return Tooltip(
+                  message: colorName,
+                  child: GestureDetector(
+                    onTap: () => themeService.setAccentColor(colorEnum),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutBack,
+                      width: isSelected ? 48 : 38,
+                      height: isSelected ? 48 : 38,
+                      decoration: BoxDecoration(
+                        color: displayColor,
+                        shape: BoxShape.circle,
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: displayColor.withAlpha(120),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(20),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                        border: Border.all(
+                          color: isSelected ? Colors.white : colorScheme.surfaceContainerHighest,
+                          width: isSelected ? 3 : 1.5,
+                        ),
                       ),
+                      child: isSelected
+                          ? Icon(
+                              Icons.check_rounded,
+                              color: displayColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                              size: 20,
+                            )
+                          : null,
                     ),
-                    child: isSelected
-                        ? Icon(Icons.check, color: displayColor.computeLuminance() > 0.5 ? Colors.black : Colors.white)
-                        : null,
                   ),
                 );
               }).toList(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1187,7 +1253,7 @@ class _NotificationSettingsSectionState
         ),
         const SizedBox(height: 8),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: List.generate(_durations.length, (index) {
@@ -1197,27 +1263,39 @@ class _NotificationSettingsSectionState
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: InkWell(
                     onTap: () => _editSnoozeSlot(index),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colorScheme.outlineVariant),
+                        color: colorScheme.surfaceContainerHighest.withAlpha(120),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colorScheme.outlineVariant.withAlpha(120),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(10),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         children: [
                           Text(
-                            'Slot ${index + 1}',
+                            'SLOT ${index + 1}',
                             style: textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                              color: colorScheme.onSurfaceVariant.withAlpha(180),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             _formatDuration(mins),
                             style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               color: colorScheme.primary,
                             ),
                           ),
@@ -1868,6 +1946,410 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
                   : null,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Premium UI Helper Widgets
+// =============================================================================
+
+class _GlowingAppIcon extends StatefulWidget {
+  final ColorScheme colorScheme;
+  const _GlowingAppIcon({required this.colorScheme});
+
+  @override
+  State<_GlowingAppIcon> createState() => _GlowingAppIconState();
+}
+
+class _GlowingAppIconState extends State<_GlowingAppIcon>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _animation,
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: widget.colorScheme.primary.withAlpha(60),
+              blurRadius: 24,
+              spreadRadius: 2,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Image.asset(
+            'assets/icon/app_icon.png',
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSectionHeader extends StatelessWidget {
+  final String title;
+
+  const _SettingsSectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.primary,
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withAlpha(150),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title.toUpperCase(),
+            style: textTheme.labelSmall?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.primary.withAlpha(80),
+                    colorScheme.primary.withAlpha(0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsCardGroup extends StatelessWidget {
+  final List<Widget> children;
+
+  const _SettingsCardGroup({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.surfaceContainerHighest.withAlpha(70),
+              colorScheme.surfaceContainer.withAlpha(40),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withAlpha(80),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(20),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final Widget? subtitleWidget;
+  final Widget? trailing;
+  final VoidCallback onTap;
+
+  const _SettingsTile({
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.subtitleWidget,
+    this.trailing,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withAlpha(150),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withAlpha(50),
+                ),
+              ),
+              child: leading,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  if (subtitleWidget != null) ...[
+                    const SizedBox(height: 4),
+                    subtitleWidget!,
+                  ] else if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            trailing ??
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colorScheme.onSurfaceVariant.withAlpha(150),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSwitchTile extends StatelessWidget {
+  final Widget leading;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingsSwitchTile({
+    required this.leading,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withAlpha(150),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withAlpha(50),
+              ),
+            ),
+            child: leading,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: colorScheme.primary,
+            activeTrackColor: colorScheme.primary.withAlpha(80),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeSegmentPicker extends StatelessWidget {
+  final ThemeMode currentMode;
+  final ValueChanged<ThemeMode> onChanged;
+
+  const _ThemeSegmentPicker({
+    required this.currentMode,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer.withAlpha(150),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant.withAlpha(80)),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          _buildSegment(context, ThemeMode.system, Icons.brightness_auto, 'System'),
+          _buildSegment(context, ThemeMode.light, Icons.light_mode, 'Light'),
+          _buildSegment(context, ThemeMode.dark, Icons.dark_mode, 'Dark'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSegment(BuildContext context, ThemeMode mode, IconData icon, String label) {
+    final isSelected = currentMode == mode;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onChanged(mode),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: isSelected
+                ? LinearGradient(
+                    colors: [
+                      colorScheme.primary,
+                      colorScheme.primary.withAlpha(200),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: colorScheme.primary.withAlpha(40),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: textTheme.labelLarge?.copyWith(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
