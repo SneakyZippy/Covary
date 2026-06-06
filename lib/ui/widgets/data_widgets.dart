@@ -25,16 +25,20 @@ class IdentityCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [colorScheme.primary, colorScheme.primary.withAlpha(180)],
+          colors: [colorScheme.primary, colorScheme.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: colorScheme.primary.withAlpha(120),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withAlpha(40),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: colorScheme.primary.withAlpha(45),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -121,10 +125,29 @@ class ActivitySummaryCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.primaryContainer.withAlpha(150),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primaryContainer.withAlpha(120),
+            colorScheme.surfaceContainerHighest.withAlpha(60),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.primary.withAlpha(60),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Row(
@@ -215,10 +238,29 @@ class ComplianceCard extends StatelessWidget {
         ? sortedDates.sublist(sortedDates.length - 7) 
         : sortedDates;
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceContainerHighest.withAlpha(70),
+            colorScheme.surfaceContainer.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withAlpha(80),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
         child: Column(
@@ -389,9 +431,26 @@ class _RecentActivityPreviewState extends State<RecentActivityPreview> {
         ),
         Container(
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainer.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.surfaceContainerHighest.withAlpha(70),
+                colorScheme.surfaceContainer.withAlpha(40),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withAlpha(80),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(20),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           padding: const EdgeInsets.all(20),
           child: Column(

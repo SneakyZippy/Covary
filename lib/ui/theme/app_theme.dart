@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/theme_service.dart' show AppBackgroundStyle;
 import 'design_system.dart';
 
 class AppTheme {
@@ -6,26 +7,59 @@ class AppTheme {
     required BuildContext context,
     required bool isDark,
     required Color primaryColor,
+    required AppBackgroundStyle backgroundStyle,
   }) {
     final textTheme = CovaryDesignSystem.getTextTheme(context);
 
     // Create a color scheme based on the selected primary color.
     // For dark mode, we inject the specific Midnight Navy backgrounds.
-    final ColorScheme colorScheme = isDark
+    final isWhiteAccent = primaryColor == Colors.white;
+
+    ColorScheme colorScheme = isDark
         ? ColorScheme.fromSeed(
-            seedColor: primaryColor,
+            seedColor: isWhiteAccent ? const Color(0xFF94A3B8) : primaryColor,
             brightness: Brightness.dark,
             surface: CovaryDesignSystem.surface,
             onSurface: CovaryDesignSystem.onSurface,
             error: CovaryDesignSystem.error,
           )
         : ColorScheme.fromSeed(
-            seedColor: primaryColor,
+            seedColor: isWhiteAccent ? const Color(0xFF64748B) : primaryColor,
             brightness: Brightness.light,
           );
 
+    if (isWhiteAccent) {
+      colorScheme = isDark
+          ? colorScheme.copyWith(
+              primary: Colors.white,
+              onPrimary: Colors.black,
+              primaryContainer: Colors.white.withAlpha(30),
+              onPrimaryContainer: Colors.white,
+              secondary: const Color(0xFFE2E8F0),
+              onSecondary: Colors.black,
+              secondaryContainer: const Color(0xFF334155),
+              onSecondaryContainer: Colors.white,
+            )
+          : colorScheme.copyWith(
+              primary: Colors.black,
+              onPrimary: Colors.white,
+              primaryContainer: Colors.black.withAlpha(20),
+              onPrimaryContainer: Colors.black,
+              secondary: const Color(0xFF334155),
+              onSecondary: Colors.white,
+              secondaryContainer: const Color(0xFFE2E8F0),
+              onSecondaryContainer: Colors.black,
+            );
+    }
+
     final scaffoldBackgroundColor = isDark 
-        ? CovaryDesignSystem.level0Background 
+        ? (backgroundStyle == AppBackgroundStyle.auroraGradient 
+            ? Colors.transparent 
+            : (backgroundStyle == AppBackgroundStyle.pureBlack 
+                ? Colors.black 
+                : (backgroundStyle == AppBackgroundStyle.deepCharcoal 
+                    ? const Color(0xFF16161A) 
+                    : CovaryDesignSystem.level0Background)))
         : colorScheme.surface;
 
     return ThemeData(

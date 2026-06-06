@@ -157,12 +157,28 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     final percentage = (_overallCompliance * 100).toStringAsFixed(0);
     final isTargetMet = _overallCompliance >= 0.8;
     
-    return Card(
-      elevation: 0,
-      color: colorScheme.primaryContainer.withValues(alpha: 0.15),
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.3), width: 1.5),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primaryContainer.withAlpha(60),
+            colorScheme.surfaceContainerHighest.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.primary.withAlpha(80),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -236,10 +252,29 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     final row1 = sortedDates.take(7).toList();
     final row2 = sortedDates.skip(7).take(7).toList();
     
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceContainerHighest.withAlpha(70),
+            colorScheme.surfaceContainer.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withAlpha(80),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -356,10 +391,29 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   }
 
   Widget _buildRecallCard(TextTheme textTheme, ColorScheme colorScheme) {
-    return Card(
-      elevation: 0,
-      color: colorScheme.tertiaryContainer.withAlpha(100),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.tertiaryContainer.withAlpha(80),
+            colorScheme.surfaceContainerHighest.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.tertiary.withAlpha(80),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -411,8 +465,19 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceContainerHighest.withAlpha(70),
+            colorScheme.surfaceContainer.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withAlpha(80),
+          width: 1.0,
+        ),
       ),
       child: Row(
         children: [

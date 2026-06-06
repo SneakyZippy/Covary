@@ -19,7 +19,7 @@ import 'services/health_service.dart';
 import 'services/notification_service.dart';
 import 'services/passive_sensing_service.dart';
 import 'services/profile_service.dart';
-import 'services/theme_service.dart';
+import 'services/theme_service.dart' show ThemeService, AppBackgroundStyle;
 import 'services/background_service.dart';
 import 'services/analytics_service.dart';
 import 'services/import_service.dart';
@@ -29,6 +29,7 @@ import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/profile_setup_screen.dart';
 import 'ui/screens/restore_selection_screen.dart';
 import 'ui/theme/app_theme.dart';
+import 'ui/theme/design_system.dart';
 import 'ui/widgets/confetti_animation.dart';
 
 // =============================================================================
@@ -177,14 +178,19 @@ class CovaryApp extends StatelessWidget {
         context: context,
         isDark: false,
         primaryColor: themeService.primaryColor,
+        backgroundStyle: themeService.backgroundStyle,
       ),
       darkTheme: AppTheme.buildTheme(
         context: context,
         isDark: true,
         primaryColor: themeService.primaryColor,
+        backgroundStyle: themeService.backgroundStyle,
       ),
       themeMode: themeService.themeMode,
-      builder: (context, child) => ConfettiOverlay(child: child!),
+      builder: (context, child) => AppBackgroundWrapper(
+        themeService: themeService,
+        child: ConfettiOverlay(child: child!),
+      ),
       home: profileService.hasRestoredData
           ? const RestoreSelectionScreen()
           : !profileService.hasSeenOnboarding
@@ -192,6 +198,67 @@ class CovaryApp extends StatelessWidget {
           : profileService.isFirstLaunch
           ? const ProfileSetupScreen()
           : const AppShell(),
+    );
+  }
+}
+
+class AppBackgroundWrapper extends StatelessWidget {
+  final Widget child;
+  final ThemeService themeService;
+
+  const AppBackgroundWrapper({
+    super.key,
+    required this.child,
+    required this.themeService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    if (!isDark) {
+      return child;
+    }
+
+    final style = themeService.backgroundStyle;
+    final primary = themeService.primaryColor;
+
+    if (style == AppBackgroundStyle.auroraGradient) {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              CovaryDesignSystem.level0Background,
+              Color.lerp(CovaryDesignSystem.level0Background, primary, 0.05)!,
+              Color.lerp(const Color(0xFF070B14), primary, 0.09)!,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: child,
+      );
+    }
+
+    final Color bgColor;
+    switch (style) {
+      case AppBackgroundStyle.midnightNavy:
+        bgColor = CovaryDesignSystem.level0Background;
+        break;
+      case AppBackgroundStyle.pureBlack:
+        bgColor = Colors.black;
+        break;
+      case AppBackgroundStyle.deepCharcoal:
+        bgColor = const Color(0xFF16161A);
+        break;
+      default:
+        bgColor = CovaryDesignSystem.level0Background;
+    }
+
+    return Container(
+      color: bgColor,
+      child: child,
     );
   }
 }

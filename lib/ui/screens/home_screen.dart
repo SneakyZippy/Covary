@@ -322,16 +322,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const ActivityHistoryScreen()),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const ActivityHistoryScreen()),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(24),
                                 child: _buildActivityOverview(colorScheme, textTheme),
                               ),
                             ),
@@ -415,78 +415,103 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildActivityOverview(ColorScheme colorScheme, TextTheme textTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _StreakPulseIcon(icon: Icons.local_fire_department_rounded, size: 16, color: Colors.orange.shade400),
-            const SizedBox(width: 4),
-            Text(
-              '$_currentStreak Day Streak',
-              style: textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Icon(Icons.data_usage_rounded, size: 16, color: colorScheme.primary),
-            const SizedBox(width: 4),
-            Text(
-              '$_totalLogs Total Logs',
-              style: textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceContainerHighest.withAlpha(70),
+            colorScheme.surfaceContainer.withAlpha(40),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(14, (index) {
-            final count = _activityLevels[index];
-            final daysAgo = 13 - index;
-            final date = DateTime.now().subtract(Duration(days: daysAgo));
-            
-            Color boxColor;
-            Border? border;
-            
-            if (count == 0) {
-              boxColor = colorScheme.surfaceContainerHighest.withAlpha(80);
-              border = Border.all(color: colorScheme.outlineVariant.withAlpha(150), width: 1);
-            } else if (count < 3) {
-              boxColor = colorScheme.primary.withAlpha(100);
-            } else if (count < 6) {
-              boxColor = colorScheme.primary.withAlpha(180);
-            } else {
-              boxColor = colorScheme.primary;
-            }
-            
-            return Tooltip(
-              message: '${date.month}/${date.day}: $count logs',
-              child: Container(
-                margin: const EdgeInsets.only(right: 4),
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: boxColor,
-                  border: border,
-                  borderRadius: BorderRadius.circular(3),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withAlpha(80),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(20),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _StreakPulseIcon(icon: Icons.local_fire_department_rounded, size: 16, color: Colors.orange.shade400),
+              const SizedBox(width: 4),
+              Text(
+                '$_currentStreak Day Streak',
+                style: textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
-            );
-          }),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Last 14 Days Activity',
-          style: textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant.withAlpha(150),
-            fontSize: 10,
+              const SizedBox(width: 16),
+              Icon(Icons.data_usage_rounded, size: 16, color: colorScheme.primary),
+              const SizedBox(width: 4),
+              Text(
+                '$_totalLogs Total Logs',
+                style: textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(14, (index) {
+              final count = _activityLevels[index];
+              final daysAgo = 13 - index;
+              final date = DateTime.now().subtract(Duration(days: daysAgo));
+              
+              Color boxColor;
+              Border? border;
+              
+              if (count == 0) {
+                boxColor = colorScheme.surfaceContainerHighest.withAlpha(80);
+                border = Border.all(color: colorScheme.outlineVariant.withAlpha(150), width: 1);
+              } else if (count < 3) {
+                boxColor = colorScheme.primary.withAlpha(100);
+              } else if (count < 6) {
+                boxColor = colorScheme.primary.withAlpha(180);
+              } else {
+                boxColor = colorScheme.primary;
+              }
+              
+              return Tooltip(
+                message: '${date.month}/${date.day}: $count logs',
+                child: Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: boxColor,
+                    border: border,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Last 14 Days Activity',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant.withAlpha(150),
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -509,64 +534,83 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         );
       },
-      child: Card(
-        elevation: 0,
-        color: colorScheme.errorContainer.withAlpha(50),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colorScheme.errorContainer, width: 1.5),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.errorContainer.withAlpha(50),
+              colorScheme.errorContainer.withAlpha(20),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: colorScheme.error.withAlpha(80),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(15),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: InkWell(
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PermissionShieldScreen()),
-            );
-            _checkPermissionsAndDismissal();
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: colorScheme.error.withAlpha(30),
-                    shape: BoxShape.circle,
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PermissionShieldScreen()),
+              );
+              _checkPermissionsAndDismissal();
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.error.withAlpha(30),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.security_rounded,
+                      color: colorScheme.error,
+                      size: 24,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.security_rounded,
-                    color: colorScheme.error,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Research Data Paused',
-                        style: textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.error,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Research Data Paused',
+                          style: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.error,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Missing $missingCount research permission${missingCount > 1 ? 's' : ''}. Tap to resolve.',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onErrorContainer,
+                        Text(
+                          'Missing $missingCount research permission${missingCount > 1 ? 's' : ''}. Tap to resolve.',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onErrorContainer,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 16,
-                  color: colorScheme.error.withAlpha(150),
-                ),
-              ],
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: colorScheme.error.withAlpha(150),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -638,17 +682,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         gradient: LinearGradient(
           colors: [
             colorScheme.primary,
-            colorScheme.primary.withAlpha(200),
+            colorScheme.secondary,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: colorScheme.primary.withAlpha(120),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withAlpha(80),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: colorScheme.primary.withAlpha(50),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

@@ -1047,6 +1047,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
 class _ThemeSettingsSection extends StatelessWidget {
   const _ThemeSettingsSection();
 
+  Widget _buildColorCircle({
+    required BuildContext context,
+    required ThemeService themeService,
+    required ColorScheme colorScheme,
+    required AppAccentColor colorEnum,
+  }) {
+    final isSelected = themeService.accentColor == colorEnum;
+    Color displayColor;
+    String colorName;
+    switch (colorEnum) {
+      case AppAccentColor.white:
+        displayColor = Colors.white;
+        colorName = 'White';
+        break;
+      case AppAccentColor.aquamarine:
+        displayColor = const Color(0xFF38debb);
+        colorName = 'Aquamarine';
+        break;
+      case AppAccentColor.mint:
+        displayColor = const Color(0xFF4ADE80);
+        colorName = 'Mint';
+        break;
+      case AppAccentColor.emerald:
+        displayColor = const Color(0xFF34d399);
+        colorName = 'Emerald';
+        break;
+      case AppAccentColor.azure:
+        displayColor = const Color(0xFF60a5fa);
+        colorName = 'Azure';
+        break;
+      case AppAccentColor.indigo:
+        displayColor = const Color(0xFF6366F1);
+        colorName = 'Indigo';
+        break;
+      case AppAccentColor.deepViolet:
+        displayColor = const Color(0xFF5203d5);
+        colorName = 'Deep Violet';
+        break;
+      case AppAccentColor.orchid:
+        displayColor = const Color(0xFFF472B6);
+        colorName = 'Orchid';
+        break;
+      case AppAccentColor.ruby:
+        displayColor = const Color(0xFFfb7185);
+        colorName = 'Ruby';
+        break;
+      case AppAccentColor.crimson:
+        displayColor = const Color(0xFFE11D48);
+        colorName = 'Crimson';
+        break;
+      case AppAccentColor.coral:
+        displayColor = const Color(0xFFfb923c);
+        colorName = 'Coral';
+        break;
+      case AppAccentColor.gold:
+        displayColor = const Color(0xFFdec65a);
+        colorName = 'Gold';
+        break;
+    }
+
+    return Tooltip(
+      message: colorName,
+      child: GestureDetector(
+        onTap: () => themeService.setAccentColor(colorEnum),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutBack,
+          width: isSelected ? 40 : 32,
+          height: isSelected ? 40 : 32,
+          decoration: BoxDecoration(
+            color: displayColor,
+            shape: BoxShape.circle,
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: displayColor.withAlpha(120),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(20),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+            border: Border.all(
+              color: isSelected ? Colors.white : colorScheme.surfaceContainerHighest,
+              width: isSelected ? 2.5 : 1.5,
+            ),
+          ),
+          child: isSelected
+              ? Icon(
+                  Icons.check_rounded,
+                  color: displayColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                  size: 16,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeService = context.watch<ThemeService>();
@@ -1102,84 +1206,118 @@ class _ThemeSettingsSection extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: AppAccentColor.values.take(6).map((colorEnum) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                      child: _buildColorCircle(
+                        context: context,
+                        themeService: themeService,
+                        colorScheme: colorScheme,
+                        colorEnum: colorEnum,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: AppAccentColor.values.skip(6).take(6).map((colorEnum) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                      child: _buildColorCircle(
+                        context: context,
+                        themeService: themeService,
+                        colorScheme: colorScheme,
+                        colorEnum: colorEnum,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Dark Background Style',
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Center(
             child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 8,
+              runSpacing: 8,
               alignment: WrapAlignment.center,
-              children: AppAccentColor.values.map((colorEnum) {
-                final isSelected = themeService.accentColor == colorEnum;
-                Color displayColor;
-                String colorName;
-                switch (colorEnum) {
-                  case AppAccentColor.aquamarine:
-                    displayColor = const Color(0xFF38debb);
-                    colorName = 'Aquamarine';
+              children: AppBackgroundStyle.values.map((bgStyle) {
+                final isSelected = themeService.backgroundStyle == bgStyle;
+                final primary = themeService.primaryColor;
+                
+                String label;
+                Color previewColor;
+                Gradient? previewGradient;
+                
+                switch (bgStyle) {
+                  case AppBackgroundStyle.midnightNavy:
+                    label = 'Midnight';
+                    previewColor = const Color(0xFF0B121F);
                     break;
-                  case AppAccentColor.deepViolet:
-                    displayColor = const Color(0xFF5203d5);
-                    colorName = 'Deep Violet';
+                  case AppBackgroundStyle.pureBlack:
+                    label = 'Pure Black';
+                    previewColor = Colors.black;
                     break;
-                  case AppAccentColor.gold:
-                    displayColor = const Color(0xFFdec65a);
-                    colorName = 'Gold';
+                  case AppBackgroundStyle.deepCharcoal:
+                    label = 'Charcoal';
+                    previewColor = const Color(0xFF16161A);
                     break;
-                  case AppAccentColor.azure:
-                    displayColor = const Color(0xFF60a5fa);
-                    colorName = 'Azure';
-                    break;
-                  case AppAccentColor.emerald:
-                    displayColor = const Color(0xFF34d399);
-                    colorName = 'Emerald';
-                    break;
-                  case AppAccentColor.coral:
-                    displayColor = const Color(0xFFfb923c);
-                    colorName = 'Coral';
-                    break;
-                  case AppAccentColor.ruby:
-                    displayColor = const Color(0xFFfb7185);
-                    colorName = 'Ruby';
+                  case AppBackgroundStyle.auroraGradient:
+                    label = 'Aurora';
+                    previewColor = Colors.transparent;
+                    previewGradient = LinearGradient(
+                      colors: [
+                        const Color(0xFF0B121F),
+                        Color.lerp(const Color(0xFF0B121F), primary, 0.2)!,
+                        Color.lerp(const Color(0xFF070B14), primary, 0.4)!,
+                      ],
+                    );
                     break;
                 }
-
-                return Tooltip(
-                  message: colorName,
-                  child: GestureDetector(
-                    onTap: () => themeService.setAccentColor(colorEnum),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutBack,
-                      width: isSelected ? 48 : 38,
-                      height: isSelected ? 48 : 38,
-                      decoration: BoxDecoration(
-                        color: displayColor,
-                        shape: BoxShape.circle,
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: displayColor.withAlpha(120),
-                                  blurRadius: 12,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : [
-                                BoxShadow(
-                                  color: Colors.black.withAlpha(20),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                        border: Border.all(
-                          color: isSelected ? Colors.white : colorScheme.surfaceContainerHighest,
-                          width: isSelected ? 3 : 1.5,
-                        ),
+                
+                return FilterChip(
+                  label: Text(label),
+                  selected: isSelected,
+                  onSelected: (_) => themeService.setBackgroundStyle(bgStyle),
+                  backgroundColor: colorScheme.surfaceContainerHighest.withAlpha(80),
+                  selectedColor: primary.withAlpha(40),
+                  labelStyle: textTheme.bodySmall?.copyWith(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? primary : colorScheme.onSurface,
+                  ),
+                  showCheckmark: false,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: isSelected ? primary : colorScheme.outlineVariant.withAlpha(100),
+                      width: 1.5,
+                    ),
+                  ),
+                  avatar: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: previewColor,
+                      gradient: previewGradient,
+                      border: Border.all(
+                        color: Colors.white.withAlpha(80),
+                        width: 1,
                       ),
-                      child: isSelected
-                          ? Icon(
-                              Icons.check_rounded,
-                              color: displayColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-                              size: 20,
-                            )
-                          : null,
                     ),
                   ),
                 );

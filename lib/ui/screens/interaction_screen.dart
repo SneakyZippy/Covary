@@ -335,10 +335,29 @@ class _InteractionScreenState extends State<InteractionScreen> {
           style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        Card(
-          elevation: 0,
-          color: colorScheme.surfaceContainerHighest.withAlpha(150),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.surfaceContainerHighest.withAlpha(70),
+                colorScheme.surfaceContainer.withAlpha(40),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withAlpha(80),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(15),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
@@ -490,13 +509,23 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(100)),
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.surfaceContainerHighest.withAlpha(70),
+            theme.colorScheme.surfaceContainer.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withAlpha(80),
+          width: 1.0,
+        ),
         boxShadow: [
           BoxShadow(
-            color: color.withAlpha(10),
-            blurRadius: 10,
+            color: color.withAlpha(25),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],

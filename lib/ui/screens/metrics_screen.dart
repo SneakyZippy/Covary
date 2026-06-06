@@ -274,15 +274,30 @@ class _MetricTile extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: metric.isEnabled ? colorScheme.surface : colorScheme.surface.withAlpha(150),
           borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            colors: metric.isEnabled 
+                ? [
+                    colorScheme.surfaceContainerHighest.withAlpha(70),
+                    colorScheme.surfaceContainer.withAlpha(40),
+                  ]
+                : [
+                    colorScheme.surfaceContainerHighest.withAlpha(30),
+                    colorScheme.surfaceContainer.withAlpha(15),
+                  ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           border: Border.all(
-            color: metric.isEnabled ? colorScheme.outlineVariant : colorScheme.outlineVariant.withAlpha(100),
+            color: metric.isEnabled 
+                ? colorScheme.outlineVariant.withAlpha(80) 
+                : colorScheme.outlineVariant.withAlpha(40),
+            width: 1.0,
           ),
           boxShadow: metric.isEnabled ? [
             BoxShadow(
-              color: colorScheme.shadow.withAlpha(10),
-              blurRadius: 8,
+              color: Colors.black.withAlpha(15),
+              blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ] : null,
