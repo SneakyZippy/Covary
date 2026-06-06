@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../data/database/app_database.dart' show EventsCompanion;
+import '../data/database/app_database.dart' show EventsCompanion, Event, CustomMetric, TrackingWindow;
 import '../data/repositories/event_repository.dart';
 import '../data/repositories/metric_repository.dart';
 import '../data/repositories/tracking_window_repository.dart';
@@ -30,30 +30,55 @@ class ExportService {
         _metricRepo = metricRepo,
         _trackingWindowRepo = trackingWindowRepo;
 
+  /// Builds the JSON payload for export, applying optional metric label filtering.
+  Map<String, dynamic> buildExportPayload({
+    required List<Event> events,
+    required List<CustomMetric> customMetrics,
+    required List<TrackingWindow> trackingWindows,
+    List<String>? filteredMetricLabels,
+  }) {
+    final filteredEvents = filteredMetricLabels == null
+        ? events
+        : events.where((e) {
+            return e.category == EventCategory.meta || filteredMetricLabels.contains(e.label);
+          }).toList();
+
+    final filteredCustomMetrics = filteredMetricLabels == null
+        ? customMetrics
+        : customMetrics.where((m) => filteredMetricLabels.contains(m.label)).toList();
+
+    return {
+      'profile': {
+        'uuid': profileService.uuid,
+        'nickname': profileService.nickname,
+        'exported_at': DateTime.now().toIso8601String(),
+      },
+      'settings': {
+        'tracking_windows': trackingWindows.map((w) => w.toJson()).toList(),
+      },
+      'research_data': {
+        'events': filteredEvents.map((e) => e.toJson()).toList(),
+        'custom_metrics': filteredCustomMetrics.map((h) => h.toJson()).toList(),
+      },
+    };
+  }
+
   /// Gathers all events and custom metrics, writes them to a temporary file,
   /// triggers the share sheet, and logs the export as a meta event.
-  Future<bool> exportData() async {
+  Future<bool> exportData({List<String>? filteredMetricLabels}) async {
     try {
       final events = await _eventRepo.getAllEvents();
       final customMetrics = await _metricRepo.getAllCustomMetrics();
       final trackingWindows = await _trackingWindowRepo.getAllTrackingWindows();
 
-      final data = {
-        'profile': {
-          'uuid': profileService.uuid,
-          'nickname': profileService.nickname,
-          'exported_at': DateTime.now().toIso8601String(),
-        },
-        'settings': {
-          'tracking_windows': trackingWindows.map((w) => w.toJson()).toList(),
-        },
-        'research_data': {
-          'events': events.map((e) => e.toJson()).toList(),
-          'custom_metrics': customMetrics.map((h) => h.toJson()).toList(),
-        },
-      };
+      final data = buildExportPayload(
+        events: events,
+        customMetrics: customMetrics,
+        trackingWindows: trackingWindows,
+        filteredMetricLabels: filteredMetricLabels,
+      );
 
-      return _performExport(data, 'all');
+      return _performExport(data, filteredMetricLabels == null ? 'all' : 'filtered');
     } catch (e) {
       debugPrint('[ExportService] Export failed: $e');
       return false;
@@ -61,30 +86,22 @@ class ExportService {
   }
 
   /// Exports all data and prepares it for submission to the researcher.
-  Future<bool> submitToResearcher() async {
+  Future<bool> submitToResearcher({List<String>? filteredMetricLabels}) async {
     try {
       final events = await _eventRepo.getAllEvents();
       final customMetrics = await _metricRepo.getAllCustomMetrics();
       final trackingWindows = await _trackingWindowRepo.getAllTrackingWindows();
 
-      final data = {
-        'profile': {
-          'uuid': profileService.uuid,
-          'nickname': profileService.nickname,
-          'exported_at': DateTime.now().toIso8601String(),
-        },
-        'settings': {
-          'tracking_windows': trackingWindows.map((w) => w.toJson()).toList(),
-        },
-        'research_data': {
-          'events': events.map((e) => e.toJson()).toList(),
-          'custom_metrics': customMetrics.map((h) => h.toJson()).toList(),
-        },
-      };
+      final data = buildExportPayload(
+        events: events,
+        customMetrics: customMetrics,
+        trackingWindows: trackingWindows,
+        filteredMetricLabels: filteredMetricLabels,
+      );
 
       return _performExport(
         data, 
-        'submission', 
+        filteredMetricLabels == null ? 'submission' : 'filtered_submission', 
         shareText: 'Covary Research Submission from ${profileService.nickname}\n\n'
                   'To: felix.zoeggeler@edu.fh-joanneum.at\n'
                   'Attached: JSON export file.'

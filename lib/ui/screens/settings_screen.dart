@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/export_service.dart';
 import '../../services/profile_service.dart';
+import '../../data/models/enums.dart';
 import 'package:covary/services/theme_service.dart';
 import 'profile_setup_screen.dart';
 import 'permission_shield_screen.dart';
@@ -17,6 +18,9 @@ import '../../services/sync_service.dart';
 import '../../services/notification_service.dart';
 import 'package:flutter/services.dart';
 import '../widgets/sync_summary_dialog.dart';
+import '../widgets/metric_icon.dart';
+import '../../services/metric_service.dart';
+import '../../data/models/metric_definition.dart';
 
 import 'metrics_screen.dart';
 import 'tracking_windows_screen.dart';
@@ -822,10 +826,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Icon(Icons.send_rounded, color: colorScheme.onPrimaryContainer, size: 20),
               ),
               title: const Text('Submit to Researcher'),
-              subtitle: const Text('Email full research export to Felix Z.'),
-              onTap: () {
+              subtitle: const Text('Email selected metrics export to Felix Z.'),
+              onTap: () async {
                 Navigator.pop(ctx);
-                _submitDataToResearcher(context);
+                final selectedLabels = await showModalBottomSheet<List<String>>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => const _ExportMetricSelectorSheet(isSubmission: true),
+                );
+                if (selectedLabels != null && context.mounted) {
+                  _submitDataToResearcher(context, selectedLabels);
+                }
               },
             ),
             const Divider(height: 16, indent: 56),
@@ -840,19 +852,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 child: Icon(Icons.download_rounded, color: colorScheme.onPrimaryContainer, size: 20),
               ),
-              title: const Text('Export Full Data (JSON)'),
-              subtitle: const Text('Download all local logs and events'),
+              title: const Text('Export Data (JSON)'),
+              subtitle: const Text('Download selected local logs and events'),
               onTap: () async {
                 Navigator.pop(ctx);
-                final exportService = context.read<ExportService>();
-                final success = await exportService.exportData();
-                if (context.mounted && success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Export successful! Share intent triggered.'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                final selectedLabels = await showModalBottomSheet<List<String>>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => const _ExportMetricSelectorSheet(isSubmission: false),
+                );
+                if (selectedLabels != null && context.mounted) {
+                  final exportService = context.read<ExportService>();
+                  final success = await exportService.exportData(filteredMetricLabels: selectedLabels);
+                  if (context.mounted && success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Export successful! Share intent triggered.'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
                 }
               },
             ),
@@ -919,7 +939,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _submitDataToResearcher(BuildContext context) async {
+  Future<void> _submitDataToResearcher(BuildContext context, [List<String>? selectedLabels]) async {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -987,7 +1007,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirm == true) {
       if (!context.mounted) return;
       final exportService = context.read<ExportService>();
-      final success = await exportService.submitToResearcher();
+      final success = await exportService.submitToResearcher(filteredMetricLabels: selectedLabels);
       if (context.mounted && success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1502,6 +1522,354 @@ class _SettingsRestoreDialogState extends State<_SettingsRestoreDialog> {
               : const Text('Restore'),
         ),
       ],
+    );
+  }
+}
+
+class _ExportMetricSelectorSheet extends StatefulWidget {
+  final bool isSubmission;
+
+  const _ExportMetricSelectorSheet({required this.isSubmission});
+
+  @override
+  State<_ExportMetricSelectorSheet> createState() => _ExportMetricSelectorSheetState();
+}
+
+class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> {
+  final Set<String> _selectedLabels = {};
+  List<MetricDefinition> _metrics = [];
+  bool _initialized = false;
+  String _searchQuery = "";
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      final metricService = Provider.of<MetricService>(context, listen: false);
+      _metrics = metricService.allMetrics;
+      // Pre-select only currently enabled metrics
+      for (final m in _metrics) {
+        if (m.isEnabled) {
+          _selectedLabels.add(m.label);
+        }
+      }
+      _initialized = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    final filteredMetrics = _metrics.where((m) {
+      if (_searchQuery.isEmpty) return true;
+      return m.label.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          m.category.name.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+
+    // Group by category
+    final Map<EventCategory, List<MetricDefinition>> grouped = {};
+    for (final m in filteredMetrics) {
+      grouped.putIfAbsent(m.category, () => []).add(m);
+    }
+
+    final categoriesInOrder = EventCategory.values.where((c) => grouped.containsKey(c)).toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              widget.isSubmission ? 'Submit to Researcher' : 'Export Data (JSON)',
+              style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Select the metrics you want to include in this export. Unselected metrics will be filtered out for your privacy.',
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              onChanged: (val) => setState(() => _searchQuery = val),
+              decoration: InputDecoration(
+                hintText: 'Search metrics...',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded),
+                        onPressed: () => setState(() => _searchQuery = ""),
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.outlineVariant.withAlpha(120)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Action Buttons: Select All / Clear Selection
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedLabels.addAll(filteredMetrics.map((m) => m.label));
+                    });
+                  },
+                  icon: const Icon(Icons.select_all_rounded, size: 16),
+                  label: const Text('Select All', style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedLabels.removeAll(filteredMetrics.map((m) => m.label));
+                    });
+                  },
+                  icon: const Icon(Icons.deselect_rounded, size: 16),
+                  label: const Text('Clear', style: TextStyle(fontSize: 12)),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_selectedLabels.length} of ${_metrics.length} selected',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Scrollable Metrics List
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.45,
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: categoriesInOrder.length,
+                itemBuilder: (context, catIndex) {
+                  final cat = categoriesInOrder[catIndex];
+                  final catMetrics = grouped[cat] ?? [];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildCategoryHeader(cat, colorScheme, textTheme),
+                      ...catMetrics.map((metric) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: _buildMetricTile(metric, colorScheme, textTheme),
+                        );
+                      }),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Action Buttons (Confirm & Cancel)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _selectedLabels.isEmpty
+                        ? null
+                        : () {
+                            Navigator.pop(context, _selectedLabels.toList());
+                          },
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text('Confirm'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryHeader(EventCategory category, ColorScheme colorScheme, TextTheme textTheme) {
+    String name = category.name.toUpperCase();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Text(
+            name,
+            style: textTheme.labelSmall?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Divider(
+              color: colorScheme.primary.withAlpha(40),
+              thickness: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile(MetricDefinition metric, ColorScheme colorScheme, TextTheme textTheme) {
+    final isSelected = _selectedLabels.contains(metric.label);
+    
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _selectedLabels.remove(metric.label);
+          } else {
+            _selectedLabels.add(metric.label);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? colorScheme.primaryContainer.withAlpha(25) 
+              : colorScheme.surfaceContainerHighest.withAlpha(80),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected 
+                ? colorScheme.primary.withAlpha(120) 
+                : colorScheme.outlineVariant.withAlpha(80),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? colorScheme.primary.withAlpha(40) 
+                    : colorScheme.surfaceContainerHighest,
+                shape: BoxShape.circle,
+              ),
+              child: MetricIcon(
+                iconName: metric.emoji,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Label
+            Expanded(
+              child: Text(
+                metric.label,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? colorScheme.onSurface : colorScheme.onSurface.withAlpha(200),
+                ),
+              ),
+            ),
+            // Animated Checkbox
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: isSelected ? colorScheme.primary : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? colorScheme.primary : colorScheme.outline,
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(
+                      Icons.check,
+                      size: 16,
+                      color: colorScheme.onPrimary,
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
