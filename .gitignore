@@ -122,3 +122,9 @@ app.*.symbols
 # Antigravity / Google IDE
 .google/
 .agents/cache/
+
+# Thesis drafts, local analysis plots, and raw JSON data exports
+/thesis/
+/thesis_plots/
+covary_*.json
+*.json
