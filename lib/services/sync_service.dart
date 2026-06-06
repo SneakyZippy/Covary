@@ -90,7 +90,7 @@ class SyncService extends ChangeNotifier {
       try {
         await Supabase.initialize(
           url: url,
-          anonKey: anonKey,
+          publishableKey: anonKey,
         );
         _isSupabaseInitialized = true;
         debugPrint('[SyncService] Supabase client initialized successfully.');
