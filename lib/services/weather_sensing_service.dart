@@ -30,6 +30,7 @@ class WeatherSensingService {
       // 1. Resolve Location Coordinates (Cached or GeoIP)
       double? lat = prefs.getDouble('weather_lat');
       double? lon = prefs.getDouble('weather_lon');
+      String? locationName = prefs.getString('weather_location_name');
 
       if (lat == null || lon == null) {
         debugPrint('[WeatherSensingService] No coordinates cached. Fetching IP location...');
@@ -45,7 +46,15 @@ class WeatherSensingService {
               if (lat != null && lon != null) {
                 await prefs.setDouble('weather_lat', lat);
                 await prefs.setDouble('weather_lon', lon);
-                debugPrint('[WeatherSensingService] IP Geolocation Success: Lat=$lat, Lon=$lon (${data['city']})');
+                
+                final city = data['city']?.toString() ?? '';
+                final region = data['regionName']?.toString() ?? '';
+                final country = data['country']?.toString() ?? '';
+                final parts = [city, region, country].where((s) => s.isNotEmpty).join(', ');
+                locationName = parts.isNotEmpty ? parts : 'Unknown';
+                await prefs.setString('weather_location_name', locationName);
+
+                debugPrint('[WeatherSensingService] IP Geolocation Success: Lat=$lat, Lon=$lon ($locationName)');
               }
             }
           }
@@ -57,6 +66,11 @@ class WeatherSensingService {
       // Fallback if IP lookup failed
       lat ??= defaultLat;
       lon ??= defaultLon;
+
+      if (lat == defaultLat && lon == defaultLon) {
+        locationName = 'Graz, Styria, Austria (Default)';
+      }
+      locationName ??= 'Cached Location';
 
       // Format date for Open-Meteo: YYYY-MM-DD
       final String dateStr =
@@ -112,6 +126,16 @@ class WeatherSensingService {
       // 4. Log daily events to Database (Deduplicated)
       final timestamp = DateTime(date.year, date.month, date.day, 23, 59, 59);
 
+      final String locationValue = '$locationName ($lat, $lon)';
+
+      await _logDailyWeather(
+        category: EventCategory.weather,
+        label: 'core_weather_location',
+        value: locationValue,
+        sessionId: activeSessionId,
+        timestamp: timestamp,
+      );
+
       await _logDailyWeather(
         category: EventCategory.weather,
         label: 'core_weather_rain',
@@ -138,7 +162,8 @@ class WeatherSensingService {
 
       debugPrint('[WeatherSensingService] Saved: Rain=${rainVal.toStringAsFixed(1)} (raw:${rainSum}mm), '
           'Sun=${sunVal.toStringAsFixed(1)} (raw:${sunRad}MJ), '
-          'Wind=${windVal.toStringAsFixed(1)} (raw:${windSpeed}kmh) for $dateStr');
+          'Wind=${windVal.toStringAsFixed(1)} (raw:${windSpeed}kmh) for $dateStr '
+          'at Location: $locationValue');
     } catch (e) {
       debugPrint('[WeatherSensingService] Error syncing weather metrics: $e');
     }
