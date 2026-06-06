@@ -43,13 +43,18 @@ git push origin $tag
 $sourceApk = "build\app\outputs\flutter-apk\app-release.apk"
 
 # 6. GitHub Release
-Write-Host "Creating GitHub Release..." -ForegroundColor Yellow
-$notesFile = "release_notes_temp.txt"
-# Ensure we use UTF8 without BOM for maximum compatibility with gh CLI
-$utf8NoBom = New-Object System.Text.UTF8Encoding $false
-[System.IO.File]::WriteAllText((Join-Path (Get-Location) $notesFile), $releaseNotes, $utf8NoBom)
+if (Get-Command gh -ErrorAction SilentlyContinue) {
+    Write-Host "Creating GitHub Release..." -ForegroundColor Yellow
+    $notesFile = "release_notes_temp.txt"
+    # Ensure we use UTF8 without BOM for maximum compatibility with gh CLI
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText((Join-Path (Get-Location) $notesFile), $releaseNotes, $utf8NoBom)
 
-gh release create $tag $sourceApk --title "Release $tag" --notes-file $notesFile
-Remove-Item -Path $notesFile -Force
+    gh release create $tag $sourceApk --title "Release $tag" --notes-file $notesFile
+    Remove-Item -Path $notesFile -Force
+} else {
+    Write-Host "[Warning] GitHub CLI (gh) not found in PATH. Skipping remote GitHub Release creation." -ForegroundColor Yellow
+    Write-Host "You can manually upload the APK located at: $sourceApk" -ForegroundColor Green
+}
 
 Write-Host "--- Ship It Successful! ---" -ForegroundColor Green
