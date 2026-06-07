@@ -14,13 +14,23 @@ void main() {
         equals('total_screen_time'),
       );
 
-      // Circadian & Timeline modes should resolve to hourly segments
+      // Weekly mode should return the original label
+      expect(
+        MetricInsightsHelper.getEffectiveLabel('step_count', InsightViewMode.weekly),
+        equals('step_count'),
+      );
+      expect(
+        MetricInsightsHelper.getEffectiveLabel('total_screen_time', InsightViewMode.weekly),
+        equals('total_screen_time'),
+      );
+
+      // Circadian mode should resolve to hourly segments
       expect(
         MetricInsightsHelper.getEffectiveLabel('step_count', InsightViewMode.circadian),
         equals('step_segment'),
       );
       expect(
-        MetricInsightsHelper.getEffectiveLabel('total_screen_time', InsightViewMode.timeline),
+        MetricInsightsHelper.getEffectiveLabel('total_screen_time', InsightViewMode.circadian),
         equals('app_usage_segment'),
       );
       expect(
@@ -28,7 +38,7 @@ void main() {
         equals('category_segment:social'),
       );
       expect(
-        MetricInsightsHelper.getEffectiveLabel('category_time:entertainment', InsightViewMode.timeline),
+        MetricInsightsHelper.getEffectiveLabel('category_time:entertainment', InsightViewMode.circadian),
         equals('category_segment:entertainment'),
       );
 

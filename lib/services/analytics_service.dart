@@ -209,6 +209,46 @@ class AnalyticsService {
     return hourly.map((k, v) => MapEntry(k, ((v - actualMin) / range).clamp(0.0, 1.0)));
   }
 
+  /// Returns the weekly aggregated time series for a metric, optionally
+  /// normalized to 0.0–1.0 range via min-max scaling.
+  ///
+  /// Grouped by the Monday of each calendar week.
+  Future<Map<DateTime, double>> getWeeklyTimeSeries(
+    String label, {
+    bool normalize = false,
+    int lastNDays = 30,
+    double? minValue,
+    double? maxValue,
+  }) async {
+    final daily = await getDailyTimeSeries(label, normalize: false, lastNDays: lastNDays);
+    if (daily.isEmpty) return {};
+
+    final Map<DateTime, List<double>> weeklyGroups = {};
+    daily.forEach((date, val) {
+      final monday = date.subtract(Duration(days: date.weekday - 1));
+      final mondayDate = DateTime(monday.year, monday.month, monday.day);
+      weeklyGroups.putIfAbsent(mondayDate, () => []).add(val);
+    });
+
+    final Map<DateTime, double> weekly = {};
+    weeklyGroups.forEach((mondayDate, vals) {
+      weekly[mondayDate] = vals.reduce((a, b) => a + b) / vals.length;
+    });
+
+    if (!normalize || weekly.isEmpty) return weekly;
+
+    final values = weekly.values.toList();
+    final actualMin = minValue ?? values.reduce(min);
+    final actualMax = maxValue ?? values.reduce(max);
+    final range = actualMax - actualMin;
+
+    if (range == 0) {
+      return weekly.map((k, _) => MapEntry(k, 0.5));
+    }
+
+    return weekly.map((k, v) => MapEntry(k, ((v - actualMin) / range).clamp(0.0, 1.0)));
+  }
+
   /// Returns a raw hourly timeline for a metric across the last N days.
   /// The key is the exact DateTime (truncated to hour).
   Future<Map<DateTime, double>> getRawHourlyTimeline(

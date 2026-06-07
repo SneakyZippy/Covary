@@ -31,6 +31,10 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   Map<DateTime, double> _seriesB = {};
   int _bestLag = 0;
   double _peakCorrelation = 0.0;
+  int _selectedLag = 0;
+  double _currentCorrelation = 0.0;
+  bool _autoDetect = true;
+  bool _alignLag = false;
   LagViewMode _viewMode = LagViewMode.daily;
   bool _isLoading = true;
   bool _isAutoDetecting = false;
@@ -81,9 +85,13 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
 
     setState(() {
       _allMetrics = [...subjective, ..._passiveLabels];
+      if (_allMetrics.length >= 2) {
+        _labelA = _allMetrics[0].label;
+        _labelB = _allMetrics[1].label;
+      }
     });
 
-    _autoDetectBestPair();
+    _loadData();
   }
 
   Future<void> _autoDetectBestPair() async {
@@ -92,7 +100,10 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
       return;
     }
 
-    setState(() => _isAutoDetecting = true);
+    setState(() {
+      _isAutoDetecting = true;
+      _autoDetect = true;
+    });
     final analytics = context.read<AnalyticsService>();
     final labels = _allMetrics.map((m) => m.label).toList();
     final best = await analytics.findMostCorrelatedPair(labels);
@@ -131,6 +142,10 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
           _seriesB = seriesB;
           _bestLag = lagResult?.bestLag ?? 0;
           _peakCorrelation = lagResult?.correlation ?? 0.0;
+          if (_autoDetect) {
+            _selectedLag = _bestLag;
+            _currentCorrelation = _peakCorrelation;
+          }
           _isLoading = false;
           _isAutoDetecting = false;
         });
@@ -147,12 +162,49 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
           _seriesB = seriesB;
           _bestLag = lagResult?.bestLagHours ?? 0;
           _peakCorrelation = lagResult?.correlation ?? 0.0;
+          if (_autoDetect) {
+            _selectedLag = _bestLag;
+            _currentCorrelation = _peakCorrelation;
+          }
           _isLoading = false;
           _isAutoDetecting = false;
         });
       }
     }
+
+    if (!_autoDetect) {
+      final maxLag = _viewMode == LagViewMode.daily ? 7 : 12;
+      if (_selectedLag > maxLag) {
+        _selectedLag = maxLag;
+      }
+      await _updateCorrelationForLag(_selectedLag);
+    }
+
     _fadeController.forward(from: 0);
+  }
+
+  Future<void> _updateCorrelationForLag(int lag) async {
+    if (_labelA == null || _labelB == null) return;
+    final analytics = context.read<AnalyticsService>();
+    final double? r;
+    if (_viewMode == LagViewMode.daily) {
+      r = await analytics.calculateSpearmanCorrelation(
+        metricA: _labelA!,
+        metricB: _labelB!,
+        lagDays: lag,
+      );
+    } else {
+      r = await analytics.calculateSpearmanCorrelationHourly(
+        metricA: _labelA!,
+        metricB: _labelB!,
+        lagHours: lag,
+      );
+    }
+    if (mounted) {
+      setState(() {
+        _currentCorrelation = r ?? 0.0;
+      });
+    }
   }
 
   String _displayName(String label) {
@@ -227,6 +279,8 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                         const SizedBox(height: 20),
                       ],
                       _buildChartCard(colorScheme, textTheme),
+                      const SizedBox(height: 16),
+                      _buildLagControllerCard(colorScheme, textTheme),
                       const SizedBox(height: 16),
                       _buildInsightCard(colorScheme, textTheme),
                       const SizedBox(height: 16),
@@ -455,7 +509,18 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     for (int i = 0; i < allDates.length; i++) {
       final d = allDates[i];
       if (_seriesA.containsKey(d)) spotsA.add(FlSpot(i.toDouble(), _seriesA[d]!));
-      if (_seriesB.containsKey(d)) spotsB.add(FlSpot(i.toDouble(), _seriesB[d]!));
+      if (_alignLag) {
+        final shiftedDate = _viewMode == LagViewMode.daily
+            ? d.add(Duration(days: _selectedLag))
+            : d.add(Duration(hours: _selectedLag));
+        if (_seriesB.containsKey(shiftedDate)) {
+          spotsB.add(FlSpot(i.toDouble(), _seriesB[shiftedDate]!));
+        }
+      } else {
+        if (_seriesB.containsKey(d)) {
+          spotsB.add(FlSpot(i.toDouble(), _seriesB[d]!));
+        }
+      }
     }
 
     final accentA = colorScheme.primary;
@@ -485,8 +550,8 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                       const SizedBox(height: 2),
                       Text(
                         _viewMode == LagViewMode.daily
-                            ? (_bestLag == 0 ? 'SAME-DAY ANALYSIS' : '$_bestLag-DAY DELTA ANALYSIS')
-                            : (_bestLag == 0 ? 'SAME-HOUR ANALYSIS' : '$_bestLag-HOUR DELTA ANALYSIS'),
+                            ? (_selectedLag == 0 ? 'SAME-DAY ANALYSIS' : '$_selectedLag-DAY DELTA ANALYSIS${_alignLag ? ' (ALIGNED)' : ''}')
+                            : (_selectedLag == 0 ? 'SAME-HOUR ANALYSIS' : '$_selectedLag-HOUR DELTA ANALYSIS${_alignLag ? ' (ALIGNED)' : ''}'),
                         style: textTheme.labelSmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 9,
@@ -639,17 +704,143 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     );
   }
 
+  // ─── Lag Configuration Card ───────────────────────────────────────────────
+
+  Widget _buildLagControllerCard(ColorScheme colorScheme, TextTheme textTheme) {
+    final maxLag = _viewMode == LagViewMode.daily ? 7.0 : 12.0;
+    final unitLabel = _viewMode == LagViewMode.daily
+        ? (_selectedLag == 1 ? 'day' : 'days')
+        : (_selectedLag == 1 ? 'hour' : 'hours');
+        
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: CovaryDesignSystem.surfaceContainerHighest.withAlpha(40),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withAlpha(15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Lag Configuration',
+                style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              Row(
+                children: [
+                  Text(
+                    'Auto-detect',
+                    style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(width: 8),
+                  Switch.adaptive(
+                    value: _autoDetect,
+                    activeThumbColor: colorScheme.primary,
+                    onChanged: (val) {
+                      setState(() {
+                        _autoDetect = val;
+                        if (val) {
+                          _selectedLag = _bestLag;
+                          _currentCorrelation = _peakCorrelation;
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Selected Lag Offset:',
+                style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+              Text(
+                '$_selectedLag $unitLabel',
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: _selectedLag.toDouble().clamp(0.0, maxLag),
+            min: 0.0,
+            max: maxLag,
+            divisions: maxLag.toInt(),
+            label: '$_selectedLag',
+            activeColor: _autoDetect ? colorScheme.primary.withAlpha(120) : colorScheme.primary,
+            inactiveColor: Colors.white10,
+            onChanged: _autoDetect
+                ? null
+                : (val) {
+                    final newLag = val.round();
+                    setState(() {
+                      _selectedLag = newLag;
+                    });
+                    _updateCorrelationForLag(newLag);
+                  },
+          ),
+          const Divider(color: Colors.white10, height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Align Lag on Chart',
+                    style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Visually shifts the lines to show alignment',
+                    style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+              Switch.adaptive(
+                value: _alignLag,
+                activeThumbColor: CovaryDesignSystem.secondary,
+                onChanged: (val) {
+                  setState(() {
+                    _alignLag = val;
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── Insight Card ─────────────────────────────────────────────────────────
 
   Widget _buildInsightCard(ColorScheme colorScheme, TextTheme textTheme) {
     final nameA = _displayName(_labelA ?? '');
     final nameB = _displayName(_labelB ?? '');
-    final direction = _peakCorrelation >= 0 ? 'peaks' : 'dips';
-    final relationship = _peakCorrelation >= 0 ? 'high' : 'low';
 
-    final insightText = _bestLag == 0
-        ? 'Your $nameB $direction on ${_viewMode == LagViewMode.daily ? 'days' : 'hours'} with $relationship $nameA.'
-        : 'Your $nameB $direction $_bestLag ${_viewMode == LagViewMode.daily ? (_bestLag == 1 ? 'day' : 'days') : (_bestLag == 1 ? 'hour' : 'hours')} after $relationship $nameA.';
+    final String insightText;
+    if (_currentCorrelation.abs() < 0.15) {
+      insightText = 'There is no clear correlation or lagged relationship between your $nameA and $nameB in this window.';
+    } else {
+      final direction = _currentCorrelation >= 0 ? 'peaks' : 'dips';
+      final relationship = _currentCorrelation >= 0 ? 'high' : 'low';
+      final unit = _viewMode == LagViewMode.daily
+          ? (_selectedLag == 1 ? 'day' : 'days')
+          : (_selectedLag == 1 ? 'hour' : 'hours');
+
+      insightText = _selectedLag == 0
+          ? 'Your $nameB $direction on ${_viewMode == LagViewMode.daily ? 'days' : 'hours'} with $relationship $nameA.'
+          : 'Your $nameB $direction $_selectedLag $unit after $relationship $nameA.';
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -690,9 +881,9 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                     children: [
                       const TextSpan(text: 'Lagged Window: '),
                       TextSpan(
-                        text: _bestLag == 0 
+                        text: _selectedLag == 0 
                             ? (_viewMode == LagViewMode.daily ? 'same day' : 'same hour') 
-                            : '+$_bestLag ${_viewMode == LagViewMode.daily ? (_bestLag == 1 ? 'day' : 'days') : (_bestLag == 1 ? 'hour' : 'hours')}',
+                            : '+$_selectedLag ${_viewMode == LagViewMode.daily ? (_selectedLag == 1 ? 'day' : 'days') : (_selectedLag == 1 ? 'hour' : 'hours')}',
                         style: TextStyle(
                           color: colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -713,26 +904,120 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   // ─── Stats Row ────────────────────────────────────────────────────────────
 
   Widget _buildStatsRow(ColorScheme colorScheme, TextTheme textTheme) {
+    final lagUnitLabel = _viewMode == LagViewMode.daily
+        ? (_selectedLag == 1 ? 'DAY' : 'DAYS')
+        : (_selectedLag == 1 ? 'HOUR' : 'HOURS');
+        
     return Row(
       children: [
-        Expanded(child: _buildStatCard(
-          'PEAK CORRELATION',
-          _peakCorrelation.toStringAsFixed(2),
-          _peakCorrelation.abs(),
-          colorScheme.primary,
-          colorScheme,
-          textTheme,
-        )),
+        Expanded(child: _buildCorrelationCard(colorScheme, textTheme)),
         const SizedBox(width: 12),
         Expanded(child: _buildStatCard(
-          'OPTIMAL LAG',
-          '$_bestLag ${_viewMode == LagViewMode.daily ? (_bestLag == 1 ? 'DAY' : 'DAYS') : (_bestLag == 1 ? 'HOUR' : 'HOURS')}',
-          _viewMode == LagViewMode.daily ? (_bestLag / 7.0) : (_bestLag / 12.0),
+          _autoDetect ? 'OPTIMAL LAG' : 'SELECTED LAG',
+          '$_selectedLag $lagUnitLabel',
+          _viewMode == LagViewMode.daily ? (_selectedLag / 7.0) : (_selectedLag / 12.0),
           CovaryDesignSystem.secondary,
           colorScheme,
           textTheme,
         )),
       ],
+    );
+  }
+
+  Widget _buildCorrelationCard(ColorScheme colorScheme, TextTheme textTheme) {
+    final double correlation = _currentCorrelation;
+    final String title = _autoDetect ? 'PEAK CORRELATION' : 'LAGGED CORRELATION';
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: CovaryDesignSystem.surfaceContainerHighest.withAlpha(40),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withAlpha(15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: textTheme.labelSmall?.copyWith(
+                fontSize: 9, color: Colors.white.withAlpha(120), letterSpacing: 1.2)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(correlation.toStringAsFixed(2),
+                  style: textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold, fontSize: 28)),
+              const Spacer(),
+              _getCorrelationStrengthBadge(correlation, textTheme),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                height: 6,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(3),
+                  gradient: const LinearGradient(
+                    colors: [
+                      Colors.orange,
+                      Colors.grey,
+                      Colors.cyan,
+                    ],
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment(((correlation + 1.0) / 2.0 * 2.0 - 1.0).clamp(-1.0, 1.0), 0.0),
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black45, blurRadius: 2, spreadRadius: 1),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _getCorrelationStrengthBadge(double r, TextTheme textTheme) {
+    final absR = r.abs();
+    final String label;
+    final Color color;
+    if (absR < 0.15) {
+      label = 'None';
+      color = Colors.grey;
+    } else if (absR < 0.35) {
+      label = 'Weak';
+      color = Colors.blueGrey;
+    } else if (absR < 0.55) {
+      label = 'Moderate';
+      color = Colors.indigo;
+    } else {
+      label = 'Strong';
+      color = r >= 0 ? Colors.cyan : Colors.orange;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withAlpha(40),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withAlpha(100)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: textTheme.labelSmall?.copyWith(fontSize: 8, color: color, fontWeight: FontWeight.bold),
+      ),
     );
   }
 

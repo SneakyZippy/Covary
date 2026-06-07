@@ -10,7 +10,7 @@ import '../../services/metric_service.dart';
 import '../../data/models/enums.dart';
 import '../../ui/theme/design_system.dart';
 
-enum InsightViewMode { daily, circadian, timeline }
+enum InsightViewMode { daily, weekly, circadian }
 
 class MetricInsightsScreen extends StatefulWidget {
   const MetricInsightsScreen({super.key});
@@ -30,7 +30,6 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
   // View state
   InsightViewMode _viewMode = InsightViewMode.daily;
   int _dayRange = 14;
-  static const List<int> _dayRangeOptions = [7, 14, 30];
 
   // Data
   Map<dynamic, double> _seriesPrimary = {};
@@ -104,17 +103,15 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       if (secondaryEffective != null) {
         secondaryData = await analytics.getDailyTimeSeries(secondaryEffective, normalize: false, lastNDays: _dayRange);
       }
+    } else if (_viewMode == InsightViewMode.weekly) {
+      primaryData = await analytics.getWeeklyTimeSeries(primaryEffective, normalize: false, lastNDays: _dayRange);
+      if (secondaryEffective != null) {
+        secondaryData = await analytics.getWeeklyTimeSeries(secondaryEffective, normalize: false, lastNDays: _dayRange);
+      }
     } else if (_viewMode == InsightViewMode.circadian) {
       primaryData = await analytics.getHourlyTimeSeries(primaryEffective, normalize: false, lastNDays: _dayRange);
       if (secondaryEffective != null) {
         secondaryData = await analytics.getHourlyTimeSeries(secondaryEffective, normalize: false, lastNDays: _dayRange);
-      }
-    } else {
-      // Timeline Mode (Hourly points)
-      final timelineDays = _dayRange == 30 ? 3 : (_dayRange == 14 ? 2 : 1);
-      primaryData = await analytics.getRawHourlyTimeline(primaryEffective, normalize: false, lastNDays: timelineDays);
-      if (secondaryEffective != null) {
-        secondaryData = await analytics.getRawHourlyTimeline(secondaryEffective, normalize: false, lastNDays: timelineDays);
       }
     }
 
@@ -216,19 +213,27 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
           icon: Icon(Icons.show_chart_rounded),
         ),
         ButtonSegment(
+          value: InsightViewMode.weekly,
+          label: Text('Weekly Trend'),
+          icon: Icon(Icons.view_week_rounded),
+        ),
+        ButtonSegment(
           value: InsightViewMode.circadian,
           label: Text('Circadian'),
           icon: Icon(Icons.wb_sunny_rounded),
         ),
-        ButtonSegment(
-          value: InsightViewMode.timeline,
-          label: Text('Timeline'),
-          icon: Icon(Icons.timeline_rounded),
-        ),
       ],
       selected: {_viewMode},
       onSelectionChanged: (set) {
-        setState(() => _viewMode = set.first);
+        final newMode = set.first;
+        setState(() {
+          _viewMode = newMode;
+          if (newMode == InsightViewMode.weekly) {
+            _dayRange = 60;
+          } else {
+            _dayRange = 14;
+          }
+        });
         _loadData();
       },
       showSelectedIcon: false,
@@ -370,18 +375,20 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
   }
 
   Widget _buildDayRangeSelector(ColorScheme colorScheme, TextTheme textTheme) {
+    final bool isWeekly = _viewMode == InsightViewMode.weekly;
+    final List<int> options = isWeekly ? [30, 60, 90] : [7, 14, 30];
     return Row(
       children: [
         Icon(Icons.date_range_rounded, size: 16, color: colorScheme.onSurfaceVariant),
         const SizedBox(width: 8),
         Text('Range:', style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
         const SizedBox(width: 8),
-        ..._dayRangeOptions.map((d) {
+        ...options.map((d) {
           final isActive = _dayRange == d;
           return Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
-              label: Text(_viewMode == InsightViewMode.timeline ? '${d == 7 ? 24 : (d == 14 ? 48 : 72)}h' : '${d}d'),
+              label: Text(isWeekly ? '${d ~/ 7}w' : '${d}d'),
               selected: isActive,
               onSelected: (_) {
                 setState(() => _dayRange = d);
@@ -406,10 +413,10 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
 
   Widget _buildChartCard(ColorScheme colorScheme, TextTheme textTheme) {
     final bool isCircadian = _viewMode == InsightViewMode.circadian;
-    final bool isTimeline = _viewMode == InsightViewMode.timeline;
+    final bool isWeekly = _viewMode == InsightViewMode.weekly;
     final bool isComparing = _secondaryLabel != null;
 
-    // Keys are either DateTime (daily/timeline) or int (circadian)
+    // Keys are either DateTime (daily/weekly) or int (circadian)
     final allKeys = <dynamic>{..._seriesPrimary.keys, ..._seriesSecondary.keys}.toList();
     
     if (isCircadian) {
@@ -504,7 +511,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
           const SizedBox(height: 24),
           SizedBox(
             height: 220,
-            child: (!isComparing && isCounter && (_viewMode == InsightViewMode.daily || _viewMode == InsightViewMode.timeline))
+            child: (!isComparing && isCounter && (_viewMode == InsightViewMode.daily || _viewMode == InsightViewMode.weekly))
               ? BarChart(
                   BarChartData(
                     alignment: BarChartAlignment.spaceAround,
@@ -527,7 +534,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                         },
                       ),
                     ),
-                    titlesData: _buildTitlesData(allKeys, isCircadian, isTimeline, yInterval, isComparing, minA, maxA, minB, maxB),
+                    titlesData: _buildTitlesData(allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB),
                     gridData: FlGridData(
                       show: true,
                       horizontalInterval: yInterval,
@@ -565,7 +572,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                       getDrawingHorizontalLine: (_) => FlLine(color: Colors.white.withAlpha(15), strokeWidth: 0.5),
                       drawVerticalLine: false,
                     ),
-                    titlesData: _buildTitlesData(allKeys, isCircadian, isTimeline, yInterval, isComparing, minA, maxA, minB, maxB),
+                    titlesData: _buildTitlesData(allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB),
                     borderData: FlBorderData(show: false),
                     lineBarsData: [
                       _lineBar(spotsA, accentA, isFilled: !isComparing, isStep: isCounter),
@@ -575,9 +582,14 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                       touchTooltipData: LineTouchTooltipData(
                         getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
                         getTooltipItems: (spots) {
-                          final int idx = spots.first.x.toInt();
-                          if (idx < 0 || idx >= allKeys.length) return [];
-                          final key = allKeys[idx];
+                          final dynamic key;
+                          if (isCircadian) {
+                            key = spots.first.x.toInt();
+                          } else {
+                            final int idx = spots.first.x.toInt();
+                            if (idx < 0 || idx >= allKeys.length) return [];
+                            key = allKeys[idx];
+                          }
                           String timeStr = _formatTooltipKey(key, _viewMode);
                           
                           return spots.map((s) {
@@ -609,7 +621,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
   FlTitlesData _buildTitlesData(
     List<dynamic> allKeys,
     bool isCircadian,
-    bool isTimeline,
+    bool isWeekly,
     double yInterval,
     bool isComparing,
     double minA,
@@ -652,7 +664,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         sideTitles: SideTitles(
           showTitles: true,
           reservedSize: 28,
-          interval: isCircadian ? 4 : (isTimeline ? 4 : max(1, (allKeys.length / 5).ceilToDouble())),
+          interval: isCircadian ? 4 : (isWeekly ? 1 : max(1, (allKeys.length / 5).ceilToDouble())),
           getTitlesWidget: (v, _) {
             if (isCircadian) {
               final hour = v.toInt();
@@ -661,16 +673,14 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                 padding: const EdgeInsets.only(top: 6),
                 child: Text('${hour.toString().padLeft(2, '0')}:00', style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))),
               );
-            } else if (isTimeline) {
+            } else if (isWeekly) {
               final idx = v.toInt();
               if (idx < 0 || idx >= allKeys.length) return const SizedBox();
               final key = allKeys[idx] as DateTime;
-              // Show every 4 hours, or at midnight
-              if (idx % 4 != 0 && key.hour != 0) return const SizedBox();
               return Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  key.hour == 0 ? DateFormat('E').format(key) : '${key.hour}h', 
+                  'Wk ${DateFormat('d/M').format(key)}', 
                   style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))
                 ),
               );
@@ -738,9 +748,8 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
 
   Widget _buildInsightCard(ColorScheme colorScheme, TextTheme textTheme) {
     final isCircadian = _viewMode == InsightViewMode.circadian;
-    final isTimeline = _viewMode == InsightViewMode.timeline;
+    final isWeekly = _viewMode == InsightViewMode.weekly;
     final isComparing = _secondaryLabel != null;
-    final bool isCounter = _allMetrics.any((m) => m.label == _primaryLabel && m.inputType == MetricInputType.counter);
 
     String insightText = '';
     
@@ -771,21 +780,12 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       } else {
         insightText = 'Your ${_displayName(_primaryLabel!).toLowerCase()} typically peaks around $peakHour:00.';
       }
-    } else if (isTimeline && isCounter && _seriesPrimary.isNotEmpty) {
-      // Find hours with activity
-      final activeHours = _seriesPrimary.entries
-          .where((e) => e.value > 0)
-          .map((e) => (e.key as DateTime).hour)
-          .toSet()
-          .toList()
-        ..sort();
+    } else if (isWeekly) {
+      double avg = 0;
+      _seriesPrimary.forEach((k, v) => avg += v);
+      avg /= _seriesPrimary.length;
       
-      if (activeHours.isEmpty) {
-        insightText = 'No activity recorded in the last $_dayRange days.';
-      } else {
-        final hoursStr = activeHours.map((h) => '$h:00').join(', ');
-        insightText = 'You typically log ${_displayName(_primaryLabel!).toLowerCase()} at: $hoursStr.';
-      }
+      insightText = 'Your weekly average for ${_displayName(_primaryLabel!).toLowerCase()} is ${_formatMetricValue(_primaryLabel!, avg)} over the last ${_dayRange ~/ 7} weeks.';
     } else if (isComparing && _seriesPrimary.isNotEmpty && _seriesSecondary.isNotEmpty) {
       // Basic correlation check for comparison
       // We look for alignment in peaks or general trend
@@ -874,9 +874,12 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       return '${hour.toString().padLeft(2, '0')}:00';
     } else if (mode == InsightViewMode.daily) {
       return DateFormat('d MMM').format(key as DateTime);
+    } else if (mode == InsightViewMode.weekly) {
+      final start = key as DateTime;
+      final end = start.add(const Duration(days: 6));
+      return 'Week of ${DateFormat('d MMM').format(start)} - ${DateFormat('d MMM').format(end)}';
     } else {
-      // Timeline
-      return DateFormat('d MMM, HH:mm').format(key as DateTime);
+      return '';
     }
   }
 }
@@ -892,7 +895,7 @@ class _SelectableMetric {
 
 class MetricInsightsHelper {
   static String getEffectiveLabel(String label, InsightViewMode mode) {
-    if (mode == InsightViewMode.daily) {
+    if (mode == InsightViewMode.daily || mode == InsightViewMode.weekly) {
       return label;
     }
     switch (label) {
