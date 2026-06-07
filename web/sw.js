@@ -192,7 +192,7 @@ self.addEventListener('notificationclick', function(event) {
     );
   } else {
     // 3. Standard Click (body/banner tap)
-    const targetUrl = self.location.origin + '/';
+    const targetUrl = self.registration.scope;
     const interactionEvent = {
       type: 'interaction',
       interactionType: 'click',
@@ -213,7 +213,7 @@ self.addEventListener('notificationclick', function(event) {
           // Focus existing window if open
           for (let i = 0; i < clientList.length; i++) {
             let client = clientList[i];
-            if (client.url === targetUrl && 'focus' in client) {
+            if (client.url.startsWith(targetUrl) && 'focus' in client) {
               return client.focus();
             }
           }
