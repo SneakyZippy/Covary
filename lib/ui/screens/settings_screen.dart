@@ -269,6 +269,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                     },
                   ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
+                  ),
+                  Consumer<ProfileService>(
+                    builder: (context, profileService, child) {
+                      return _SettingsSwitchTile(
+                        leading: Icon(
+                          Icons.vibration_rounded,
+                          color: colorScheme.primary,
+                          size: 20,
+                        ),
+                        title: 'Tactile Haptic Feedback',
+                        subtitle: 'Vibrate device slightly on interactions and saves',
+                        value: profileService.hapticsEnabled,
+                        onChanged: (bool value) async {
+                          await profileService.setHapticsEnabled(value);
+                        },
+                      );
+                    },
+                  ),
                   if (kIsWeb) ...[
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 20),

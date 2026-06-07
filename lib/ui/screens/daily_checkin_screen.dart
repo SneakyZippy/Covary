@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
+import '../../services/profile_service.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
@@ -739,6 +741,12 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     }
 
     if (mounted) {
+      try {
+        final profileService = Provider.of<ProfileService>(context, listen: false);
+        if (profileService.hapticsEnabled) {
+          HapticFeedback.mediumImpact();
+        }
+      } catch (_) {}
       ConfettiOverlay.of(context)?.celebrate();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

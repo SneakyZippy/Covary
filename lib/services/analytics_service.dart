@@ -543,6 +543,80 @@ class AnalyticsService {
     return numerator / denominator;
   }
 
+  /// Calculates both correlation coefficient (rho) and the two-tailed p-value.
+  Future<({double correlation, double pValue, int n})?> calculateSpearmanCorrelationDetailed({
+    required String metricA,
+    required String metricB,
+    int lagDays = 0,
+  }) async {
+    final eventsA = await _eventRepo.getEventsByLabel(metricA);
+    final eventsB = await _eventRepo.getEventsByLabel(metricB);
+
+    if (eventsA.isEmpty || eventsB.isEmpty) return null;
+
+    final Map<DateTime, double> dailyA = _aggregateByDay(eventsA);
+    final Map<DateTime, double> dailyB = _aggregateByDay(eventsB);
+
+    final List<double> listA = [];
+    final List<double> listB = [];
+
+    for (final dateA in dailyA.keys) {
+      final dateB = dateA.add(Duration(days: lagDays));
+      if (dailyB.containsKey(dateB)) {
+        listA.add(dailyA[dateA]!);
+        listB.add(dailyB[dateB]!);
+      }
+    }
+
+    final n = listA.length;
+    if (n < 3) return null;
+
+    final correlation = _computeSpearman(listA, listB);
+
+    double pValue;
+    if (correlation.abs() >= 1.0) {
+      pValue = 0.0;
+    } else {
+      final df = n - 2;
+      final t = correlation * sqrt(df / (1.0 - correlation * correlation));
+      pValue = _getTDistributionPValue(t.abs(), df);
+    }
+
+    return (correlation: correlation, pValue: pValue, n: n);
+  }
+
+  double _normalCDF(double z) {
+    z = z.abs();
+    double t = 1.0 / (1.0 + 0.2316419 * z);
+    double a1 = 0.319381530;
+    double a2 = -0.356563782;
+    double a3 = 1.781477937;
+    double a4 = -1.821255978;
+    double a5 = 1.330274429;
+    
+    double pdf = (1.0 / sqrt(2.0 * pi)) * exp(-0.5 * z * z);
+    double phi = 1.0 - pdf * (a1 * t + a2 * t * t + a3 * pow(t, 3) + a4 * pow(t, 4) + a5 * pow(t, 5));
+    return phi;
+  }
+
+  double _getTDistributionPValue(double t, int df) {
+    if (df <= 0) return 1.0;
+    t = t.abs();
+    
+    if (df == 1) {
+      return 1.0 - (2.0 / pi) * atan(t);
+    } else if (df == 2) {
+      return 1.0 - t / sqrt(2.0 + t * t);
+    }
+    
+    // Wallace (1959) approximation
+    double logTerm = log(1.0 + (t * t) / df);
+    double z = sqrt(df * logTerm * (1.0 - 1.0 / (8.0 * df)));
+    
+    double pVal = 2.0 * (1.0 - _normalCDF(z));
+    return pVal.clamp(0.0, 1.0);
+  }
+
   /// Converts a list of values to their ranks.
   /// Handles ties by averaging ranks.
   List<double> _getRanks(List<double> values) {

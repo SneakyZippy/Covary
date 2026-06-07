@@ -24,6 +24,12 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   List<MetricDefinition> _rowMetrics = [];
   List<MetricDefinition> _colMetrics = [];
   Map<String, Map<String, double?>> _matrix = {};
+  MetricDefinition? _spotlightRow;
+  MetricDefinition? _spotlightCol;
+  double? _spotlightCorrelation;
+  double? _spotlightPValue;
+  int? _spotlightN;
+  bool _dismissedSpotlight = false;
 
   // "Virtual" metrics for passive sensing data that don't have definitions in MetricService
   static const List<MetricDefinition> _passiveMetrics = [
@@ -145,7 +151,14 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   Future<void> _loadMatrix() async {
     if (_rowMetrics.isEmpty || _colMetrics.isEmpty) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _spotlightRow = null;
+      _spotlightCol = null;
+      _spotlightCorrelation = null;
+      _spotlightPValue = null;
+      _spotlightN = null;
+    });
     final eventRepo = context.read<EventRepository>();
     final analyticsService = context.read<AnalyticsService>();
     final newMatrix = <String, Map<String, double?>>{};
@@ -173,9 +186,46 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       }
     }
 
+    // Scan for most significant correlation to spotlight
+    MetricDefinition? bestRow;
+    MetricDefinition? bestCol;
+    double bestAbsCorr = -1.0;
+    double? bestPValue;
+    int? bestN;
+    double? bestCorrVal;
+
+    for (final row in _rowMetrics) {
+      for (final col in _colMetrics) {
+        if (row.id == col.id) continue;
+        final corr = newMatrix[row.id]?[col.id];
+        if (corr != null && corr.abs() >= 0.3) {
+          final detailed = await analyticsService.calculateSpearmanCorrelationDetailed(
+            metricA: row.label,
+            metricB: col.label,
+            lagDays: _lagDays,
+          );
+          if (detailed != null && detailed.pValue < 0.05) {
+            if (corr.abs() > bestAbsCorr) {
+              bestAbsCorr = corr.abs();
+              bestRow = row;
+              bestCol = col;
+              bestPValue = detailed.pValue;
+              bestN = detailed.n;
+              bestCorrVal = detailed.correlation;
+            }
+          }
+        }
+      }
+    }
+
     if (mounted) {
       setState(() {
         _matrix = newMatrix;
+        _spotlightRow = bestRow;
+        _spotlightCol = bestCol;
+        _spotlightCorrelation = bestCorrVal;
+        _spotlightPValue = bestPValue;
+        _spotlightN = bestN;
         _isLoading = false;
       });
     }
@@ -241,6 +291,8 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                 ? _buildEmptyState(textTheme)
                 : ListView(
                     children: [
+                      const SizedBox(height: 16),
+                      _buildInsightsSpotlightCard(colorScheme, textTheme),
                       const SizedBox(
                         height: 80,
                       ), // Extra space for slanted headers
@@ -563,6 +615,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                 rowMetric: rowMetric,
                 colMetric: colMetric,
                 correlation: correlation,
+                lagDays: _lagDays,
               ),
             );
           }
@@ -752,6 +805,149 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
               'Try logging more behaviors daily. Metrics will automatically appear here once 3 days of data are recorded.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _cleanLabel(MetricDefinition m) {
+    if (m.id.startsWith('passive_')) {
+      String label = m.label;
+      if (label.contains(':')) {
+        label = label.split(':').last;
+      }
+      return label.replaceAll('_', ' ').toUpperCase();
+    }
+    return m.label;
+  }
+
+  Widget _buildInsightsSpotlightCard(ColorScheme colorScheme, TextTheme textTheme) {
+    if (_spotlightRow == null || _spotlightCol == null || _dismissedSpotlight) {
+      return const SizedBox.shrink();
+    }
+
+    final rowLabel = _cleanLabel(_spotlightRow!);
+    final colLabel = _cleanLabel(_spotlightCol!);
+    final r = _spotlightCorrelation!;
+    final rAbs = r.abs();
+    final direction = r > 0 ? 'positive' : 'negative';
+    final strength = rAbs >= 0.7 ? 'strong' : (rAbs >= 0.4 ? 'moderate' : 'weak');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.primaryContainer.withAlpha(45),
+              colorScheme.surfaceContainerHighest.withAlpha(25),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.primary.withAlpha(70),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(15),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 4),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withAlpha(35),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome,
+                      color: colorScheme.primary,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Insights Spotlight',
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant.withAlpha(150),
+                    ),
+                    onPressed: () {
+                      setState(() => _dismissedSpotlight = true);
+                    },
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'There is a $strength $direction relationship (r = ${r.toStringAsFixed(2)}, p = ${_spotlightPValue?.toStringAsFixed(3)}) between "$rowLabel" and "$colLabel" computed over $_spotlightN days.',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: Icon(Icons.arrow_forward_rounded, size: 14, color: colorScheme.primary),
+                    label: Text(
+                      'View Detailed Analysis',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => _CorrelationDetailsSheet(
+                          rowMetric: _spotlightRow!,
+                          colMetric: _spotlightCol!,
+                          correlation: r,
+                          lagDays: _lagDays,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -954,11 +1150,13 @@ class _CorrelationDetailsSheet extends StatefulWidget {
   final MetricDefinition rowMetric;
   final MetricDefinition colMetric;
   final double correlation;
+  final int lagDays;
 
   const _CorrelationDetailsSheet({
     required this.rowMetric,
     required this.colMetric,
     required this.correlation,
+    required this.lagDays,
   });
 
   @override
@@ -970,6 +1168,8 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
   List<FlSpot> _spotsRow = [];
   List<FlSpot> _spotsCol = [];
   List<String> _dateLabels = [];
+  double? _pValue;
+  int? _n;
 
   @override
   void initState() {
@@ -996,11 +1196,21 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
       dateLabels.add('${date.month}/${date.day}');
     }
 
+    final detailed = await analyticsService.calculateSpearmanCorrelationDetailed(
+      metricA: widget.rowMetric.label,
+      metricB: widget.colMetric.label,
+      lagDays: widget.lagDays,
+    );
+
     if (mounted) {
       setState(() {
         _spotsRow = spotsRow;
         _spotsCol = spotsCol;
         _dateLabels = dateLabels;
+        if (detailed != null) {
+          _pValue = detailed.pValue;
+          _n = detailed.n;
+        }
         _loading = false;
       });
     }
@@ -1022,8 +1232,42 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
       return "There is virtually no correlation between these two metrics in your logged history.";
     }
 
-    return "There is a $strength $direction relationship (r = ${r.toStringAsFixed(2)}) between '${_cleanLabel(widget.rowMetric)}' and '${_cleanLabel(widget.colMetric)}'. "
-           "${r > 0 ? 'When one increases, the other typically increases too.' : 'When one increases, the other typically decreases.'}";
+    String contextInfo = "";
+    final catA = widget.rowMetric.category;
+    final catB = widget.colMetric.category;
+
+    if (catA == EventCategory.mood && catB == EventCategory.behavior) {
+      if (r > 0) {
+        contextInfo = " This positive correlation suggests that your subjective feelings of '${_cleanLabel(widget.rowMetric)}' tend to improve on days you log '${_cleanLabel(widget.colMetric)}'. Dynamic tracking shows this behavior acts as a positive feedback anchor.";
+      } else {
+        contextInfo = " This inverse correlation indicates that your '${_cleanLabel(widget.rowMetric)}' tends to drop on days with higher '${_cleanLabel(widget.colMetric)}'. This might point to behavioral drag or exhaustion.";
+      }
+    } else if (catA == EventCategory.mood && catB == EventCategory.appUsage) {
+      if (r < 0) {
+        contextInfo = " This negative correlation points to a digital drag effect: your mood or mental state tends to dip as screen time/usage increases. This is a common indicator of 'doom-scrolling' or attention hijacking.";
+      } else {
+        contextInfo = " This positive correlation shows that your digital habits align positively with your mood. You might be using screen time productively or for high-value social connection.";
+      }
+    } else if (catA == EventCategory.mood && catB == EventCategory.health) {
+      if (r > 0) {
+        contextInfo = " This highlights the mind-body connection: better physical markers (like sleep or activity) are moderately linked to a more positive emotional state.";
+      }
+    } else if (catA == EventCategory.productivity && catB == EventCategory.appUsage) {
+      if (r < 0) {
+        contextInfo = " This inverse trend suggests high screen time disrupts your concentration or bachelor work, pointing to prompt friction or distraction.";
+      }
+    }
+
+    String significanceInfo = "";
+    if (_pValue != null && _n != null) {
+      final isSignificant = _pValue! < 0.05;
+      final statusText = isSignificant 
+          ? "This relationship is statistically significant (p = ${_pValue!.toStringAsFixed(3)}), meaning it is highly unlikely to be random noise." 
+          : "This relationship is not statistically significant (p = ${_pValue!.toStringAsFixed(3)}), indicating that more data points are needed to confirm a reliable trend.";
+      significanceInfo = "\n\n**Scientific Validity:** Computed across $_n days of overlapping data. $statusText";
+    }
+
+    return "There is a $strength $direction relationship (r = ${r.toStringAsFixed(2)}) between '${_cleanLabel(widget.rowMetric)}' and '${_cleanLabel(widget.colMetric)}'.$contextInfo$significanceInfo";
   }
 
   String _cleanLabel(MetricDefinition m) {
@@ -1106,6 +1350,65 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
                     ),
                   ],
                 ),
+                if (_n != null && _pValue != null) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          'N = $_n days',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _pValue! < 0.05
+                              ? colorScheme.primary.withValues(alpha: 0.15)
+                              : colorScheme.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _pValue! < 0.05
+                                ? colorScheme.primary.withValues(alpha: 0.4)
+                                : colorScheme.error.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _pValue! < 0.05 ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                              size: 10,
+                              color: _pValue! < 0.05 ? colorScheme.primary : colorScheme.error,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _pValue! < 0.05
+                                  ? 'Significant (p = ${_pValue!.toStringAsFixed(3)})'
+                                  : 'Not Significant (p = ${_pValue!.toStringAsFixed(3)})',
+                              style: textTheme.labelSmall?.copyWith(
+                                color: _pValue! < 0.05 ? colorScheme.primary : colorScheme.error,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Text(
                   _getInterpretation(),

@@ -49,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<int> _activityLevels = List.filled(14, 0);
   int _currentStreak = 0;
   int _totalLogs = 0;
+  int _streakShields = 0;
   
   // Permission Banner State
   bool _healthMissing = false;
@@ -158,20 +159,73 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
     }
 
-    for (int i = 0; i < 365; i++) {
-      final d = todayStart.subtract(Duration(days: i));
-      final hasActivity = userEvents.any((e) => 
-          e.timestamp.year == d.year && 
-          e.timestamp.month == d.month && 
-          e.timestamp.day == d.day);
-      
+    // Dynamic compliance calculations for shields
+    final sessionEvents = allEvents.where((e) => 
+      e.category == EventCategory.meta && 
+      e.label == 'SessionCompleted'
+    ).toList();
+
+    final totalWindows = metricService.allWindows.where((w) => w.isEnabled).length;
+
+    // 1. Calculate daily session completions
+    final Map<DateTime, int> dailyCompletions = {};
+    for (final e in sessionEvents) {
+      final date = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
+      dailyCompletions[date] = (dailyCompletions[date] ?? 0) + 1;
+    }
+
+    // 2. Calculate daily user activity counts
+    final Map<DateTime, int> dailyActivityCount = {};
+    DateTime? earliest;
+    for (final e in userEvents) {
+      final date = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
+      dailyActivityCount[date] = (dailyActivityCount[date] ?? 0) + 1;
+      if (earliest == null || date.isBefore(earliest)) {
+        earliest = date;
+      }
+    }
+
+    final earliestDate = earliest ?? todayStart;
+    final earliestDateStart = DateTime(earliestDate.year, earliestDate.month, earliestDate.day);
+
+    // 3. Chronological trace to calculate currentStreak and shields
+    final totalDays = todayStart.difference(earliestDateStart).inDays + 1;
+    
+    currentStreak = 0;
+    int streakShields = 0;
+    int consecutivePerfectDays = 0;
+
+    for (int i = 0; i < totalDays; i++) {
+      final date = earliestDateStart.add(Duration(days: i));
+      final hasActivity = (dailyActivityCount[date] ?? 0) > 0;
+      final completed = dailyCompletions[date] ?? 0;
+      final isPerfect = totalWindows > 0 && completed >= totalWindows;
+
+      // Perfect days counting
+      if (isPerfect) {
+        consecutivePerfectDays++;
+        if (consecutivePerfectDays % 3 == 0) {
+          streakShields = (streakShields + 1).clamp(0, 2);
+        }
+      } else {
+        if (date.isBefore(todayStart)) {
+          consecutivePerfectDays = 0;
+        }
+      }
+
+      // Streak & Shield consumption logic
       if (hasActivity) {
         currentStreak++;
-      } else if (i == 0) {
-        // Allow today to have no activity yet without breaking the streak.
-        continue;
       } else {
-        break;
+        if (date == todayStart) {
+          continue; // Today doesn't break streak yet
+        }
+        if (streakShields > 0) {
+          streakShields--;
+          currentStreak++; // Shielded gap day
+        } else {
+          currentStreak = 0; // Streak broken
+        }
       }
     }
 
@@ -184,6 +238,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _activityLevels = activityLevels;
         _currentStreak = currentStreak;
         _totalLogs = totalLogs;
+        _streakShields = streakShields;
       });
       _updateMissedSessions(allEvents);
       _checkPermissionsAndDismissal();
@@ -453,6 +508,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
+              if (_streakShields > 0) ...[
+                const SizedBox(width: 12),
+                Icon(Icons.shield_rounded, size: 16, color: Colors.teal.shade300),
+                const SizedBox(width: 4),
+                Text(
+                  '$_streakShields Shield${_streakShields > 1 ? 's' : ''}',
+                  style: textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               const SizedBox(width: 16),
               Icon(Icons.data_usage_rounded, size: 16, color: colorScheme.primary),
               const SizedBox(width: 4),
@@ -503,12 +570,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             }),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Last 14 Days Activity',
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant.withAlpha(150),
-              fontSize: 10,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Last 14 Days Activity',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant.withAlpha(150),
+                  fontSize: 10,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View Achievements',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.primary.withAlpha(200),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 10,
+                    color: colorScheme.primary.withAlpha(200),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),

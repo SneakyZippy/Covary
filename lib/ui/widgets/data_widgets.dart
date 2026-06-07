@@ -567,11 +567,16 @@ class _RecentActivityPreviewState extends State<RecentActivityPreview> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                Text(
-                                  displayValue,
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: catColor,
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    displayValue,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: catColor,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],

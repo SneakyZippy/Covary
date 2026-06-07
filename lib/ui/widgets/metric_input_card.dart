@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../data/models/enums.dart';
 import '../../data/models/metric_definition.dart';
+import '../../services/profile_service.dart';
 import 'metric_icon.dart';
 
 /// A Material 3 card that renders the appropriate input widget for a metric.
@@ -39,6 +42,15 @@ class _MetricInputCardState extends State<MetricInputCard> {
   void initState() {
     super.initState();
     _selectedValue = widget.initialValue;
+  }
+
+  void _triggerHaptic() {
+    try {
+      final profileService = context.read<ProfileService>();
+      if (profileService.hapticsEnabled) {
+        HapticFeedback.lightImpact();
+      }
+    } catch (_) {}
   }
 
   /// Notifies the parent of the new value.
@@ -164,6 +176,7 @@ class _MetricInputCardState extends State<MetricInputCard> {
             colorScheme: colorScheme,
             onTap: () {
               setState(() => _selectedValue = 'true');
+              _triggerHaptic();
               _emitChange();
             },
           ),
@@ -177,6 +190,7 @@ class _MetricInputCardState extends State<MetricInputCard> {
             colorScheme: colorScheme,
             onTap: () {
               setState(() => _selectedValue = 'false');
+              _triggerHaptic();
               _emitChange();
             },
           ),
@@ -202,6 +216,7 @@ class _MetricInputCardState extends State<MetricInputCard> {
             child: GestureDetector(
               onTap: () {
                 setState(() => _selectedValue = value);
+                _triggerHaptic();
                 _emitChange();
               },
               child: AnimatedScale(
@@ -310,7 +325,11 @@ class _MetricInputCardState extends State<MetricInputCard> {
           divisions: maxValue - 1,
           label: currentValue.toInt().toString(),
           onChanged: (value) {
-            setState(() => _selectedValue = value.toInt().toString());
+            final intVal = value.toInt().toString();
+            if (_selectedValue != intVal) {
+              setState(() => _selectedValue = intVal);
+              _triggerHaptic();
+            }
           },
           onChangeEnd: (value) {
             _emitChange();
@@ -332,6 +351,7 @@ class _MetricInputCardState extends State<MetricInputCard> {
           borderRadius: BorderRadius.circular(16),
           onTap: () {
             setState(() => _selectedValue = '1');
+            _triggerHaptic();
             _emitChange();
           },
           child: Row(
