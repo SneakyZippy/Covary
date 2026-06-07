@@ -55,6 +55,9 @@ class ProfileService extends ChangeNotifier {
   /// Whether the user has enabled developer mode.
   bool _isDeveloperMode = false;
 
+  /// Whether tactile haptic feedback is enabled.
+  bool _hapticsEnabled = true;
+
   // ---------------------------------------------------------------------------
   // Getters
   // ---------------------------------------------------------------------------
@@ -80,6 +83,9 @@ class ProfileService extends ChangeNotifier {
 
   /// Whether developer mode is enabled.
   bool get isDeveloperMode => _isDeveloperMode;
+
+  /// Whether haptic feedback is enabled.
+  bool get hapticsEnabled => _hapticsEnabled;
 
   /// The timestamp of the user's first app launch. Used to suppress
   /// "missed window" cards for windows that ended before setup.
@@ -120,6 +126,9 @@ class ProfileService extends ChangeNotifier {
 
     // --- Developer Mode ---
     _isDeveloperMode = _profileRepo.getIsDeveloperMode();
+
+    // --- Haptic Feedback ---
+    _hapticsEnabled = _profileRepo.getBoolSetting('haptics_enabled', defaultValue: true);
 
     // --- First Launch Timestamp ---
     final storedLaunch = _profileRepo.getFirstLaunchAt();
@@ -361,6 +370,14 @@ class ProfileService extends ChangeNotifier {
     if (_isDeveloperMode == value) return;
     _isDeveloperMode = value;
     await _profileRepo.setIsDeveloperMode(value);
+    notifyListeners();
+  }
+
+  /// Toggles tactile haptic feedback and persists it.
+  Future<void> setHapticsEnabled(bool value) async {
+    if (_hapticsEnabled == value) return;
+    _hapticsEnabled = value;
+    await _profileRepo.setBoolSetting('haptics_enabled', value);
     notifyListeners();
   }
 }

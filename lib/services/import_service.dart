@@ -67,13 +67,19 @@ class ImportService {
       int windowCount = 0;
       bool profileRestored = false;
 
-      // 1. Restore Profile (Identity)
+      // 1. Restore Profile (Identity) only if we don't have one yet,
+      // or if the imported profile matches our current UUID (meaning it's our own backup).
       if (profile.containsKey('uuid') && profile.containsKey('nickname')) {
-        await _profileService.restoreProfile(
-          uuid: profile['uuid'],
-          nickname: profile['nickname'],
-        );
-        profileRestored = true;
+        final currentUuid = _profileService.uuid;
+        if (currentUuid.isEmpty || currentUuid == profile['uuid']) {
+          await _profileService.restoreProfile(
+            uuid: profile['uuid'],
+            nickname: profile['nickname'],
+          );
+          profileRestored = true;
+        } else {
+          debugPrint('[ImportService] Skipping profile restore: UUID in import (${profile['uuid']}) does not match current local UUID ($currentUuid).');
+        }
       }
 
       // 2. Import Tracking Windows (Schedules)
