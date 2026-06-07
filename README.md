@@ -1,47 +1,80 @@
-pwa: https://sneakyzippy.github.io/Covary/
-
 # Covary <img src="assets/icon/app_icon.png" width="40" valign="middle">
 
-Covary is a behavioral research tool I'm building for my Bachelor's Thesis.
+[![Live PWA](https://img.shields.io/badge/Live-PWA-blue?style=for-the-badge&logo=googlechrome)](https://sneakyzippy.github.io/Covary/)
+[![User Guide](https://img.shields.io/badge/User-Guide-emerald?style=for-the-badge&logo=markdown)](TUTORIAL.md)
+[![License](https://img.shields.io/badge/License-All_Rights_Reserved-red?style=for-the-badge)](#-license)
 
-The goal is to look at the **"big picture"** of our daily lives. I'm tracking how different parts of our world - like our mood, physical activity, and even our phone habits - all mixed together affect our well-being. It’s about finding the hidden patterns between what’s happening around us and how we’re actually feeling.
-
-### What's happening under the hood?
-I'm connecting the dots between your sport habits, the weather (maybe in the future), your daily mood, sleeping patterns, app consumption, and everything in between.
-
----
-
-## 📱 How to use it
-
-Since this is a research tool (for now), setting it up takes a minute or two.
-
-### 🤖 For Android
-Android is the "main" platform for this research because it lets us track things like app usage.
-
-1.  **Sideload the APK:** Download the latest build from the Releases tab and install it.
-2.  **Health Access:** Grant permissions for **Health Connect** so I can see your steps and sleep. (not mandatory!)
-3.  **App Usage (The tricky part):** Android 13+ might gray out the "Usage Access" toggle. 
-    *   **Fix:** Go to *Settings → Apps → Covary → ⋮ (top right) → Allow restricted settings*. Then you can go back and flip the switch!
-4.  **Stay Awake:** Disable "Battery Optimization" for Covary if you want the 4-hour background sync to be reliable.
-
-### 🍎 For iOS
-I've recently added iOS PWA support, allowing you to install and test it on iPhones directly from your Safari browser without needing a Mac or Xcode!
-
-1.  **Build with Xcode:** You'll need a Mac. Run `flutter build ios`, then open the workspace in Xcode.
-2.  **Sign it:** Select your development team in *Signing & Capabilities*.
-3.  **HealthKit:** When you first open the Data Permissions screen, grant access to **HealthKit** for steps and sleep duration.
-4.  **Note:** iOS doesn't allow tracking "App Usage" for other apps, so that section will be disabled.
+**Covary** is an advanced behavioral research tool developed as a Bachelor's Thesis in Human-Computer Interaction (HCI). It utilizes **Ecological Momentary Assessment (EMA)** to track and analyze the relationships between digital habits (screen time, app categories), physical health (steps, sleep), and subjective well-being (mood, stress, fatigue).
 
 ---
 
-### 🔒 Your data is yours.
-Privacy is the most important thing here. Everything stays locally on your phone.
-*   **No Cloud:** I don't have a server. I can't see your data.
-*   **Manual Export:** If you want to show me your data for the thesis, you have to manually click **Export** and send me the JSON file yourself.
-*   **HCI Metrics:** I track things like how fast you respond to prompts (`latencyMs`) because that tells me a lot about how "intrusive" the app is!
+## 🎯 The Research Vision
 
-### btw,
-If you have an idea or want something implemented, just let me know! This is a work in progress and I'm having a lot of fun building it.
+Conventional trackers collect data passively but rarely help users connect the dots on-device. Covary closes the **Behavioral Feedback Loop** by correlating subjective states with daily actions. The core research focus is on **Prompt Friction**—measuring how notification styles, response latencies, and dismissals impact compliance and user fatigue.
+
+```mermaid
+graph TD
+    A[Passive Sensing: Steps & Screen Time] --> D[Drift SQLite Database]
+    B[Active Prompts: Mood & Well-being] --> D
+    C[HCI Metrics: Latency & Snoozes] --> D
+    D --> E[On-Device Analytics Engine]
+    E --> F[Correlation Matrix & Circadian Trends]
+    E --> G[Lagged Correlation Analysis]
+```
 
 ---
-**All rights reserved.** This code is public for thesis verification only and may not be used or redistributed.
+
+## ✨ Core Features
+
+*   **Ecological Momentary Assessment (EMA):** Interactive, guided check-ins prompted throughout the day to capture feelings in the moment.
+*   **On-Device Analytics Engine:** Processes data locally using background isolates:
+    *   **Spearman Correlation Matrix:** Evaluates how habits relate to well-being.
+    *   **Lagged Correlation Analysis:** Reveals delayed effects (e.g., *How does screen time on Monday impact mood on Tuesday?*).
+    *   **Circadian Rhythm Tracking:** Identifies daily averages and patterns.
+*   **HCI Interaction Metrics:** Tracks prompt response latencies (`latencyMs`), clicks, snoozes, and notification dismissals (`SwipeAway`).
+*   **Smart Snooze & Alerts:** Custom snooze intervals and meal reminders with direct action-button logging from lock screens.
+*   **Fatigue Mitigation:** Detects when prompts are consistently dismissed and suggests rescheduling windows.
+*   **Privacy-First & Local-First:** All logs reside securely in a local database. Cloud backups are strictly opt-in and utilize a randomized, anonymous **Research ID (UUID)**.
+
+---
+
+## 🛠️ Technical Stack
+
+*   **Framework:** Flutter (Material 3)
+*   **Local Database:** `drift` (SQLite wrapper) for reactive storage and schema safety
+*   **State Management:** `provider`
+*   **Background Processing:** `workmanager`
+*   **Notification Engine:** `awesome_notifications` (handles dismiss background tracking and action keys)
+*   **Hosting:** GitHub Pages (deployed as a Progressive Web App)
+*   **Cloud Backend (Opt-In Sync):** Supabase (secure database synchronization and PWA web push integration)
+
+---
+
+## 🚀 Getting Started & Installation
+
+For step-by-step setup details, permission configurations, and gesture tutorials, please refer to the **[User Guide & Tutorial (TUTORIAL.md)](TUTORIAL.md)**.
+
+### Android
+*   Download the latest APK from the **Releases** tab.
+*   Grant **Health Connect** permissions for steps/sleep and **Usage Access** for screen-time tracking.
+*   Disable **Battery Optimization** for continuous background analysis.
+
+### iOS
+*   Supported exclusively as a Safari **Progressive Web App (PWA)**.
+*   Open Safari, visit the [Live PWA Link](https://sneakyzippy.github.io/Covary/), tap the Share button, and select **Add to Home Screen**.
+*   *Note: Due to sandbox limitations on iOS, passive sensing (steps, app usage) is disabled; these can be entered manually or imported via JSON.*
+
+---
+
+## 📂 Data Exports & Submission
+
+Participation in the thesis research is completely voluntary. At the end of the tracking phase, you can contribute your data by:
+1.  Heading to **Settings ➔ Local Data & Files ➔ Submit to Researcher**.
+2.  Selecting the metrics you are comfortable sharing.
+3.  Generating a JSON bundle and sharing it directly with the researcher.
+
+---
+
+## 📜 License
+
+**All rights reserved.** This code is open-source for thesis verification, examination, and academic review only. Redistribution, commercial usage, or replication without explicit consent is strictly prohibited.
