@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -60,7 +61,7 @@ class _RawDataScreenState extends State<RawDataScreen> {
             final query = _searchController.text.toLowerCase();
             events = events.where((e) {
               final labelMatch = e.label.toLowerCase().contains(query);
-              final cleanLabelMatch = _cleanLabel(e.label).toLowerCase().contains(query);
+              final cleanLabelMatch = _getDisplayLabel(context, e).toLowerCase().contains(query);
               final valueMatch = e.value.toLowerCase().contains(query);
               return labelMatch || cleanLabelMatch || valueMatch;
             }).toList();
@@ -264,6 +265,66 @@ String _cleanLabel(String label) {
   return label;
 }
 
+String _getDisplayLabel(BuildContext context, Event event) {
+  final metricService = context.read<MetricService>();
+  final metricDef = metricService.allMetrics
+      .where((m) => m.id == event.label || m.label == event.label)
+      .firstOrNull;
+  if (metricDef != null) {
+    return metricDef.label;
+  }
+
+  // Weather Location
+  if (event.label == 'core_weather_location') {
+    return 'Weather Location';
+  }
+
+  // Sleep
+  if (event.label == 'sleep_duration_hours') return 'Sleep Duration';
+  if (event.label == 'sleep_bedtime') return 'Sleep Bedtime';
+  if (event.label == 'sleep_wakeup') return 'Sleep Wakeup';
+  if (event.label == 'sleep_midpoint') return 'Sleep Midpoint';
+
+  // Steps
+  if (event.label == 'step_count') return 'Step Count';
+  if (event.label == 'step_segment') return 'Step Segment';
+
+  // App Usage
+  if (event.label == 'total_screen_time') return 'Total Screen Time';
+  if (event.label.startsWith('category_time:')) {
+    final cat = event.label.split(':').last;
+    return '${cat[0].toUpperCase()}${cat.substring(1)} Screen Time';
+  }
+  if (event.label.startsWith('app_time:')) {
+    final pkg = event.label.split(':').last;
+    final name = pkg.split('.').last;
+    return '${name[0].toUpperCase()}${name.substring(1)} Screen Time';
+  }
+  if (event.label.startsWith('app_segment:')) {
+    final pkg = event.label.split(':').last;
+    final name = pkg.split('.').last;
+    return '${name[0].toUpperCase()}${name.substring(1)} Usage Segment';
+  }
+  if (event.label.startsWith('category_segment:')) {
+    final cat = event.label.split(':').last;
+    return '${cat[0].toUpperCase()}${cat.substring(1)} Usage Segment';
+  }
+  if (event.label == 'app_usage_segment') return 'App Usage Segment';
+
+  // Fallback to formatting
+  var clean = _cleanLabel(event.label);
+  if (clean.startsWith('core_')) {
+    final part = clean.substring(5);
+    return part
+        .split('_')
+        .map((word) => word.isNotEmpty
+            ? '${word[0].toUpperCase()}${word.substring(1)}'
+            : '')
+        .join(' ');
+  }
+  return clean;
+}
+
 class _DayGroup {
   final DateTime date;
   final List<_SessionGroup> sessions;
@@ -279,7 +340,7 @@ class _SessionGroup {
 
   DateTime get timestamp => events.first.timestamp;
 
-  String get title {
+  String title(BuildContext context) {
     if (events.any((e) => e.label == 'SessionCompleted')) {
       final meta = events.firstWhere((e) => e.label == 'SessionCompleted');
       final windowId = meta.value;
@@ -313,7 +374,7 @@ class _SessionGroup {
       return '$label: $interactionStr';
     }
     
-    if (events.length == 1) return _cleanLabel(events.first.label);
+    if (events.length == 1) return _getDisplayLabel(context, events.first);
     return 'Manual Session';
   }
 
@@ -428,7 +489,7 @@ class _SessionCardState extends State<_SessionCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          session.title,
+                          session.title(context),
                           style: textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -502,7 +563,7 @@ class _SessionCardState extends State<_SessionCard> {
 
     final labels = session.events
         .where((e) => e.label != 'SessionCompleted')
-        .map((e) => _cleanLabel(e.label))
+        .map((e) => _getDisplayLabel(context, e))
         .take(2)
         .toList();
     
@@ -522,6 +583,25 @@ class _SessionCardState extends State<_SessionCard> {
       final label = widget.session.events.first.label;
       final valNum = double.tryParse(value);
       if (valNum != null) {
+        if (label == 'sleep_bedtime' || label == 'sleep_wakeup' || label == 'sleep_midpoint') {
+          double hours = valNum;
+          if (hours >= 24) hours -= 24;
+          final int h = hours.floor();
+          final int m = ((hours - h) * 60).round();
+          return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+        } else if (label == 'sleep_duration_hours') {
+          return '${valNum.toStringAsFixed(1)} hrs';
+        } else if (label == 'step_count' || label == 'step_segment') {
+          return NumberFormat.decimalPattern().format(valNum.round());
+        } else if (label == 'total_screen_time' || label.startsWith('category_time:') || label.startsWith('app_time:') || label.startsWith('app_segment:') || label.startsWith('category_segment:') || label == 'app_usage_segment') {
+          if (valNum >= 60) {
+            final h = valNum ~/ 60;
+            final m = (valNum % 60).round();
+            return '${h}h ${m}m';
+          }
+          return '${valNum.round()} min';
+        }
+
         if (label == 'Mindless Scrolling' || label == 'Mindless Scrolling?') {
           return '${valNum.toInt()} min';
         } else if (label == 'Water Intake') {
@@ -598,7 +678,7 @@ class _EventRow extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                _cleanLabel(event.label),
+                _getDisplayLabel(context, event),
                 style: textTheme.bodyMedium,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -623,6 +703,25 @@ class _EventRow extends StatelessWidget {
     final label = event.label;
     final valNum = double.tryParse(value);
     if (valNum != null) {
+      if (label == 'sleep_bedtime' || label == 'sleep_wakeup' || label == 'sleep_midpoint') {
+        double hours = valNum;
+        if (hours >= 24) hours -= 24;
+        final int h = hours.floor();
+        final int m = ((hours - h) * 60).round();
+        return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+      } else if (label == 'sleep_duration_hours') {
+        return '${valNum.toStringAsFixed(1)} hrs';
+      } else if (label == 'step_count' || label == 'step_segment') {
+        return NumberFormat.decimalPattern().format(valNum.round());
+      } else if (label == 'total_screen_time' || label.startsWith('category_time:') || label.startsWith('app_time:') || label.startsWith('app_segment:') || label.startsWith('category_segment:') || label == 'app_usage_segment') {
+        if (valNum >= 60) {
+          final h = valNum ~/ 60;
+          final m = (valNum % 60).round();
+          return '${h}h ${m}m';
+        }
+        return '${valNum.round()} min';
+      }
+
       if (label == 'Mindless Scrolling' || label == 'Mindless Scrolling?') {
         return '${valNum.toInt()} min';
       } else if (label == 'Water Intake') {
@@ -739,11 +838,11 @@ class _EventRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        event.label,
+                        _getDisplayLabel(context, event),
                         style: textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
@@ -788,6 +887,8 @@ class _EventRow extends StatelessWidget {
               ),
               child: Column(
                 children: [
+                  _DetailRow(label: 'Recorded Value', value: event.value),
+                  const SizedBox(height: 12),
                   _DetailRow(label: 'Timestamp', value: timeString),
                   const SizedBox(height: 12),
                   _DetailRow(label: 'Latency', value: '${event.latencyMs} ms'),
@@ -871,7 +972,7 @@ class _EventRow extends StatelessWidget {
 
   void _showEditDialog(BuildContext context, Event event) {
     final metricService = context.read<MetricService>();
-    final metricDef = metricService.allMetrics.where((m) => m.label == event.label).firstOrNull;
+    final metricDef = metricService.allMetrics.where((m) => m.id == event.label || m.label == event.label).firstOrNull;
     
     String newValue = event.value;
     DateTime newTimestamp = event.timestamp;
@@ -994,6 +1095,62 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+
+    final isLong = value.length > 20;
+
+    if (isLong) {
+      return SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: value));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Copied $label to clipboard'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  style: IconButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(24, 24),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  tooltip: 'Copy to clipboard',
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: (mono
+                      ? textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                          letterSpacing: 0.5,
+                        )
+                      : textTheme.bodyLarge)
+                  ?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
