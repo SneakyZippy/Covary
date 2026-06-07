@@ -337,12 +337,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return ConfettiOverlay(
       child: Scaffold(
         body: SafeArea(
+          bottom: false,
           child: RefreshIndicator(
             onRefresh: _loadTodayStats,
             child: ListView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 32.0,
+              padding: const EdgeInsets.fromLTRB(
+                24.0,
+                32.0,
+                24.0,
+                100.0,
               ),
               children: [
                 if (!_bannerPermanentlyDismissed && (_healthMissing || _usageMissing || _notificationsMissing))

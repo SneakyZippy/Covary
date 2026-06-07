@@ -34,7 +34,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   int _selectedLag = 0;
   double _currentCorrelation = 0.0;
   bool _autoDetect = true;
-  bool _alignLag = false;
+  bool _alignLag = true;
   LagViewMode _viewMode = LagViewMode.daily;
   bool _isLoading = true;
   bool _isAutoDetecting = false;
@@ -792,18 +792,20 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Align Lag on Chart',
-                    style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Visually shifts the lines to show alignment',
-                    style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Align Lag on Chart',
+                      style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Visually shifts the lines to show alignment',
+                      style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
               ),
               Switch.adaptive(
                 value: _alignLag,

@@ -158,6 +158,7 @@ class _DataScreenState extends State<DataScreen> {
 
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: _loadAllData,
           child: CustomScrollView(
@@ -277,7 +278,7 @@ class _DataScreenState extends State<DataScreen> {
                     ),
                   ),
                 ),
-              const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
+              const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
             ],
           ),
         ),
