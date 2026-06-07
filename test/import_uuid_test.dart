@@ -8,7 +8,6 @@ import 'package:covary/data/repositories/event_repository.dart';
 import 'package:covary/data/repositories/metric_repository.dart';
 import 'package:covary/data/repositories/tracking_window_repository.dart';
 import 'package:covary/data/database/app_database.dart';
-import 'package:covary/data/models/enums.dart';
 
 class MockFilePicker extends FilePicker {
   final FilePickerResult? result;
