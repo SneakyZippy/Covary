@@ -71,7 +71,7 @@ class MetricPresets {
       "Did you write in a journal or complete a reflective writing exercise today?\n\nGuidelines:\n• Mark 'Yes' if you took time to write down thoughts, emotional reflections, or daily notes.";
 
   static const String _descOutside =
-      "Did you spend significant time outdoors in nature or fresh air today?\n\nGuidelines:\n• Mark 'Yes' if you spent at least 15-20 cumulative minutes outside (e.g., walking, sitting in a park).";
+      "How many hours did you spend outdoors in nature or fresh air today?\n\nGuidelines:\n• Rate from 1 to 10 hours.\n• Estimate cumulative time spent outside (e.g., walking, sitting in a park, sitting on a balcony).";
 
   static const String _descGoodDeed =
       "Did you perform an intentional kind act or help someone else today?\n\nGuidelines:\n• Mark 'Yes' if you went out of your way to assist a peer, stranger, or loved one. Helps evaluate altruism's impact on mood.";
@@ -397,9 +397,9 @@ class MetricPresets {
     ),
     MetricDefinition(
       id: 'core_outside',
-      label: 'Time spent Outside',
+      label: 'Time spent Outside (hours)',
       category: EventCategory.behavior,
-      inputType: MetricInputType.yesNo,
+      inputType: MetricInputType.scale1to10,
       isEnabled: true,
       windowIds: ['b7e1f2a3-4c5d-6e7f-8a9b-0c1d2e3f4a5b'],
       emoji: 'forest',

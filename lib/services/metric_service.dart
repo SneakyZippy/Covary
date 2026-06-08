@@ -433,6 +433,40 @@ class MetricService extends ChangeNotifier {
       await _profileRepo.setBoolSetting(syncKeyV6, true);
     }
 
+    // --- SOFT MIGRATION v7: Update core_outside label and inputType, migrate old event labels ---
+    final syncKeyV7 = 'core_metrics_v7_sync';
+    if (!_profileRepo.getBoolSetting(syncKeyV7)) {
+      try {
+        await _metricRepo.updateCustomMetric(
+          'core_outside',
+          const CustomMetricsCompanion(
+            label: Value('Time spent Outside (hours)'),
+            inputType: Value(MetricInputType.scale1to10),
+          ),
+        );
+        debugPrint('[MetricService] Soft Migration v7: Changed core_outside inputType to scale1to10 and label to Time spent Outside (hours)');
+
+        final oldEvents = await _eventRepo.getEventsByLabel('Time spent Outside');
+        int migratedCount = 0;
+        for (final event in oldEvents) {
+          await _eventRepo.updateEvent(
+            event.id,
+            const EventsCompanion(
+              label: Value('Time spent Outside (hours)'),
+            ),
+          );
+          migratedCount++;
+        }
+        if (migratedCount > 0) {
+          debugPrint('[MetricService] Soft Migration v7: Migrated $migratedCount events to new label');
+        }
+        await _reload();
+      } catch (e) {
+        debugPrint('[MetricService] Error running soft migration v7: $e');
+      }
+      await _profileRepo.setBoolSetting(syncKeyV7, true);
+    }
+
     await _reload();
     debugPrint(
       '[MetricService] Initialized with ${_allMetrics.length} metrics '
