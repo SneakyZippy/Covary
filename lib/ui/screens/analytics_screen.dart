@@ -17,6 +17,7 @@ class AnalyticsScreen extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: CustomScrollView(
           slivers: [
             // Custom Header
@@ -159,6 +160,7 @@ class AnalyticsScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
           ],
         ),
       ),

@@ -47,6 +47,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -804,7 +805,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             // Bottom padding
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
       ),
