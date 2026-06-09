@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/models/meal_reminder.dart';
 import '../../services/notification_service.dart';
+import '../widgets/help_button.dart';
+
 
 class MealRemindersScreen extends StatefulWidget {
   const MealRemindersScreen({super.key});
@@ -267,6 +269,9 @@ class _MealRemindersScreenState extends State<MealRemindersScreen> {
       appBar: AppBar(
         title: const Text('Meal Reminders'),
         centerTitle: true,
+        actions: const [
+          AppBarHelpButton(screenKey: 'meal_reminders'),
+        ],
       ),
       body: SafeArea(
         child: _isLoading

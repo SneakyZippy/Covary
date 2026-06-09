@@ -27,6 +27,8 @@ import 'tracking_windows_screen.dart';
 import 'onboarding_screen.dart';
 import 'meal_reminders_screen.dart';
 import 'raw_data_screen.dart';
+import '../widgets/help_button.dart';
+
 
 /// Settings screen for managing profile, notifications, and data.
 class SettingsScreen extends StatefulWidget {
@@ -78,32 +80,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
-                child: Column(
+                child: Stack(
                   children: [
-                    _GlowingAppIcon(colorScheme: colorScheme),
-                    const SizedBox(height: 16),
-                    Text(
-                      'COVARY',
-                      style: textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 6,
-                        color: colorScheme.primary,
-                        shadows: [
-                          Shadow(
-                            color: colorScheme.primary.withAlpha(120),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
+                    const Align(
+                      alignment: Alignment.topRight,
+                      child: AppBarHelpButton(screenKey: 'settings'),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'HCI BEHAVIORAL RESEARCH PLATFORM',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withAlpha(180),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
+                    Column(
+                      children: [
+                        _GlowingAppIcon(colorScheme: colorScheme),
+                        const SizedBox(height: 16),
+                        Text(
+                          'COVARY',
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 6,
+                            color: colorScheme.primary,
+                            shadows: [
+                              Shadow(
+                                color: colorScheme.primary.withAlpha(120),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'HCI BEHAVIORAL RESEARCH PLATFORM',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant.withAlpha(180),
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

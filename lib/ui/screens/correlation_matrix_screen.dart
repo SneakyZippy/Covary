@@ -9,6 +9,8 @@ import '../../data/models/metric_definition.dart';
 import '../../data/models/enums.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../ui/theme/design_system.dart';
+import '../widgets/help_button.dart';
+
 
 class CorrelationMatrixScreen extends StatefulWidget {
   const CorrelationMatrixScreen({super.key});
@@ -278,8 +280,10 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadMatrix,
           ),
+          const AppBarHelpButton(screenKey: 'correlation_matrix'),
         ],
       ),
+
       body: Column(
         children: [
           _buildLagSelector(colorScheme, textTheme),

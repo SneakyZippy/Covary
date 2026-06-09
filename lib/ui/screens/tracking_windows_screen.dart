@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../services/metric_service.dart';
 import '../../data/database/app_database.dart';
 import '../widgets/edit_window_dialog.dart';
+import '../widgets/help_button.dart';
+
 
 class TrackingWindowsScreen extends StatelessWidget {
   const TrackingWindowsScreen({super.key});
@@ -14,7 +16,13 @@ class TrackingWindowsScreen extends StatelessWidget {
     final windows = metricService.allWindows;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tracking Windows')),
+      appBar: AppBar(
+        title: const Text('Tracking Windows'),
+        actions: const [
+          AppBarHelpButton(screenKey: 'tracking_windows'),
+        ],
+      ),
+
       body: ReorderableListView.builder(
         buildDefaultDragHandles: false,
         padding: const EdgeInsets.all(16),

@@ -5,6 +5,8 @@ import '../../data/models/enums.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../services/metric_service.dart';
 import '../widgets/confetti_animation.dart';
+import '../widgets/help_button.dart';
+
 
 class ActivityHistoryScreen extends StatefulWidget {
   const ActivityHistoryScreen({super.key});
@@ -163,7 +165,11 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Activity History'),
+        actions: const [
+          AppBarHelpButton(screenKey: 'compliance'),
+        ],
       ),
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(

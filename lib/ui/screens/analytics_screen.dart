@@ -6,6 +6,8 @@ import 'compliance_screen.dart';
 import 'lagged_trend_screen.dart';
 import 'metric_insights_screen.dart';
 import '../../ui/theme/design_system.dart';
+import '../widgets/help_button.dart';
+
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
@@ -27,13 +29,20 @@ class AnalyticsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Analytics',
-                      style: textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Analytics',
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const AppBarHelpButton(screenKey: 'analytics'),
+                      ],
                     ),
+
                     const SizedBox(height: 8),
                     Text(
                       'Deep dive into your behavioral data and discover patterns.',

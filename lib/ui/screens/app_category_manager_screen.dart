@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/app_usage_service.dart';
+import '../widgets/help_button.dart';
+
 
 class AppCategoryManagerScreen extends StatefulWidget {
   const AppCategoryManagerScreen({super.key});
@@ -24,6 +26,7 @@ class _AppCategoryManagerScreenState extends State<AppCategoryManagerScreen> {
             icon: const Icon(Icons.add_rounded),
             tooltip: 'Add Category',
           ),
+          const AppBarHelpButton(screenKey: 'app_category_manager'),
         ],
       ),
       body: categories.isEmpty

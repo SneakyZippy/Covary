@@ -9,6 +9,8 @@ import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../../data/models/enums.dart';
 import '../../ui/theme/design_system.dart';
+import '../widgets/help_button.dart';
+
 
 enum InsightViewMode { daily, weekly, circadian }
 
@@ -175,8 +177,10 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         title: const Text('Metric Insights'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _loadData),
+          const AppBarHelpButton(screenKey: 'metric_insights'),
         ],
       ),
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _allMetrics.isEmpty

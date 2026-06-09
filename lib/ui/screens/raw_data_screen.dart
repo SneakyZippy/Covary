@@ -10,6 +10,8 @@ import '../../data/repositories/event_repository.dart';
 import '../../data/models/enums.dart';
 import '../../services/metric_service.dart';
 import '../widgets/metric_input_card.dart';
+import '../widgets/help_button.dart';
+
 
 /// Screen showing all raw event data grouped by session and date.
 ///
@@ -111,6 +113,7 @@ class _RawDataScreenState extends State<RawDataScreen> {
                       });
                     },
                   ),
+                  const AppBarHelpButton(screenKey: 'raw_data'),
                 ],
               ),
               SliverToBoxAdapter(

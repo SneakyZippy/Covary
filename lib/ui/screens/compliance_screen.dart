@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../data/models/enums.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../services/metric_service.dart';
+import '../widgets/help_button.dart';
+
 
 class ComplianceScreen extends StatefulWidget {
   const ComplianceScreen({super.key});
@@ -116,7 +118,11 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Data Quality & Compliance'),
+        actions: const [
+          AppBarHelpButton(screenKey: 'compliance'),
+        ],
       ),
+
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : ListView(

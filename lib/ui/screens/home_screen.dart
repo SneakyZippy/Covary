@@ -26,6 +26,7 @@ import '../../services/notification_service.dart';
 import '../../services/pwa_push_interop.dart';
 import '../widgets/staggered_entrance.dart';
 import '../widgets/confetti_animation.dart';
+import '../widgets/help_button.dart';
 
 /// The primary Home view.
 ///
@@ -396,6 +397,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ],
                         ),
                       ),
+                      AppBarHelpButton(screenKey: 'home'),
                     ],
                   ),
                 ),

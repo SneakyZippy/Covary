@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../services/app_usage_service.dart';
 import 'app_category_manager_screen.dart';
+import '../widgets/help_button.dart';
+
 
 enum TimeRange { last7d, last14d, last30d, custom }
 enum Aggregation { daily, weekly }
@@ -251,10 +253,13 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
                       onPressed: _showAppSelector,
                       icon: const Icon(Icons.filter_list_rounded),
                     ),
+                    const SizedBox(width: 8),
+                    const AppBarHelpButton(screenKey: 'usage_trends'),
                   ],
                 ),
               ),
             ),
+
             SliverToBoxAdapter(child: _buildSummaryCards()),
             SliverToBoxAdapter(child: _buildFilterBar()),
             SliverToBoxAdapter(

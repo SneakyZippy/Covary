@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../../data/repositories/event_repository.dart';
 import '../../data/models/enums.dart';
+import '../widgets/help_button.dart';
+
 
 class InteractionScreen extends StatefulWidget {
   const InteractionScreen({super.key});
@@ -107,13 +109,11 @@ class _InteractionScreenState extends State<InteractionScreen> {
       appBar: AppBar(
         title: const Text('Interaction Analysis'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => _showHCIInfo(context),
-          ),
+          const AppBarHelpButton(screenKey: 'interaction'),
           const SizedBox(width: 8),
         ],
       ),
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -453,39 +453,6 @@ class _InteractionScreenState extends State<InteractionScreen> {
     );
   }
 
-  void _showHCIInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Interaction Metrics Explained'),
-        content: const SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _InfoItem(
-                title: 'Response Speed (Latency)',
-                desc: 'How long it takes from seeing a prompt to saving data. High speed suggests the app is easy to use "in the moment."',
-              ),
-              SizedBox(height: 16),
-              _InfoItem(
-                title: 'Snooze Frequency',
-                desc: 'Indicates "Resistance." If you snooze often, the prompt timing might need adjustment to better fit your routine.',
-              ),
-              SizedBox(height: 16),
-              _InfoItem(
-                title: 'Dismissal Rate',
-                desc: 'Measures "Survey Fatigue." Swiping away prompts reduces data density and may introduce gaps in your research.',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Got it')),
-        ],
-      ),
-    );
-  }
 }
 
 class _StatCard extends StatelessWidget {
@@ -628,30 +595,6 @@ class _InteractionBar extends StatelessWidget {
   }
 }
 
-class _InfoItem extends StatelessWidget {
-  final String title;
-  final String desc;
-
-  const _InfoItem({required this.title, required this.desc});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          desc,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-}
 
 class _LegendItem extends StatelessWidget {
   final Color color;

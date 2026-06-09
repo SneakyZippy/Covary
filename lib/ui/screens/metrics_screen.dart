@@ -7,6 +7,8 @@ import '../../data/models/metric_definition.dart';
 import '../../services/metric_service.dart';
 import '../widgets/metric_icon.dart';
 import '../widgets/metric_dialogs.dart';
+import '../widgets/help_button.dart';
+
 
 /// Screen for managing tracked metrics and their configurations.
 class MetricsScreen extends StatefulWidget {
@@ -34,7 +36,11 @@ class _MetricsScreenState extends State<MetricsScreen> {
       appBar: AppBar(
         title: const Text('Tracked Metrics'),
         centerTitle: true,
+        actions: const [
+          AppBarHelpButton(screenKey: 'metrics'),
+        ],
       ),
+
       body: SafeArea(
         child: CustomScrollView(
           slivers: [

@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../../ui/theme/design_system.dart';
+import '../widgets/help_button.dart';
+
 
 enum LagViewMode { daily, hourly }
 
@@ -243,8 +245,10 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadData,
           ),
+          const AppBarHelpButton(screenKey: 'lagged_trend'),
         ],
       ),
+
       body: _isLoading
           ? Center(
               child: Column(

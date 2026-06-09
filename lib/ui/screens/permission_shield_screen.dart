@@ -11,6 +11,8 @@ import '../../services/passive_sensing_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/pwa_push_interop.dart';
+import '../widgets/help_button.dart';
+
 
 /// The Permission Shield — a research consent & permission onboarding screen.
 ///
@@ -200,7 +202,11 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
         backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        actions: const [
+          AppBarHelpButton(screenKey: 'permission_shield'),
+        ],
       ),
+
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
