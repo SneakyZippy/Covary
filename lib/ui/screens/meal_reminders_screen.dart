@@ -295,11 +295,6 @@ class _MealRemindersScreenState extends State<MealRemindersScreen> {
 
                           // --- Master switch card ---
                           Card(
-                            elevation: 0,
-                            color: colorScheme.surfaceContainerHighest,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
                             child: SwitchListTile(
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 20,
@@ -372,23 +367,34 @@ class _MealRemindersScreenState extends State<MealRemindersScreen> {
                             final reminder = _reminders[index];
                             final isCardEnabled = _masterEnabled && reminder.isEnabled;
 
-                            return Container(
+                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               decoration: BoxDecoration(
-                                color: isCardEnabled
-                                    ? colorScheme.surface
-                                    : colorScheme.surface.withAlpha(150),
                                 borderRadius: BorderRadius.circular(24),
+                                gradient: LinearGradient(
+                                  colors: isCardEnabled
+                                      ? [
+                                          colorScheme.surfaceContainerHighest.withAlpha(70),
+                                          colorScheme.surfaceContainer.withAlpha(40),
+                                        ]
+                                      : [
+                                          colorScheme.surfaceContainerHighest.withAlpha(30),
+                                          colorScheme.surfaceContainer.withAlpha(15),
+                                        ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
                                 border: Border.all(
                                   color: isCardEnabled
-                                      ? colorScheme.outlineVariant
-                                      : colorScheme.outlineVariant.withAlpha(100),
+                                      ? colorScheme.outlineVariant.withAlpha(80)
+                                      : colorScheme.outlineVariant.withAlpha(40),
+                                  width: 1.0,
                                 ),
                                 boxShadow: isCardEnabled
                                     ? [
                                         BoxShadow(
-                                          color: colorScheme.shadow.withAlpha(10),
-                                          blurRadius: 8,
+                                          color: Colors.black.withAlpha(15),
+                                          blurRadius: 10,
                                           offset: const Offset(0, 4),
                                         ),
                                       ]

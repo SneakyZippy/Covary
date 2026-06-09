@@ -195,13 +195,8 @@ class _PermissionShieldScreenState extends State<PermissionShieldScreen>
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Data Permissions'),
-        centerTitle: false,
-        backgroundColor: colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
         actions: const [
           AppBarHelpButton(screenKey: 'permission_shield'),
         ],

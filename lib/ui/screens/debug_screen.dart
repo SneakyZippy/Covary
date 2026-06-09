@@ -449,7 +449,6 @@ class _DebugScreenState extends State<DebugScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Debug Menu'),
-        backgroundColor: colorScheme.surfaceContainerHighest,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

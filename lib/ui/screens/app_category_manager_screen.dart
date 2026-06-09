@@ -71,12 +71,7 @@ class _AppCategoryManagerScreenState extends State<AppCategoryManagerScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 0,
-      color: colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withAlpha(50)),
-      ),
+      clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         title: Text(
           name.toUpperCase(),

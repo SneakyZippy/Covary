@@ -467,6 +467,36 @@ class MetricService extends ChangeNotifier {
       await _profileRepo.setBoolSetting(syncKeyV7, true);
     }
 
+    // --- SOFT MIGRATION v8: Inject missing manual_step_count core template ---
+    final syncKeyV8 = 'core_metrics_v8_sync';
+    if (!_profileRepo.getBoolSetting(syncKeyV8)) {
+      await _reload();
+      final currentMetricIds = _allMetrics.map((m) => m.id).toSet();
+      if (!currentMetricIds.contains('manual_step_count')) {
+        try {
+          final template = templates.firstWhere((t) => t.id == 'manual_step_count');
+          await _metricRepo.insertCustomMetric(
+            CustomMetricsCompanion.insert(
+              id: Value(template.id),
+              label: template.label,
+              category: template.category,
+              inputType: template.inputType,
+              isEnabled: Value(template.isEnabled),
+              windowIds: Value(template.windowIds.isEmpty ? '_none_' : template.windowIds.join(',')),
+              emoji: Value(template.emoji),
+              isActivityIndicator: Value(template.isActivityIndicator),
+              isRetroReliable: Value(template.retroReliableOverride),
+            ),
+          );
+          debugPrint('[MetricService] Soft Migration v8: Injected manual_step_count template');
+          await _reload();
+        } catch (e) {
+          debugPrint('[MetricService] Error running soft migration v8: $e');
+        }
+      }
+      await _profileRepo.setBoolSetting(syncKeyV8, true);
+    }
+
     await _reload();
     debugPrint(
       '[MetricService] Initialized with ${_allMetrics.length} metrics '

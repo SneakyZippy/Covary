@@ -314,7 +314,6 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   Widget _buildLagSelector(ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
       padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(color: colorScheme.surface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -580,11 +579,11 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     if (hasData) {
       text = correlation.abs() > 0.05 ? correlation.toStringAsFixed(2) : '0';
       if (correlation > 0.05) {
-        cellColor = CovaryDesignSystem.primary.withValues(
+        cellColor = colorScheme.primary.withValues(
           alpha: (0.15 + (0.85 * correlation)).clamp(0.15, 1.0),
         );
       } else if (correlation < -0.05) {
-        cellColor = CovaryDesignSystem.secondaryContainer.withValues(
+        cellColor = colorScheme.secondaryContainer.withValues(
           alpha: (0.15 + (0.85 * correlation.abs())).clamp(0.15, 1.0),
         );
       } else {
@@ -773,17 +772,17 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       decoration: BoxDecoration(
-        color: CovaryDesignSystem.surfaceContainerLowest,
+        color: colorScheme.surfaceContainerLowest,
         border: Border(top: BorderSide(color: Colors.white.withAlpha(10))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _LegendItem(label: 'Positive', color: CovaryDesignSystem.primary),
+          _LegendItem(label: 'Positive', color: colorScheme.primary),
           _LegendItem(label: 'Neutral', color: Colors.white24),
           _LegendItem(
             label: 'Negative',
-            color: CovaryDesignSystem.secondaryContainer,
+            color: colorScheme.secondaryContainer,
           ),
         ],
       ),

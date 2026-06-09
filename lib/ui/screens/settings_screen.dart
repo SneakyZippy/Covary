@@ -1106,8 +1106,9 @@ class _ThemeSettingsSection extends StatelessWidget {
     String colorName;
     switch (colorEnum) {
       case AppAccentColor.white:
-        displayColor = Colors.white;
-        colorName = 'White';
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        displayColor = isDark ? Colors.white : Colors.black;
+        colorName = isDark ? 'White' : 'Black';
         break;
       case AppAccentColor.aquamarine:
         displayColor = const Color(0xFF38debb);
@@ -1204,6 +1205,7 @@ class _ThemeSettingsSection extends StatelessWidget {
     final themeService = context.watch<ThemeService>();
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
@@ -1289,89 +1291,91 @@ class _ThemeSettingsSection extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Dark Background Style',
-            style: textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+          if (isDark) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Dark Background Style',
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Center(
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: AppBackgroundStyle.values.map((bgStyle) {
-                final isSelected = themeService.backgroundStyle == bgStyle;
-                final primary = themeService.primaryColor;
-                
-                String label;
-                Color previewColor;
-                Gradient? previewGradient;
-                
-                switch (bgStyle) {
-                  case AppBackgroundStyle.midnightNavy:
-                    label = 'Midnight';
-                    previewColor = const Color(0xFF0B121F);
-                    break;
-                  case AppBackgroundStyle.pureBlack:
-                    label = 'Pure Black';
-                    previewColor = Colors.black;
-                    break;
-                  case AppBackgroundStyle.deepCharcoal:
-                    label = 'Charcoal';
-                    previewColor = const Color(0xFF16161A);
-                    break;
-                  case AppBackgroundStyle.auroraGradient:
-                    label = 'Aurora';
-                    previewColor = Colors.transparent;
-                    previewGradient = LinearGradient(
-                      colors: [
-                        const Color(0xFF0B121F),
-                        Color.lerp(const Color(0xFF0B121F), primary, 0.2)!,
-                        Color.lerp(const Color(0xFF070B14), primary, 0.4)!,
-                      ],
-                    );
-                    break;
-                }
-                
-                return FilterChip(
-                  label: Text(label),
-                  selected: isSelected,
-                  onSelected: (_) => themeService.setBackgroundStyle(bgStyle),
-                  backgroundColor: colorScheme.surfaceContainerHighest.withAlpha(80),
-                  selectedColor: primary.withAlpha(40),
-                  labelStyle: textTheme.bodySmall?.copyWith(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? primary : colorScheme.onSurface,
-                  ),
-                  showCheckmark: false,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: isSelected ? primary : colorScheme.outlineVariant.withAlpha(100),
-                      width: 1.5,
+            const SizedBox(height: 14),
+            Center(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: AppBackgroundStyle.values.map((bgStyle) {
+                  final isSelected = themeService.backgroundStyle == bgStyle;
+                  final primary = themeService.primaryColor;
+                  
+                  String label;
+                  Color previewColor;
+                  Gradient? previewGradient;
+                  
+                  switch (bgStyle) {
+                    case AppBackgroundStyle.midnightNavy:
+                      label = 'Midnight';
+                      previewColor = const Color(0xFF0B121F);
+                      break;
+                    case AppBackgroundStyle.pureBlack:
+                      label = 'Pure Black';
+                      previewColor = Colors.black;
+                      break;
+                    case AppBackgroundStyle.deepCharcoal:
+                      label = 'Charcoal';
+                      previewColor = const Color(0xFF16161A);
+                      break;
+                    case AppBackgroundStyle.auroraGradient:
+                      label = 'Aurora';
+                      previewColor = Colors.transparent;
+                      previewGradient = LinearGradient(
+                        colors: [
+                          const Color(0xFF0B121F),
+                          Color.lerp(const Color(0xFF0B121F), primary, 0.2)!,
+                          Color.lerp(const Color(0xFF070B14), primary, 0.4)!,
+                        ],
+                      );
+                      break;
+                  }
+                  
+                  return FilterChip(
+                    label: Text(label),
+                    selected: isSelected,
+                    onSelected: (_) => themeService.setBackgroundStyle(bgStyle),
+                    backgroundColor: colorScheme.surfaceContainerHighest.withAlpha(80),
+                    selectedColor: primary.withAlpha(40),
+                    labelStyle: textTheme.bodySmall?.copyWith(
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? primary : colorScheme.onSurface,
                     ),
-                  ),
-                  avatar: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: previewColor,
-                      gradient: previewGradient,
-                      border: Border.all(
-                        color: Colors.white.withAlpha(80),
-                        width: 1,
+                    showCheckmark: false,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: isSelected ? primary : colorScheme.outlineVariant.withAlpha(100),
+                        width: 1.5,
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                    avatar: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: previewColor,
+                        gradient: previewGradient,
+                        border: Border.all(
+                          color: Colors.white.withAlpha(80),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

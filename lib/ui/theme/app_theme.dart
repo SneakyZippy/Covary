@@ -12,20 +12,34 @@ class AppTheme {
     final textTheme = CovaryDesignSystem.getTextTheme(context);
 
     // Create a color scheme based on the selected primary color.
-    // For dark mode, we inject the specific Midnight Navy backgrounds.
+    // For dark mode, we inject the specific backgrounds based on selected style.
     final isWhiteAccent = primaryColor == Colors.white;
+
+    final Color surfaceColor = isDark
+        ? (backgroundStyle == AppBackgroundStyle.pureBlack
+            ? const Color(0xFF0F0F11)
+            : (backgroundStyle == AppBackgroundStyle.deepCharcoal
+                ? const Color(0xFF1A1A1E)
+                : CovaryDesignSystem.surface))
+        : Colors.white;
 
     ColorScheme colorScheme = isDark
         ? ColorScheme.fromSeed(
             seedColor: isWhiteAccent ? const Color(0xFF94A3B8) : primaryColor,
             brightness: Brightness.dark,
-            surface: CovaryDesignSystem.surface,
+            surface: surfaceColor,
             onSurface: CovaryDesignSystem.onSurface,
             error: CovaryDesignSystem.error,
           )
         : ColorScheme.fromSeed(
             seedColor: isWhiteAccent ? const Color(0xFF64748B) : primaryColor,
             brightness: Brightness.light,
+          ).copyWith(
+            surface: Colors.white,
+            surfaceContainer: Colors.white,
+            surfaceContainerHigh: Colors.white,
+            surfaceContainerHighest: const Color(0xFFE2E8F0),
+            surfaceContainerLow: const Color(0xFFF1F5F9),
           );
 
     if (isWhiteAccent) {
@@ -60,7 +74,7 @@ class AppTheme {
                 : (backgroundStyle == AppBackgroundStyle.deepCharcoal 
                     ? const Color(0xFF16161A) 
                     : CovaryDesignSystem.level0Background)))
-        : colorScheme.surface;
+        : const Color(0xFFF8FAFC);
 
     return ThemeData(
       useMaterial3: true,
@@ -68,9 +82,22 @@ class AppTheme {
       textTheme: textTheme,
       scaffoldBackgroundColor: scaffoldBackgroundColor,
       
+      // App Bars
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
+        titleTextStyle: textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: colorScheme.onSurface,
+        ),
+      ),
+
       // Cards
       cardTheme: CardThemeData(
-        color: isDark ? CovaryDesignSystem.level1Surface : colorScheme.surfaceContainerHighest,
+        color: colorScheme.surfaceContainer,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(CovaryDesignSystem.radiusLg),
@@ -105,7 +132,7 @@ class AppTheme {
       // Inputs
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? CovaryDesignSystem.level0Background : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        fillColor: isDark ? colorScheme.surfaceContainerLow : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(CovaryDesignSystem.radiusMd),
           borderSide: BorderSide(color: colorScheme.outline),
@@ -123,14 +150,14 @@ class AppTheme {
 
       // Navigation Bar
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? CovaryDesignSystem.level1Surface : colorScheme.surface,
+        backgroundColor: colorScheme.surfaceContainer,
         indicatorColor: colorScheme.primary.withValues(alpha: 0.2),
         labelTextStyle: WidgetStateProperty.all(textTheme.labelSmall),
       ),
       
       // Dialogs / Modals
       dialogTheme: DialogThemeData(
-        backgroundColor: isDark ? CovaryDesignSystem.level1Surface : colorScheme.surface,
+        backgroundColor: colorScheme.surfaceContainer,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(CovaryDesignSystem.radiusXl),
           side: isDark

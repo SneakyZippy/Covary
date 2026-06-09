@@ -5,7 +5,6 @@ import 'interaction_screen.dart';
 import 'compliance_screen.dart';
 import 'lagged_trend_screen.dart';
 import 'metric_insights_screen.dart';
-import '../../ui/theme/design_system.dart';
 import '../widgets/help_button.dart';
 
 
@@ -120,7 +119,7 @@ class AnalyticsScreen extends StatelessWidget {
                     title: 'Lagged Trend',
                     description: 'Discover time-delayed correlations between metrics.',
                     icon: Icons.timeline_rounded,
-                    color: CovaryDesignSystem.secondary,
+                    color: colorScheme.secondary,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const LaggedTrendScreen()),

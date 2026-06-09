@@ -74,18 +74,35 @@ class TrackingWindowsScreen extends StatelessWidget {
               key: ValueKey(window.id),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: isEnabled ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.surface.withAlpha(150),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isEnabled ? Theme.of(context).colorScheme.outlineVariant : Theme.of(context).colorScheme.outlineVariant.withAlpha(100),
+                gradient: LinearGradient(
+                  colors: isEnabled
+                      ? [
+                          Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(70),
+                          Theme.of(context).colorScheme.surfaceContainer.withAlpha(40),
+                        ]
+                      : [
+                          Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(30),
+                          Theme.of(context).colorScheme.surfaceContainer.withAlpha(15),
+                        ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                boxShadow: isEnabled ? [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.shadow.withAlpha(10),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ] : null,
+                border: Border.all(
+                  color: isEnabled
+                      ? Theme.of(context).colorScheme.outlineVariant.withAlpha(80)
+                      : Theme.of(context).colorScheme.outlineVariant.withAlpha(40),
+                  width: 1.0,
+                ),
+                boxShadow: isEnabled
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
               ),
               child: ListTile(
                 contentPadding: const EdgeInsets.fromLTRB(4, 8, 16, 8),

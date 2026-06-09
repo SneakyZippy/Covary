@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../../data/models/enums.dart';
-import '../../ui/theme/design_system.dart';
 import '../widgets/help_button.dart';
 
 
@@ -266,7 +265,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         Expanded(
           child: _buildMetricChip(
             label: _secondaryLabel,
-            color: CovaryDesignSystem.secondary,
+            color: colorScheme.secondary,
             hint: '+ Compare',
             isPrimary: false,
             onSelect: (label) {
@@ -331,7 +330,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
   void _showMetricPicker(Color accent, ValueChanged<String?> onSelect, {required bool allowClear}) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: CovaryDesignSystem.level1Surface,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         return SafeArea(
@@ -471,11 +470,11 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     }
 
     final accentA = colorScheme.primary;
-    const accentB = CovaryDesignSystem.secondary;
+    final accentB = colorScheme.secondary;
 
     // Y Axis scaling
-    final bool isCounter = _allMetrics.any((m) => m.label == _primaryLabel && m.inputType == MetricInputType.counter);
-    final bool isSecondaryCounter = isComparing && _allMetrics.any((m) => m.label == _secondaryLabel && m.inputType == MetricInputType.counter);
+    final bool isCounter = _allMetrics.any((m) => m.label == _primaryLabel && (m.inputType == MetricInputType.counter || m.inputType == MetricInputType.numeric));
+    final bool isSecondaryCounter = isComparing && _allMetrics.any((m) => m.label == _secondaryLabel && (m.inputType == MetricInputType.counter || m.inputType == MetricInputType.numeric));
     
     final double minY = isComparing ? 0.0 : (pMinMax.$1 ?? 0.0);
     final double maxY = isComparing ? 1.0 : (pMinMax.$2 ?? (maxA > 0 ? maxA * 1.15 : 1.0));
@@ -495,7 +494,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 20, 16, 12),
       decoration: BoxDecoration(
-        color: CovaryDesignSystem.surfaceContainerHighest.withAlpha(40),
+        color: colorScheme.surfaceContainerHighest.withAlpha(40),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withAlpha(15)),
       ),
@@ -523,7 +522,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                     maxY: maxY,
                     barTouchData: BarTouchData(
                       touchTooltipData: BarTouchTooltipData(
-                        getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
+                        getTooltipColor: (_) => colorScheme.surfaceContainer,
                         getTooltipItem: (group, groupIndex, rod, rodIndex) {
                           final int idx = group.x.toInt();
                           if (idx < 0 || idx >= allKeys.length) return null;
@@ -538,7 +537,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                         },
                       ),
                     ),
-                    titlesData: _buildTitlesData(allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB),
+                    titlesData: _buildTitlesData(colorScheme, allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB),
                     gridData: FlGridData(
                       show: true,
                       horizontalInterval: yInterval,
@@ -576,7 +575,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                       getDrawingHorizontalLine: (_) => FlLine(color: Colors.white.withAlpha(15), strokeWidth: 0.5),
                       drawVerticalLine: false,
                     ),
-                    titlesData: _buildTitlesData(allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB),
+                    titlesData: _buildTitlesData(colorScheme, allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB),
                     borderData: FlBorderData(show: false),
                     lineBarsData: [
                       _lineBar(spotsA, accentA, isFilled: !isComparing, isStep: isCounter),
@@ -584,7 +583,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                     ],
                     lineTouchData: LineTouchData(
                       touchTooltipData: LineTouchTooltipData(
-                        getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
+                        getTooltipColor: (_) => colorScheme.surfaceContainer,
                         getTooltipItems: (spots) {
                           final dynamic key;
                           if (isCircadian) {
@@ -623,6 +622,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
   }
 
   FlTitlesData _buildTitlesData(
+    ColorScheme colorScheme,
     List<dynamic> allKeys,
     bool isCircadian,
     bool isWeekly,
@@ -658,7 +658,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
             final double rawVal = v * (maxB - minB) + minB;
             return Text(
               _formatAxisLabel(_secondaryLabel!, rawVal),
-              style: TextStyle(fontSize: 9, color: CovaryDesignSystem.secondary.withAlpha(180)),
+              style: TextStyle(fontSize: 9, color: colorScheme.secondary.withAlpha(180)),
             );
           },
         ),

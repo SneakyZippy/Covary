@@ -37,11 +37,30 @@ class MetricInputCard extends StatefulWidget {
 class _MetricInputCardState extends State<MetricInputCard> {
   /// The currently selected value.
   String? _selectedValue;
+  late final TextEditingController _textController;
 
   @override
   void initState() {
     super.initState();
     _selectedValue = widget.initialValue;
+    _textController = TextEditingController(text: widget.initialValue ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant MetricInputCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue) {
+      setState(() {
+        _selectedValue = widget.initialValue;
+        _textController.text = widget.initialValue ?? '';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
   }
 
   void _triggerHaptic() {
@@ -161,6 +180,8 @@ class _MetricInputCardState extends State<MetricInputCard> {
         return _buildSliderInput(colorScheme, textTheme, maxValue: 10);
       case MetricInputType.counter:
         return _buildCounterInput(colorScheme, textTheme);
+      case MetricInputType.numeric:
+        return _buildNumericInput(colorScheme, textTheme);
     }
   }
 
@@ -374,6 +395,61 @@ class _MetricInputCardState extends State<MetricInputCard> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Numeric text input with a confirmation checkmark button.
+  Widget _buildNumericInput(ColorScheme colorScheme, TextTheme textTheme) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _textController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              hintText: 'Enter value',
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colorScheme.primary, width: 2),
+              ),
+            ),
+            style: textTheme.bodyLarge,
+            onSubmitted: (value) {
+              if (value.trim().isNotEmpty) {
+                setState(() => _selectedValue = value.trim());
+                _triggerHaptic();
+                _emitChange();
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        IconButton.filled(
+          onPressed: () {
+            final val = _textController.text.trim();
+            if (val.isNotEmpty) {
+              setState(() => _selectedValue = val);
+              _triggerHaptic();
+              _emitChange();
+            }
+          },
+          icon: const Icon(Icons.check_rounded),
+          style: IconButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.all(12),
+          ),
+        ),
+      ],
     );
   }
 

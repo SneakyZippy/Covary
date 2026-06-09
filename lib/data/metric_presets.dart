@@ -28,6 +28,9 @@ class MetricPresets {
   static const String _descSleepQuality =
       "Rate how restorative and restful your sleep was last night from 1 (Extremely Poor/Broken) to 10 (Perfectly Restorative).\n\nGuidelines:\n• Consider how easily you fell asleep, how many times you woke up, and how refreshed you feel this morning.";
 
+  static const String _descManualSteps =
+      "Manually enter your total steps for today.\n\nGuidelines:\n• Check your pedometer, smartwatch, or phone health app at the end of the day.\n• Useful if you do not use passive background sensing or if background sync is disabled.";
+
   static const String _descNapDuration =
       "Did you take a daytime nap today?\n\nGuidelines:\n• Mark 'Yes' if you slept for any duration during the day (excluding overnight sleep).\n• Helps track circadian rhythm adjustments.";
 
@@ -123,6 +126,7 @@ class MetricPresets {
     'core_wellbeing': _descWellbeing,
     'core_anxiety': _descAnxiety,
     'core_sleep_quality': _descSleepQuality,
+    'manual_step_count': _descManualSteps,
     'core_nap_duration': _descNapDuration,
     'core_light_exposure': _descLightExposure,
     'core_meal_count': _descMealCount,
@@ -227,6 +231,17 @@ class MetricPresets {
       emoji: 'bedtime',
       isActivityIndicator: true,
       description: _descSleepQuality,
+    ),
+    MetricDefinition(
+      id: 'manual_step_count',
+      label: 'Step Count (Manual)',
+      category: EventCategory.health,
+      inputType: MetricInputType.numeric,
+      isEnabled: false,
+      windowIds: ['homescreen', 'b7e1f2a3-4c5d-6e7f-8a9b-0c1d2e3f4a5b'],
+      emoji: 'run',
+      isActivityIndicator: true,
+      description: _descManualSteps,
     ),
     MetricDefinition(
       id: 'core_nap_duration',

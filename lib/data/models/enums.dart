@@ -89,9 +89,11 @@ enum MetricInputType {
   /// The UI shows today's running total. Used for frequency tracking
   /// like "Go to the toilet", "Drank a glass of water", etc.
   counter,
+
+  /// Numeric entry: lets the user type a number (e.g. step counts, calorie intakes).
+  numeric,
 }
 
-/// When a metric should be prompted or shown on the home screen.
 enum MetricFrequency {
   /// Show anytime the app is opened.
   anytime,
@@ -132,6 +134,8 @@ extension MetricInputTypeX on MetricInputType {
         return 'Scale 1–10';
       case MetricInputType.counter:
         return 'Counter (Tap)';
+      case MetricInputType.numeric:
+        return 'Numeric (Number)';
     }
   }
 }

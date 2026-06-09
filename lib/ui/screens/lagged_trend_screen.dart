@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
-import '../../ui/theme/design_system.dart';
 import '../widgets/help_button.dart';
 
 
@@ -345,7 +344,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
         Expanded(
           child: _buildMetricChip(
             label: _labelB,
-            color: CovaryDesignSystem.secondary,
+            color: colorScheme.secondary,
             hint: 'Metric B',
             colorScheme: colorScheme,
             textTheme: textTheme,
@@ -406,7 +405,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   void _showMetricPicker(Color accent, ValueChanged<String> onSelect) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: CovaryDesignSystem.level1Surface,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -528,12 +527,12 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     }
 
     final accentA = colorScheme.primary;
-    const accentB = CovaryDesignSystem.secondary;
+    final accentB = colorScheme.secondary;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 20, 16, 12),
       decoration: BoxDecoration(
-        color: CovaryDesignSystem.surfaceContainerHighest.withAlpha(40),
+        color: colorScheme.surfaceContainerHighest.withAlpha(40),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withAlpha(15)),
       ),
@@ -646,7 +645,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                 ],
                 lineTouchData: LineTouchData(
                   touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => CovaryDesignSystem.level1Surface,
+                    getTooltipColor: (_) => colorScheme.surfaceContainer,
                     getTooltipItems: (spots) => spots.map((s) {
                       final color = s.barIndex == 0 ? accentA : accentB;
                       return LineTooltipItem(
@@ -719,7 +718,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: CovaryDesignSystem.surfaceContainerHighest.withAlpha(40),
+        color: colorScheme.surfaceContainerHighest.withAlpha(40),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withAlpha(15)),
       ),
@@ -813,7 +812,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
               ),
               Switch.adaptive(
                 value: _alignLag,
-                activeThumbColor: CovaryDesignSystem.secondary,
+                activeThumbColor: colorScheme.secondary,
                 onChanged: (val) {
                   setState(() {
                     _alignLag = val;
@@ -858,7 +857,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
             gradient: LinearGradient(
               colors: [
                 colorScheme.primary.withAlpha(20),
-                CovaryDesignSystem.surfaceContainerHighest.withAlpha(60),
+                colorScheme.surfaceContainerHighest.withAlpha(60),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -922,7 +921,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
           _autoDetect ? 'OPTIMAL LAG' : 'SELECTED LAG',
           '$_selectedLag $lagUnitLabel',
           _viewMode == LagViewMode.daily ? (_selectedLag / 7.0) : (_selectedLag / 12.0),
-          CovaryDesignSystem.secondary,
+          colorScheme.secondary,
           colorScheme,
           textTheme,
         )),
@@ -937,7 +936,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: CovaryDesignSystem.surfaceContainerHighest.withAlpha(40),
+        color: colorScheme.surfaceContainerHighest.withAlpha(40),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withAlpha(15)),
       ),
@@ -1038,7 +1037,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: CovaryDesignSystem.surfaceContainerHighest.withAlpha(40),
+        color: colorScheme.surfaceContainerHighest.withAlpha(40),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withAlpha(15)),
       ),

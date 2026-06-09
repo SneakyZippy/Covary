@@ -204,7 +204,8 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
   bool get _effectiveReliable =>
       _retroReliableOverride ??
       (_selectedInputType == MetricInputType.yesNo ||
-          _selectedInputType == MetricInputType.counter);
+          _selectedInputType == MetricInputType.counter ||
+          _selectedInputType == MetricInputType.numeric);
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -328,7 +329,8 @@ class _EditMetricDialogState extends State<EditMetricDialog> {
                 isOverridden: _retroReliableOverride != null,
                 onChanged: (newValue) => setState(() {
                   final autoValue = _selectedInputType == MetricInputType.yesNo ||
-                      _selectedInputType == MetricInputType.counter;
+                      _selectedInputType == MetricInputType.counter ||
+                      _selectedInputType == MetricInputType.numeric;
                   _retroReliableOverride = newValue == autoValue ? null : newValue;
                 }),
                 onReset: () => setState(() => _retroReliableOverride = null),
@@ -439,7 +441,8 @@ class _AddMetricDialogState extends State<AddMetricDialog> {
   bool get _effectiveReliable =>
       _retroReliableOverride ??
       (_selectedInputType == MetricInputType.yesNo ||
-          _selectedInputType == MetricInputType.counter);
+          _selectedInputType == MetricInputType.counter ||
+          _selectedInputType == MetricInputType.numeric);
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -565,7 +568,8 @@ class _AddMetricDialogState extends State<AddMetricDialog> {
                 isOverridden: _retroReliableOverride != null,
                 onChanged: (newValue) => setState(() {
                   final autoValue = _selectedInputType == MetricInputType.yesNo ||
-                      _selectedInputType == MetricInputType.counter;
+                      _selectedInputType == MetricInputType.counter ||
+                      _selectedInputType == MetricInputType.numeric;
                   _retroReliableOverride = newValue == autoValue ? null : newValue;
                 }),
                 onReset: () => setState(() => _retroReliableOverride = null),

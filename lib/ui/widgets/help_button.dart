@@ -375,9 +375,9 @@ class AppBarHelpButton extends StatelessWidget {
         expand: false,
         builder: (context, scrollController) => Container(
           decoration: BoxDecoration(
-            color: CovaryDesignSystem.level0Background,
+            color: colorScheme.surfaceContainer,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(CovaryDesignSystem.radiusXl)),
-            border: Border.all(color: CovaryDesignSystem.innerBorderColor, width: 1.5),
+            border: Border.all(color: colorScheme.outlineVariant.withAlpha(80), width: 1.5),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -412,7 +412,7 @@ class AppBarHelpButton extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Divider(color: CovaryDesignSystem.innerBorderColor),
+                Divider(color: colorScheme.outlineVariant.withAlpha(80)),
                 const SizedBox(height: 16),
                 ...content.sections.map((section) => Padding(
                   padding: const EdgeInsets.only(bottom: 24.0),

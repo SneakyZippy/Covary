@@ -48,7 +48,6 @@ class _RawDataScreenState extends State<RawDataScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       body: StreamBuilder<List<Event>>(
         stream: _eventsStream,
         builder: (context, snapshot) {
@@ -99,7 +98,7 @@ class _RawDataScreenState extends State<RawDataScreen> {
                     )
                   : const Text('Detailed Records'),
                 centerTitle: !_isSearching,
-                backgroundColor: colorScheme.surface,
+                backgroundColor: Colors.transparent,
                 scrolledUnderElevation: 0,
                 actions: [
                   IconButton(
