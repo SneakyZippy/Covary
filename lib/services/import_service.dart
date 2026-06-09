@@ -30,7 +30,7 @@ class ImportService {
 
   /// Opens a file picker and imports data from the selected JSON file.
   /// Returns a summary message of the import results.
-  Future<String> importData() async {
+  Future<String> importData({VoidCallback? onImportStart}) async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -39,6 +39,10 @@ class ImportService {
 
       if (result == null || result.files.isEmpty) {
         return 'Import cancelled.';
+      }
+
+      if (onImportStart != null) {
+        onImportStart();
       }
 
       final String content;

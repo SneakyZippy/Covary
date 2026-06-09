@@ -678,7 +678,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: 'Merge external Covary records',
                     onTap: () async {
                       final importService = context.read<ImportService>();
-                      final result = await importService.importData();
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      bool dialogShown = false;
+                      final result = await importService.importData(
+                        onImportStart: () {
+                          dialogShown = true;
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            useRootNavigator: true,
+                            builder: (ctx) => const _ImportLoadingDialog(),
+                          );
+                        },
+                      );
+                      if (dialogShown) {
+                        navigator.pop();
+                      }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -2512,6 +2527,70 @@ class _ThemeSegmentPicker extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ImportLoadingDialog extends StatelessWidget {
+  const _ImportLoadingDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 72,
+                height: 72,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                ),
+              ),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.upload_rounded,
+                  color: colorScheme.onPrimaryContainer,
+                  size: 26,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Importing Data',
+            style: textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please do not close the app. We are merging and restoring your database records...',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
