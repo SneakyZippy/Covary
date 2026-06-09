@@ -135,11 +135,12 @@ Because Covary measures passive habits like screen time and steps, it requires s
 2. **App Usage (UsageStats):** Used to compute daily Screen Time. 
    - *Android 13+ Note:* Android may gray out this toggle. To fix this, go to your phone's *Settings ➔ Apps ➔ Covary ➔ tap the three dots (⋮) in the top-right ➔ select "Allow restricted settings"*. Then return to the app's permission screen and flip the toggle.
 3. **Battery Optimization:** Turn off battery optimization for Covary. This ensures the 4-hour background sync task can fetch steps and screen time reliably.
+4. **Manual Step Count Fallback:** If you prefer not to grant Health Connect permissions, or if background sync is disabled or unsupported, you can enable the **Step Count (Manual)** metric under **Settings ➔ Tracked Metrics**. This allows you to manually log your daily steps.
 
 ### 🍎 iOS Setup
 1. **PWA-Only Support:** On iOS, Covary is supported exclusively as a Progressive Web App (PWA) installed from Safari.
 2. **Platform Restrictions:** Because PWAs on iOS do not have access to native background sensing APIs (like HealthKit or screen-time tracking), automatic fetching of steps, sleep, and app usage is disabled.
-3. **Manual Logging & Imports:** You can track these categories manually or import standardized data files in the app settings to backfill them.
+3. **Manual Logging & Imports:** You can track these categories manually by enabling the **Step Count (Manual)** metric in **Settings ➔ Tracked Metrics** or import standardized data files in the app settings to backfill them.
 
 ---
 

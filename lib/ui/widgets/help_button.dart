@@ -256,6 +256,11 @@ class AppBarHelpButton extends StatelessWidget {
           body: 'On iOS, the app runs as a Progressive Web App (PWA). Due to Apple browser sandbox rules, background steps and usage scans are disabled.',
           icon: Icons.apple_rounded,
         ),
+        HelpSection(
+          title: 'Manual Steps Alternative',
+          body: 'If you prefer not to grant health permissions or are running on iOS/Web, enable "Step Count (Manual)" in Settings to log your steps manually.',
+          icon: Icons.edit_note_rounded,
+        ),
       ],
     ),
     'metrics': HelpContent(
