@@ -254,13 +254,12 @@ class _QuickTrackButtonState extends State<QuickTrackButton> {
 
   void _showInputModal(BuildContext context, {DateTime? customTime}) {
     final openedAt = DateTime.now();
+    DateTime selectedTime = customTime ?? DateTime.now();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        DateTime selectedTime = customTime ?? DateTime.now();
-
         return StatefulBuilder(
           builder: (ctx, setModalState) {
             final now = DateTime.now();
