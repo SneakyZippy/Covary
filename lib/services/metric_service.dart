@@ -521,6 +521,13 @@ class MetricService extends ChangeNotifier {
         if (indexB == -1) return -1;
         return indexA.compareTo(indexB);
       });
+    } else {
+      // Fallback: sort tracking windows chronologically by start time
+      _allWindows.sort((a, b) {
+        final valA = a.startHour * 60 + a.startMinute;
+        final valB = b.startHour * 60 + b.startMinute;
+        return valA.compareTo(valB);
+      });
     }
 
     // --- All metrics from Drift ---
@@ -557,6 +564,17 @@ class MetricService extends ChangeNotifier {
       _allMetrics.sort((a, b) {
         int indexA = savedOrder.indexOf(a.id);
         int indexB = savedOrder.indexOf(b.id);
+        if (indexA == -1 && indexB == -1) return 0;
+        if (indexA == -1) return 1;
+        if (indexB == -1) return -1;
+        return indexA.compareTo(indexB);
+      });
+    } else {
+      // Fallback: sort metrics by their default template preset order, putting custom user metrics at the end
+      final templateIds = templates.map((t) => t.id).toList();
+      _allMetrics.sort((a, b) {
+        int indexA = templateIds.indexOf(a.id);
+        int indexB = templateIds.indexOf(b.id);
         if (indexA == -1 && indexB == -1) return 0;
         if (indexA == -1) return 1;
         if (indexB == -1) return -1;
