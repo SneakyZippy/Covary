@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// A simple service to check for updates against a remote JSON file.
 /// 
@@ -18,6 +19,17 @@ class UpdateService {
 
   /// Checks if an update is available and shows a dialog if so.
   static Future<void> checkAndPrompt(BuildContext context, {bool silent = true}) async {
+    if (kIsWeb) {
+      if (!silent && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PWA updates are managed automatically by your browser. Refresh the page to check for updates.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
     try {
       final updateInfo = await fetchUpdateInfo();
       if (updateInfo == null) return;
