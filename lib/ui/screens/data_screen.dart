@@ -16,6 +16,7 @@ import '../../services/app_usage_service.dart';
 import '../widgets/data_widgets.dart';
 import '../widgets/integrity_dashboard.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
+import '../../services/pwa_push_interop.dart';
 
 /// Screen showing high-level data insights and access to raw logs.
 class DataScreen extends StatefulWidget {
@@ -62,7 +63,9 @@ class _DataScreenState extends State<DataScreen> {
     
     final h = await health.hasPermissions();
     final u = await usage.isPermissionGranted();
-    final n = kIsWeb ? false : await AwesomeNotifications().isNotificationAllowed();
+    final n = kIsWeb
+        ? PwaPushInterop.getPermissionStatus() == 'granted'
+        : await AwesomeNotifications().isNotificationAllowed();
 
     if (mounted) {
       setState(() {
