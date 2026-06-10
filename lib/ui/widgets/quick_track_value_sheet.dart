@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clock/clock.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/metric_definition.dart';
 import 'metric_icon.dart';
@@ -39,7 +40,7 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime.now();
+    _selectedDate = clock.now();
     // Clamp initial value to min/max just in case
     _currentValue = widget.initialValue.clamp(widget.min, widget.max);
   }
@@ -66,52 +67,50 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
   }
 
   DateTime _getSelectedDateTime() {
-    final now = DateTime.now();
-    DateTime baseTime;
+    final now = clock.now();
     switch (_selectedTimeIndex) {
       case 1:
-        baseTime = now.subtract(const Duration(minutes: 15));
-        break;
+        return now.subtract(const Duration(minutes: 15));
       case 2:
-        baseTime = now.subtract(const Duration(minutes: 30));
-        break;
+        return now.subtract(const Duration(minutes: 30));
       case 3:
-        baseTime = now.subtract(const Duration(hours: 1));
-        break;
+        return now.subtract(const Duration(hours: 1));
       case 4:
-        baseTime = _customTime ?? now;
-        break;
+        final custom = _customTime ?? now;
+        return DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          custom.hour,
+          custom.minute,
+          custom.second,
+        );
       case 0:
       default:
-        baseTime = now;
-        break;
+        return now;
     }
-
-    return DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      baseTime.hour,
-      baseTime.minute,
-      baseTime.second,
-    );
   }
 
   Future<void> _selectCustomTime() async {
-    final now = DateTime.now();
+    final currentDateTime = _getSelectedDateTime();
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(_customTime ?? now),
+      initialTime: TimeOfDay.fromDateTime(currentDateTime),
     );
 
     if (time != null) {
       setState(() {
         _customTime = DateTime(
-          now.year,
-          now.month,
-          now.day,
+          currentDateTime.year,
+          currentDateTime.month,
+          currentDateTime.day,
           time.hour,
           time.minute,
+        );
+        _selectedDate = DateTime(
+          currentDateTime.year,
+          currentDateTime.month,
+          currentDateTime.day,
         );
         _selectedTimeIndex = 4;
       });
@@ -119,9 +118,10 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
   }
 
   Future<void> _selectCustomDate() async {
+    final currentDateTime = _getSelectedDateTime();
     final date = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: currentDateTime,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
@@ -129,6 +129,8 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
     if (date != null) {
       setState(() {
         _selectedDate = DateTime(date.year, date.month, date.day);
+        _customTime = currentDateTime;
+        _selectedTimeIndex = 4;
       });
     }
   }
@@ -410,7 +412,7 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
           // Confirm button
           Builder(
             builder: (context) {
-              final today = DateTime.now();
+              final today = clock.now();
               final isSameDay = displayDateTime.year == today.year &&
                                 displayDateTime.month == today.month &&
                                 displayDateTime.day == today.day;
@@ -460,7 +462,7 @@ class _QuickTrackValueSheetState extends State<QuickTrackValueSheet> {
   }
 
   Widget _buildInlinePickerRow(ColorScheme colorScheme, TextTheme textTheme, DateTime displayDateTime) {
-    final now = DateTime.now();
+    final now = clock.now();
     final isToday = displayDateTime.year == now.year &&
                     displayDateTime.month == now.month &&
                     displayDateTime.day == now.day;
