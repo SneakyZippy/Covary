@@ -114,6 +114,11 @@ class AppBarHelpButton extends StatelessWidget {
           body: 'For statistical relevance, the matrix requires at least 14 days of logged entries across overlapping metrics.',
           icon: Icons.warning_amber_rounded,
         ),
+        HelpSection(
+          title: 'Crosshair Tracing & Details',
+          body: '• First Click: Highlights the row and column crosshairs to easily trace metric labels.\n• Second Click (on highlighted cell): Opens the detailed correlation chart bottom sheet.',
+          icon: Icons.touch_app_rounded,
+        ),
       ],
     ),
     'lagged_trend': HelpContent(

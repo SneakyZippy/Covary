@@ -33,6 +33,10 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   double? _spotlightPValue;
   int? _spotlightN;
   bool _dismissedSpotlight = false;
+  
+  // Interactive crosshair highlighting
+  String? _highlightedRowId;
+  String? _highlightedColId;
 
   // "Virtual" metrics for passive sensing data that don't have definitions in MetricService
   static const List<MetricDefinition> _passiveMetrics = [
@@ -461,6 +465,8 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     double height,
     TextTheme textTheme,
   ) {
+    final isHighlighted = m.id == _highlightedColId;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: width,
       height: height,
@@ -474,33 +480,54 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
           child: Transform.rotate(
             angle: -0.65,
             alignment: Alignment.bottomLeft,
-            child: Container(
-              width: 140,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(12),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withAlpha(15)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildEmoji(m.emoji, 14, color: Colors.white.withAlpha(220)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      _displayLabel(m),
-                      style: textTheme.labelSmall?.copyWith(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        color: Colors.white.withAlpha(220),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                child: Container(
+                  width: 140,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isHighlighted 
+                        ? colorScheme.primary.withAlpha(45) 
+                        : Colors.white.withAlpha(12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isHighlighted 
+                          ? colorScheme.primary.withAlpha(150) 
+                          : Colors.white.withAlpha(15),
+                      width: isHighlighted ? 1.5 : 1.0,
                     ),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildEmoji(
+                        m.emoji, 
+                        14, 
+                        color: isHighlighted 
+                            ? colorScheme.primary 
+                            : Colors.white.withAlpha(220),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _displayLabel(m),
+                          style: textTheme.labelSmall?.copyWith(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: isHighlighted 
+                                ? colorScheme.primary 
+                                : Colors.white.withAlpha(220),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -515,6 +542,8 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     double height,
     TextTheme textTheme,
   ) {
+    final isHighlighted = m.id == _highlightedRowId;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: width,
       height: height,
@@ -530,7 +559,9 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
               style: textTheme.labelSmall?.copyWith(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: Colors.white.withAlpha(220),
+                color: isHighlighted 
+                    ? colorScheme.primary 
+                    : Colors.white.withAlpha(220),
                 letterSpacing: 0.5,
               ),
               maxLines: 2,
@@ -541,11 +572,23 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(8),
+              color: isHighlighted 
+                  ? colorScheme.primary.withAlpha(30)
+                  : Colors.white.withAlpha(8),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withAlpha(10)),
+              border: Border.all(
+                color: isHighlighted 
+                    ? colorScheme.primary.withAlpha(80)
+                    : Colors.white.withAlpha(10),
+              ),
             ),
-            child: _buildEmoji(m.emoji, 14, color: Colors.white.withAlpha(220)),
+            child: _buildEmoji(
+              m.emoji, 
+              14, 
+              color: isHighlighted 
+                  ? colorScheme.primary 
+                  : Colors.white.withAlpha(220),
+            ),
           ),
         ],
       ),
@@ -573,12 +616,18 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     MetricDefinition colMetric, {
     int delayIndex = 0,
   }) {
+    final bool isHighlightedRow = rowMetric.id == _highlightedRowId;
+    final bool isHighlightedCol = colMetric.id == _highlightedColId;
+    final bool isHighlightedCell = isHighlightedRow && isHighlightedCol;
+    final bool isInCrosshair = isHighlightedRow || isHighlightedCol;
+    final bool isDiagonal = rowMetric.id == colMetric.id;
+
     Color cellColor = Colors.white.withAlpha(5);
-    String text = '';
 
     bool hasData = correlation != null;
-    if (hasData) {
-      text = correlation.abs() > 0.05 ? correlation.toStringAsFixed(2) : '0';
+    if (isDiagonal) {
+      cellColor = Colors.white.withAlpha(8);
+    } else if (hasData) {
       if (correlation > 0.05) {
         cellColor = colorScheme.primary.withValues(
           alpha: (0.15 + (0.85 * correlation)).clamp(0.15, 1.0),
@@ -589,14 +638,122 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
         );
       } else {
         cellColor = Colors.white.withValues(alpha: 0.04);
-        text = '·';
       }
     } else {
-      text = '·';
+      // Empty/no data case
     }
 
-    final bool isStrong = hasData && correlation.abs() > 0.6;
-    final bool isVeryStrong = hasData && correlation.abs() > 0.85;
+    // Blend in crosshair overlay color
+    Color finalCellColor = cellColor;
+    if (isInCrosshair) {
+      finalCellColor = Color.alphaBlend(
+        colorScheme.primary.withAlpha(isHighlightedCell ? 45 : 20),
+        cellColor,
+      );
+    }
+
+    final bool isStrong = !isDiagonal && hasData && correlation.abs() > 0.6;
+    final bool isVeryStrong = !isDiagonal && hasData && correlation.abs() > 0.85;
+
+    // Premium Cell Glow
+    List<BoxShadow>? shadows;
+    if (isVeryStrong) {
+      shadows = [
+        BoxShadow(
+          color: finalCellColor.withValues(alpha: 0.45),
+          blurRadius: 12,
+          spreadRadius: -1,
+          offset: const Offset(0, 4),
+        ),
+      ];
+    } else if (isStrong) {
+      shadows = [
+        BoxShadow(
+          color: finalCellColor.withValues(alpha: 0.3),
+          blurRadius: 8,
+          spreadRadius: -1,
+          offset: const Offset(0, 2),
+        ),
+      ];
+    }
+
+    // Highlight border behavior
+    final Border cellBorder = Border.all(
+      color: isHighlightedCell
+          ? Colors.white
+          : isStrong
+              ? Colors.white.withValues(alpha: 0.45)
+              : isInCrosshair
+                  ? colorScheme.primary.withAlpha(120)
+                  : Colors.white.withValues(alpha: 0.05),
+      width: isHighlightedCell 
+          ? 2.0 
+          : (isStrong || isInCrosshair) 
+              ? 1.5 
+              : 0.5,
+    );
+
+    // Build visual child (Arrows or Diagonal Painter)
+    Widget cellChild;
+    if (isDiagonal) {
+      cellChild = CustomPaint(
+        size: Size.infinite,
+        painter: _DiagonalLinePainter(
+          color: isInCrosshair 
+              ? colorScheme.primary.withAlpha(150)
+              : Colors.white.withAlpha(35),
+        ),
+      );
+    } else if (!hasData || correlation.abs() <= 0.05) {
+      cellChild = Center(
+        child: Text(
+          '·',
+          style: textTheme.labelLarge?.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: Colors.white.withAlpha(100),
+          ),
+        ),
+      );
+    } else {
+      final bool isPositive = correlation > 0;
+      final String arrow = isPositive ? '▲' : '▼';
+      final double absVal = correlation.abs();
+      final String valText = absVal > 0.05 ? absVal.toStringAsFixed(2) : '0';
+
+      cellChild = Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              arrow,
+              style: TextStyle(
+                fontSize: 7,
+                fontWeight: FontWeight.w900,
+                color: isStrong
+                    ? Colors.white
+                    : (isPositive ? colorScheme.primary : colorScheme.secondaryContainer),
+              ),
+            ),
+            const SizedBox(width: 1.5),
+            Text(
+              valText,
+              style: textTheme.labelLarge?.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: isStrong
+                    ? (isPositive
+                          ? CovaryDesignSystem.onPrimary
+                          : Colors.white)
+                    : Colors.white.withAlpha(200),
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -610,18 +767,33 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       },
       child: GestureDetector(
         onTap: () {
-          if (correlation != null) {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => _CorrelationDetailsSheet(
-                rowMetric: rowMetric,
-                colMetric: colMetric,
-                correlation: correlation,
-                lagDays: _lagDays,
-              ),
-            );
+          if (_highlightedRowId == rowMetric.id && _highlightedColId == colMetric.id) {
+            // Already highlighted! Second tap opens sheet if it has data.
+            if (correlation != null) {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => _CorrelationDetailsSheet(
+                  rowMetric: rowMetric,
+                  colMetric: colMetric,
+                  correlation: correlation,
+                  lagDays: _lagDays,
+                ),
+              );
+            } else {
+              // Toggle highlight off on empty cell
+              setState(() {
+                _highlightedRowId = null;
+                _highlightedColId = null;
+              });
+            }
+          } else {
+            // Highlight the cell and trace crosshairs
+            setState(() {
+              _highlightedRowId = rowMetric.id;
+              _highlightedColId = colMetric.id;
+            });
           }
         },
         child: Container(
@@ -629,40 +801,12 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
           height: size - 6,
           margin: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: cellColor,
+            color: finalCellColor,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isStrong
-                  ? Colors.white.withValues(alpha: 0.3)
-                  : Colors.white.withValues(alpha: 0.05),
-              width: isStrong ? 1.0 : 0.5,
-            ),
-            boxShadow: isVeryStrong
-                ? [
-                    BoxShadow(
-                      color: cellColor.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      spreadRadius: -2,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
+            border: cellBorder,
+            boxShadow: shadows,
           ),
-          child: Center(
-            child: Text(
-              text,
-              style: textTheme.labelLarge?.copyWith(
-                fontSize: text == '·' ? 16 : 11,
-                fontWeight: FontWeight.w800,
-                color: isStrong
-                    ? (correlation > 0
-                          ? CovaryDesignSystem.onPrimary
-                          : Colors.white)
-                    : Colors.white.withAlpha(200),
-                letterSpacing: 0,
-              ),
-            ),
-          ),
+          child: cellChild,
         ),
       ),
     );
@@ -1510,4 +1654,21 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
       ],
     );
   }
+}
+
+class _DiagonalLinePainter extends CustomPainter {
+  final Color color;
+  _DiagonalLinePainter({required this.color});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(const Offset(0, 0), Offset(size.width, size.height), paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
