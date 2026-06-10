@@ -28,6 +28,8 @@ import 'onboarding_screen.dart';
 import 'meal_reminders_screen.dart';
 import 'raw_data_screen.dart';
 import '../widgets/help_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/weather_location_bottom_sheet.dart';
 
 
 /// Settings screen for managing profile, notifications, and data.
@@ -40,6 +42,30 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   int _devTapCount = 0;
+  SharedPreferences? _prefs;
+  bool _weatherEnabled = true;
+  String _weatherLocation = 'Automatic (Detecting...)';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _prefs = prefs;
+      _weatherEnabled = prefs.getBool('weather_enabled') ?? true;
+      final name = prefs.getString('weather_location_name');
+      final isManual = prefs.getBool('weather_use_manual_location') ?? false;
+      if (name != null) {
+        _weatherLocation = isManual ? 'Manual: $name' : 'Automatic: $name';
+      } else {
+        _weatherLocation = 'Automatic (Detecting on next sync)';
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -420,6 +446,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                     },
                   ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
+                  ),
+                  _SettingsSwitchTile(
+                    leading: Icon(Icons.cloudy_snowing, color: colorScheme.primary, size: 20),
+                    title: 'Track Weather & Environment',
+                    subtitle: 'Record daily rain, sun, and wind metrics from Open-Meteo',
+                    value: _weatherEnabled,
+                    onChanged: (bool value) async {
+                      if (_prefs != null) {
+                        await _prefs!.setBool('weather_enabled', value);
+                        setState(() {
+                          _weatherEnabled = value;
+                        });
+                      }
+                    },
+                  ),
+                  if (_weatherEnabled) ...[
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      height: 1,
+                      color: colorScheme.outlineVariant.withAlpha(80),
+                    ),
+                    _SettingsTile(
+                      leading: Icon(Icons.location_on_rounded, color: colorScheme.primary, size: 20),
+                      title: 'Weather Location',
+                      subtitle: _weatherLocation,
+                      onTap: () async {
+                        final updated = await showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const WeatherLocationBottomSheet(),
+                        );
+                        if (updated == true) {
+                          _loadPrefs();
+                        }
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),

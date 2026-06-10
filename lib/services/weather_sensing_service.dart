@@ -28,12 +28,18 @@ class WeatherSensingService {
       final prefs = await SharedPreferences.getInstance();
 
       // 1. Resolve Location Coordinates (Cached or GeoIP)
+      final bool useManual = prefs.getBool('weather_use_manual_location') ?? false;
       double? lat = prefs.getDouble('weather_lat');
       double? lon = prefs.getDouble('weather_lon');
       String? locationName = prefs.getString('weather_location_name');
+      final int lastLookup = prefs.getInt('weather_last_geoip_lookup_time') ?? 0;
+      final int nowMillis = DateTime.now().millisecondsSinceEpoch;
 
-      if (lat == null || lon == null) {
-        debugPrint('[WeatherSensingService] No coordinates cached. Fetching IP location...');
+      final bool needsGeoIpLookup = !useManual && 
+          (lat == null || lon == null || (nowMillis - lastLookup > 24 * 60 * 60 * 1000));
+
+      if (needsGeoIpLookup) {
+        debugPrint('[WeatherSensingService] Fetching IP location (Automatic mode)...');
         try {
           final ipResponse = await http
               .get(Uri.parse('http://ip-api.com/json/'))
@@ -53,6 +59,7 @@ class WeatherSensingService {
                 final parts = [city, region, country].where((s) => s.isNotEmpty).join(', ');
                 locationName = parts.isNotEmpty ? parts : 'Unknown';
                 await prefs.setString('weather_location_name', locationName);
+                await prefs.setInt('weather_last_geoip_lookup_time', nowMillis);
 
                 debugPrint('[WeatherSensingService] IP Geolocation Success: Lat=$lat, Lon=$lon ($locationName)');
               }

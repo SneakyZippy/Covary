@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:health/health.dart';
@@ -117,8 +118,14 @@ class PassiveSensingService {
 
     // Weather Sync (Passive environmental telemetry)
     try {
-      final weather = WeatherSensingService(eventRepo: _eventRepo);
-      await weather.syncWeather(date, sessionId: healthSessionId);
+      final prefs = await SharedPreferences.getInstance();
+      final weatherEnabled = prefs.getBool('weather_enabled') ?? true;
+      if (weatherEnabled) {
+        final weather = WeatherSensingService(eventRepo: _eventRepo);
+        await weather.syncWeather(date, sessionId: healthSessionId);
+      } else {
+        debugPrint('[PassiveSensingService] Weather sync skipped (disabled by user).');
+      }
     } catch (e) {
       debugPrint('[PassiveSensingService] Weather sync error: $e');
     }
