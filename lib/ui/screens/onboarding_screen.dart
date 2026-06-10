@@ -257,7 +257,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ];
 
     final isWebIos = kIsWeb && Theme.of(context).platform == TargetPlatform.iOS;
-    final safeAreaMin = isWebIos
+    final padding = MediaQuery.of(context).padding;
+    final hasNativePadding = padding.top > 0 || padding.bottom > 0;
+    final safeAreaMin = (isWebIos && !hasNativePadding)
         ? const EdgeInsets.only(top: 50.0, bottom: 36.0)
         : EdgeInsets.zero;
 
