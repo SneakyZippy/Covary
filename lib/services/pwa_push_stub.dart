@@ -30,4 +30,6 @@ class PwaPushInterop {
   static Future<bool> clearQueuedEvents() async {
     return false;
   }
+
+  static Future<void> hardRefresh() async {}
 }

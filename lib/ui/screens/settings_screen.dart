@@ -16,6 +16,7 @@ import '../../services/update_service.dart';
 import '../../services/import_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/pwa_push_interop.dart';
 import 'package:flutter/services.dart';
 import '../widgets/sync_summary_dialog.dart';
 import '../widgets/metric_icon.dart';
@@ -874,6 +875,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       });
                     },
                   ),
+                  if (kIsWeb) ...[
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      height: 1,
+                      color: colorScheme.outlineVariant.withAlpha(80),
+                    ),
+                    _SettingsTile(
+                      leading: Icon(Icons.cached_rounded, color: colorScheme.primary, size: 20),
+                      title: 'Force Reload (Hard Refresh)',
+                      subtitle: 'Clears PWA cache & reloads to apply updates',
+                      onTap: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Hard Refresh App?'),
+                            content: const Text(
+                              'This will clear your local PWA browser caches and force reload the latest app build from the server. Your settings and tracked events will not be lost.',
+                              textAlign: TextAlign.center,
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Reload Now'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await PwaPushInterop.hardRefresh();
+                        }
+                      },
+                    ),
+                  ],
                   if (profileService.isDeveloperMode) ...[
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 20),

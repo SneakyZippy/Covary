@@ -1,5 +1,6 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, uri_does_not_exist
+// ignore_for_file: avoid_web_libraries_in_flutter, uri_does_not_exist, deprecated_member_use
 import 'dart:async';
+import 'dart:html' as html;
 import 'dart:js_util' as js_util;
 import 'package:flutter/foundation.dart';
 import 'package:js/js.dart';
@@ -101,5 +102,19 @@ class PwaPushInterop {
       debugPrint('[PwaPushInterop] clearQueuedEvents failed: $e');
       return false;
     }
+  }
+
+  static Future<void> hardRefresh() async {
+    try {
+      final cacheNames = await html.window.caches?.keys();
+      if (cacheNames != null) {
+        for (final name in cacheNames) {
+          await html.window.caches?.delete(name.toString());
+        }
+      }
+    } catch (e) {
+      debugPrint('[PwaPushInterop] Failed to clear cache: $e');
+    }
+    html.window.location.reload();
   }
 }
