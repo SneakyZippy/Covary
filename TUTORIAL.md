@@ -93,7 +93,7 @@ Tapping the **Streak & Log Counts** section at the top of the Home Screen naviga
 
 ### 🕒 Interactive Today's Timeline
 At the bottom of the home screen, you will find a chronological list of all logs recorded today.
-- **Visual Nodes:** Each log has a colored circle indicating its category (e.g., Blue for Mood, Green for Behavior, Ruby for Health, Coral for Nutrition).
+- **Visual Nodes:** Each log has a colored circle indicating its category (e.g., Mood, Behavior, Health, Nutrition).
 - **Tap to Expand:** Tapping any log in the timeline expands a card detailing its properties:
   - **Category:** The high-level research domain.
   - **Source:** How the log was initiated (`Manual` vs. `Notification` vs. `System`).
@@ -128,7 +128,7 @@ To prevent prompt annoyance:
 
 ## 5. Research Permissions (Platform Setup)
 
-Because Covary measures passive habits like screen time and steps, it requires system-level integrations. If permissions are missing, a red **"Research Data Paused"** banner appears on the Home Screen. Tap it to open the **Permission Shield Screen**.
+Because Covary measures passive habits like screen time and steps, it requires system-level integrations. If permissions are missing, a **"Research Data Paused"** banner appears on the Home Screen. Tap it to open the **Permission Shield Screen**.
 
 ### 🤖 Android Setup
 1. **Health Connect:** Grant Health Connect permissions so Covary can pull your daily Step Count and Sleep Duration.

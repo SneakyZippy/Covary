@@ -24,7 +24,7 @@ The engine uses the **Spearman Rank Correlation Coefficient**.
 Users can apply a "Time Lag" slider from 0 to 7 days. If a lag of 2 days is set, the engine correlates Metric A on Day *T* with Metric B on Day *T+2*. This helps identify predictive behaviors (e.g., "Does exercising today affect my mood two days later?").
 
 ### Visualization
-*   **Color Mapping**: Positive correlations are shaded **Cyan**, while negative correlations are **Orange**. 
+*   **Color Mapping**: Positive correlations are shaded with the primary theme color, while negative correlations are shaded with the secondary theme/container color. 
 *   **Intensity**: The opacity of the cell color scales dynamically with the absolute magnitude of the correlation ($|r|$). Stronger correlations glow brighter.
 *   **Filtering**: Correlations between -0.05 and 0.05 are considered negligible and are rendered as a simple dot (`·`) to reduce visual noise.
 *   **Layout**: The grid uses a slanted header design to fit long metric names (like "ENTERTAINMENT") in a compact horizontal space.

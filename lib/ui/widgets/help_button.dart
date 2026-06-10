@@ -96,7 +96,7 @@ class AppBarHelpButton extends StatelessWidget {
       sections: [
         HelpSection(
           title: 'What is Correlation?',
-          body: 'Measures how two metrics move together. A value near +1.0 (blue) means they rise together; -1.0 (ruby) means when one rises, the other drops.',
+          body: 'Measures how two metrics move together. A value near +1.0 means they rise together; -1.0 means when one rises, the other drops.',
           icon: Icons.grid_view_rounded,
         ),
         HelpSection(
