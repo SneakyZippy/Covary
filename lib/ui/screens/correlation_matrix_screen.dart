@@ -10,6 +10,7 @@ import '../../data/models/enums.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../ui/theme/design_system.dart';
 import '../widgets/help_button.dart';
+import '../widgets/metric_icon.dart';
 
 
 class CorrelationMatrixScreen extends StatefulWidget {
@@ -41,7 +42,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       category: EventCategory.appUsage,
       inputType: MetricInputType.counter,
       isEnabled: true,
-      emoji: 'social_usage',
+      emoji: 'social',
     ),
     MetricDefinition(
       id: 'passive_total_usage',
@@ -49,7 +50,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       category: EventCategory.appUsage,
       inputType: MetricInputType.counter,
       isEnabled: true,
-      emoji: 'total_usage',
+      emoji: 'screen_time',
     ),
     MetricDefinition(
       id: 'passive_entertainment_usage',
@@ -57,7 +58,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       category: EventCategory.appUsage,
       inputType: MetricInputType.counter,
       isEnabled: true,
-      emoji: 'entertainment_usage',
+      emoji: 'entertainment',
     ),
     MetricDefinition(
       id: 'passive_sleep',
@@ -89,7 +90,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       category: EventCategory.health,
       inputType: MetricInputType.counter,
       isEnabled: true,
-      emoji: 'star',
+      emoji: 'midpoint',
     ),
     MetricDefinition(
       id: 'passive_steps',
@@ -484,7 +485,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildEmoji(m.emoji, 14),
+                  _buildEmoji(m.emoji, 14, color: Colors.white.withAlpha(220)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -544,7 +545,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withAlpha(10)),
             ),
-            child: _buildEmoji(m.emoji, 14),
+            child: _buildEmoji(m.emoji, 14, color: Colors.white.withAlpha(220)),
           ),
         ],
       ),
@@ -667,45 +668,11 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     );
   }
 
-  Widget _buildEmoji(String? emoji, double size) {
+  Widget _buildEmoji(String? emoji, double size, {Color? color}) {
     if (emoji == null) {
-      return Icon(Icons.circle, size: size, color: Colors.grey);
+      return Icon(Icons.circle, size: size, color: color ?? Colors.grey);
     }
-    return Text(_mapEmoji(emoji), style: TextStyle(fontSize: size));
-  }
-
-  String _mapEmoji(String key) {
-    const map = {
-      'mood': '😊',
-      'bolt': '⚡',
-      'stress': '😫',
-      'sleep': '😴',
-      'star': '⭐',
-      'bedtime': '🛌',
-      'run': '🏃',
-      'edit': '📝',
-      'favorite': '❤️',
-      'meat': '🥩',
-      'lightbulb': '💡',
-      'psychology': '🧠',
-      'water': '💧',
-      'meditation': '🧘',
-      'book': '📚',
-      'coffee': '☕',
-      'social_usage': '📱',
-      'total_usage': '⌛',
-      'entertainment_usage': '🎬',
-      'water_drop': '💧',
-      'personal_injury': '🤕',
-      'sick': '🤒',
-      'restaurant': '🥣',
-      'wc': '🚽',
-      'umbrella': '🌧️',
-      'sunny': '☀️',
-      'air': '🌬️',
-      'forest': '🌳',
-    };
-    return map[key] ?? '📊';
+    return MetricIcon(iconName: emoji, size: size, color: color);
   }
 
   Widget _buildDataReliabilityInfo(
@@ -1079,11 +1046,22 @@ class _MetricSelectionDialogState extends State<_MetricSelectionDialog> {
             metric.category.name.toUpperCase(),
             style: const TextStyle(fontSize: 10),
           ),
-          secondary: Text(_mapEmoji(metric.emoji ?? '')),
+          secondary: _buildDialogIcon(metric.emoji, context),
           value: isSelected,
           onChanged: (_) => onToggle(metric.id),
         );
       },
+    );
+  }
+
+  Widget _buildDialogIcon(String? emoji, BuildContext context) {
+    if (emoji == null) {
+      return const Icon(Icons.help_outline, size: 24);
+    }
+    return MetricIcon(
+      iconName: emoji,
+      size: 24,
+      color: Theme.of(context).colorScheme.primary,
     );
   }
 
@@ -1097,31 +1075,6 @@ class _MetricSelectionDialogState extends State<_MetricSelectionDialog> {
       return label.replaceAll('_', ' ').toUpperCase();
     }
     return m.label;
-  }
-
-  String _mapEmoji(String key) {
-    const map = {
-      'mood': '😊',
-      'bolt': '⚡',
-      'stress': '😫',
-      'sleep': '😴',
-      'star': '⭐',
-      'bedtime': '🛌',
-      'run': '🏃',
-      'edit': '📝',
-      'favorite': '❤️',
-      'meat': '🥩',
-      'lightbulb': '💡',
-      'psychology': '🧠',
-      'water': '💧',
-      'meditation': '🧘',
-      'book': '📚',
-      'coffee': '☕',
-      'social_usage': '📱',
-      'total_usage': '⌛',
-      'entertainment_usage': '🎬',
-    };
-    return map[key] ?? '📊';
   }
 }
 

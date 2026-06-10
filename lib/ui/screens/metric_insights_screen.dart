@@ -9,6 +9,7 @@ import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../../data/models/enums.dart';
 import '../widgets/help_button.dart';
+import '../widgets/metric_icon.dart';
 
 
 enum InsightViewMode { daily, weekly, circadian }
@@ -41,14 +42,14 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
   late Animation<double> _fadeAnim;
 
   static const _passiveLabels = <_SelectableMetric>[
-    _SelectableMetric('category_time:social', 'Social Media', '📱', inputType: MetricInputType.counter),
-    _SelectableMetric('total_screen_time', 'Screen Time', '⌛', inputType: MetricInputType.counter),
-    _SelectableMetric('category_time:entertainment', 'Entertainment', '🎬', inputType: MetricInputType.counter),
-    _SelectableMetric('sleep_duration_hours', 'Sleep Duration', '🛌'),
-    _SelectableMetric('sleep_bedtime', 'Bedtime', '🛌'),
-    _SelectableMetric('sleep_wakeup', 'Wake-up Time', '☀️'),
-    _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', '✨'),
-    _SelectableMetric('step_count', 'Steps', '🏃', inputType: MetricInputType.counter),
+    _SelectableMetric('category_time:social', 'Social Media', 'social', inputType: MetricInputType.counter),
+    _SelectableMetric('total_screen_time', 'Screen Time', 'screen_time', inputType: MetricInputType.counter),
+    _SelectableMetric('category_time:entertainment', 'Entertainment', 'entertainment', inputType: MetricInputType.counter),
+    _SelectableMetric('sleep_duration_hours', 'Sleep Duration', 'bedtime'),
+    _SelectableMetric('sleep_bedtime', 'Bedtime', 'bedtime'),
+    _SelectableMetric('sleep_wakeup', 'Wake-up Time', 'sunny'),
+    _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', 'midpoint'),
+    _SelectableMetric('step_count', 'Steps', 'run', inputType: MetricInputType.counter),
   ];
 
   @override
@@ -69,7 +70,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     final metricService = context.read<MetricService>();
     final subjective = metricService.allMetrics
         .where((m) => m.isEnabled)
-        .map((m) => _SelectableMetric(m.label, m.label, _emojiFor(m.emoji), inputType: m.inputType))
+        .map((m) => _SelectableMetric(m.label, m.label, m.emoji ?? '', inputType: m.inputType))
         .toList();
 
     setState(() {
@@ -155,16 +156,6 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     return label.replaceAll('_', ' ');
   }
 
-  String _emojiFor(String? key) {
-    const map = {
-      'mood': '😊', 'bolt': '⚡', 'stress': '😫', 'sleep': '😴',
-      'star': '⭐', 'bedtime': '🛌', 'run': '🏃', 'edit': '📝',
-      'favorite': '❤️', 'meat': '🥩', 'lightbulb': '💡',
-      'psychology': '🧠', 'water': '💧', 'meditation': '🧘',
-      'book': '📚', 'coffee': '☕',
-    };
-    return map[key] ?? '📊';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +349,11 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                     ..._allMetrics.map((m) {
                       final isSelected = m.label == _primaryLabel || m.label == _secondaryLabel;
                       return ListTile(
-                        leading: Text(m.emoji, style: const TextStyle(fontSize: 20)),
+                        leading: MetricIcon(
+                          iconName: m.iconName,
+                          size: 24,
+                          color: Theme.of(ctx).colorScheme.primary,
+                        ),
                         title: Text(m.displayName),
                         trailing: isSelected ? Icon(Icons.check_circle, color: accent, size: 20) : null,
                         onTap: () {
@@ -892,9 +887,9 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
 class _SelectableMetric {
   final String label;
   final String displayName;
-  final String emoji;
+  final String iconName;
   final MetricInputType? inputType;
-  const _SelectableMetric(this.label, this.displayName, this.emoji, {this.inputType});
+  const _SelectableMetric(this.label, this.displayName, this.iconName, {this.inputType});
 }
 
 class MetricInsightsHelper {

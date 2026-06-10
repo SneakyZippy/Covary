@@ -9,6 +9,14 @@ IconData? getIconData(String identifier) {
     case 'mood':
     case 'sentiment_satisfied':
       return Icons.sentiment_satisfied_alt_rounded;
+    case 'social':
+      return Icons.chat_bubble_outline_rounded;
+    case 'screen_time':
+      return Icons.hourglass_bottom_rounded;
+    case 'entertainment':
+      return Icons.movie_rounded;
+    case 'midpoint':
+      return Icons.auto_awesome_rounded;
     case 'energy':
     case 'bolt':
       return Icons.bolt_rounded;

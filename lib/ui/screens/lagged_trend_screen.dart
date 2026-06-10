@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../widgets/help_button.dart';
+import '../widgets/metric_icon.dart';
 
 
 enum LagViewMode { daily, hourly }
@@ -48,16 +49,15 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnim;
 
-  // Passive metrics matching correlation_matrix_screen.dart
   static const _passiveLabels = <_SelectableMetric>[
-    _SelectableMetric('category_time:social', 'Social Media', '📱'),
-    _SelectableMetric('total_screen_time', 'Screen Time', '⌛'),
-    _SelectableMetric('category_time:entertainment', 'Entertainment', '🎬'),
-    _SelectableMetric('sleep_duration_hours', 'Sleep Duration', '🛌'),
-    _SelectableMetric('sleep_bedtime', 'Bedtime', '🛌'),
+    _SelectableMetric('category_time:social', 'Social Media', 'social'),
+    _SelectableMetric('total_screen_time', 'Screen Time', 'screen_time'),
+    _SelectableMetric('category_time:entertainment', 'Entertainment', 'entertainment'),
+    _SelectableMetric('sleep_duration_hours', 'Sleep Duration', 'bedtime'),
+    _SelectableMetric('sleep_bedtime', 'Bedtime', 'bedtime'),
     _SelectableMetric('sleep_wakeup', 'Wake-up Time', 'sunny'),
-    _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', 'star'),
-    _SelectableMetric('step_count', 'Steps', '🏃'),
+    _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', 'midpoint'),
+    _SelectableMetric('step_count', 'Steps', 'run'),
   ];
 
   @override
@@ -81,7 +81,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     final metricService = context.read<MetricService>();
     final subjective = metricService.allMetrics
         .where((m) => m.isEnabled)
-        .map((m) => _SelectableMetric(m.label, m.label, _emojiFor(m.emoji)))
+        .map((m) => _SelectableMetric(m.label, m.label, m.emoji ?? ''))
         .toList();
 
     setState(() {
@@ -215,16 +215,6 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     return label.replaceAll('_', ' ');
   }
 
-  String _emojiFor(String? key) {
-    const map = {
-      'mood': '😊', 'bolt': '⚡', 'stress': '😫', 'sleep': '😴',
-      'star': '⭐', 'bedtime': '🛌', 'run': '🏃', 'edit': '📝',
-      'favorite': '❤️', 'meat': '🥩', 'lightbulb': '💡',
-      'psychology': '🧠', 'water': '💧', 'meditation': '🧘',
-      'book': '📚', 'coffee': '☕',
-    };
-    return map[key] ?? '📊';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -434,7 +424,11 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                     final m = _allMetrics[i];
                     final isSelected = m.label == _labelA || m.label == _labelB;
                     return ListTile(
-                      leading: Text(m.emoji, style: const TextStyle(fontSize: 20)),
+                      leading: MetricIcon(
+                        iconName: m.iconName,
+                        size: 24,
+                        color: Theme.of(ctx).colorScheme.primary,
+                      ),
                       title: Text(m.displayName),
                       trailing: isSelected
                           ? Icon(Icons.check_circle, color: accent, size: 20)
@@ -1096,6 +1090,6 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
 class _SelectableMetric {
   final String label;
   final String displayName;
-  final String emoji;
-  const _SelectableMetric(this.label, this.displayName, this.emoji);
+  final String iconName;
+  const _SelectableMetric(this.label, this.displayName, this.iconName);
 }
