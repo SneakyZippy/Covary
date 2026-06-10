@@ -105,6 +105,56 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final metricService = context.watch<MetricService>();
     final profileService = context.watch<ProfileService>();
     
+    if (!metricService.isInitialized || !profileService.isInitialized) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0B1120),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withAlpha(20),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.science_rounded,
+                  size: 40,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Covary',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Initializing database...',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final List<Widget> pages = [
       // 1. Mission
       OnboardingStaticSlide(
