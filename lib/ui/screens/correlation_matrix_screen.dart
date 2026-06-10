@@ -22,7 +22,6 @@ class CorrelationMatrixScreen extends StatefulWidget {
 }
 
 class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
-  int _lagDays = 0;
   bool _isLoading = true;
   List<MetricDefinition> _rowMetrics = [];
   List<MetricDefinition> _colMetrics = [];
@@ -174,7 +173,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       newMatrix[row.id] = {};
       for (final col in _colMetrics) {
         // Only show 1.0 on diagonal if the user has actually logged data for it
-        if (row.id == col.id && _lagDays == 0) {
+        if (row.id == col.id) {
           final events = await eventRepo.getEventsByLabel(row.label);
           if (events.isNotEmpty) {
             newMatrix[row.id]![col.id] = 1.0;
@@ -187,7 +186,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
         final correlation = await analyticsService.calculateSpearmanCorrelation(
           metricA: row.label,
           metricB: col.label,
-          lagDays: _lagDays,
+          lagDays: 0,
         );
         newMatrix[row.id]![col.id] = correlation;
       }
@@ -209,7 +208,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
           final detailed = await analyticsService.calculateSpearmanCorrelationDetailed(
             metricA: row.label,
             metricB: col.label,
-            lagDays: _lagDays,
+            lagDays: 0,
           );
           if (detailed != null && detailed.pValue < 0.05) {
             if (corr.abs() > bestAbsCorr) {
@@ -291,8 +290,6 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
 
       body: Column(
         children: [
-          _buildLagSelector(colorScheme, textTheme),
-          const Divider(height: 1),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -302,9 +299,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                     children: [
                       const SizedBox(height: 16),
                       _buildInsightsSpotlightCard(colorScheme, textTheme),
-                      const SizedBox(
-                        height: 80,
-                      ), // Extra space for slanted headers
+                      const SizedBox(height: 20),
                       _buildMatrixGrid(colorScheme, textTheme),
                       _buildDataReliabilityInfo(colorScheme, textTheme),
                     ],
@@ -316,69 +311,6 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     );
   }
 
-  Widget _buildLagSelector(ColorScheme colorScheme, TextTheme textTheme) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.history_rounded, size: 20, color: colorScheme.primary),
-              const SizedBox(width: 12),
-              Text(
-                'Time Lag: $_lagDays ${_lagDays == 1 ? 'Day' : 'Days'}',
-                style: textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              if (_lagDays > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Predictive',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          Slider(
-            value: _lagDays.toDouble(),
-            min: 0,
-            max: 7,
-            divisions: 7,
-            label: '$_lagDays',
-            onChanged: (val) {
-              setState(() => _lagDays = val.toInt());
-            },
-            onChangeEnd: (_) => _loadMatrix(),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              _lagDays == 0
-                  ? 'Correlating behaviors on the same day.'
-                  : 'Correlating today\'s metrics with your state $_lagDays ${_lagDays == 1 ? 'day' : 'days'} later.',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildMatrixGrid(ColorScheme colorScheme, TextTheme textTheme) {
     const double cellSize = 56.0;
@@ -778,7 +710,6 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                   rowMetric: rowMetric,
                   colMetric: colMetric,
                   correlation: correlation,
-                  lagDays: _lagDays,
                 ),
               );
             } else {
@@ -1055,7 +986,6 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                           rowMetric: _spotlightRow!,
                           colMetric: _spotlightCol!,
                           correlation: r,
-                          lagDays: _lagDays,
                         ),
                       );
                     },
@@ -1250,13 +1180,10 @@ class _CorrelationDetailsSheet extends StatefulWidget {
   final MetricDefinition rowMetric;
   final MetricDefinition colMetric;
   final double correlation;
-  final int lagDays;
-
   const _CorrelationDetailsSheet({
     required this.rowMetric,
     required this.colMetric,
     required this.correlation,
-    required this.lagDays,
   });
 
   @override
@@ -1299,7 +1226,7 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
     final detailed = await analyticsService.calculateSpearmanCorrelationDetailed(
       metricA: widget.rowMetric.label,
       metricB: widget.colMetric.label,
-      lagDays: widget.lagDays,
+      lagDays: 0,
     );
 
     if (mounted) {
