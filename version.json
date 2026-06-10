@@ -1,7 +1,7 @@
 {
     "latest_version":  "1.3.0",
-    "build_number":  48,
-    "build_timestamp":  "2026-06-10T14:30:44+02:00",
+    "build_number":  49,
+    "build_timestamp":  "2026-06-10T14:36:00+02:00",
     "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "Release v1.3.0+48\n\n- **Tactile Haptic Feedback**: Added light haptic feedback on log inputs and save confirmations with a settings preference switch.\n- **Interactive Heatmap Reflections**: Added modal bottom sheets listing daily logged events on heatmap day selection.\n- **Dynamic Streak Shields**: Implemented a local-first trace to earn and consume shields protecting user streak counts.\n- **Insights Spotlight**: Added a dismissible card scan highlighting the strongest significant correlation pair."
+    "release_notes":  "Release v1.3.0+49\n\n- **PWA Viewport \u0026 Touch Alignment**: Removed viewport-locking position constraints in CSS to allow WebKit layout viewport to naturally align with touch coordinates in iOS standalone PWAs, resolving the first-launch vertical touch offset bug.\n- **Adaptive Safe Area Logic**: Updated the onboarding screen to dynamically detect native PWA safe area insets via MediaQuery, only falling back to custom browser-chrome margins when native padding is zero."
 }
