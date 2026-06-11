@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
 import '../../data/models/enums.dart';
+import '../theme/design_system.dart';
 import '../widgets/help_button.dart';
 import '../widgets/metric_icon.dart';
 
@@ -464,8 +465,9 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       }
     }
 
-    final accentA = colorScheme.primary;
-    final accentB = colorScheme.secondary;
+    final lineColors = CovaryDesignSystem.getChartLineColors(context);
+    final accentA = lineColors.$1;
+    final accentB = lineColors.$2;
 
     // Y Axis scaling
     final bool isCounter = _allMetrics.any((m) => m.label == _primaryLabel && (m.inputType == MetricInputType.counter || m.inputType == MetricInputType.numeric));
@@ -491,7 +493,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withAlpha(40),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withAlpha(15)),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,11 +534,11 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                         },
                       ),
                     ),
-                    titlesData: _buildTitlesData(colorScheme, allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB),
+                    titlesData: _buildTitlesData(colorScheme, allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB, accentB),
                     gridData: FlGridData(
                       show: true,
                       horizontalInterval: yInterval,
-                      getDrawingHorizontalLine: (_) => FlLine(color: Colors.white.withAlpha(15), strokeWidth: 0.5),
+                      getDrawingHorizontalLine: (_) => FlLine(color: colorScheme.outlineVariant.withValues(alpha: 0.15), strokeWidth: 0.5),
                       drawVerticalLine: false,
                     ),
                     borderData: FlBorderData(show: false),
@@ -567,10 +569,10 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                     gridData: FlGridData(
                       show: true,
                       horizontalInterval: yInterval,
-                      getDrawingHorizontalLine: (_) => FlLine(color: Colors.white.withAlpha(15), strokeWidth: 0.5),
+                      getDrawingHorizontalLine: (_) => FlLine(color: colorScheme.outlineVariant.withValues(alpha: 0.15), strokeWidth: 0.5),
                       drawVerticalLine: false,
                     ),
-                    titlesData: _buildTitlesData(colorScheme, allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB),
+                    titlesData: _buildTitlesData(colorScheme, allKeys, isCircadian, isWeekly, yInterval, isComparing, minA, maxA, minB, maxB, accentB),
                     borderData: FlBorderData(show: false),
                     lineBarsData: [
                       _lineBar(spotsA, accentA, isFilled: !isComparing, isStep: isCounter),
@@ -627,6 +629,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     double maxA,
     double minB,
     double maxB,
+    Color accentB,
   ) {
     return FlTitlesData(
       leftTitles: AxisTitles(
@@ -638,7 +641,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
             final double rawVal = isComparing ? (v * (maxA - minA) + minA) : v;
             return Text(
               _formatAxisLabel(_primaryLabel!, rawVal),
-              style: TextStyle(fontSize: 9, color: Colors.white.withAlpha(80)),
+              style: TextStyle(fontSize: 9, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8)),
             );
           },
         ),
@@ -653,7 +656,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
             final double rawVal = v * (maxB - minB) + minB;
             return Text(
               _formatAxisLabel(_secondaryLabel!, rawVal),
-              style: TextStyle(fontSize: 9, color: colorScheme.secondary.withAlpha(180)),
+              style: TextStyle(fontSize: 9, color: accentB.withValues(alpha: 0.8)),
             );
           },
         ),
@@ -670,7 +673,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
               if (hour < 0 || hour > 23) return const SizedBox();
               return Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('${hour.toString().padLeft(2, '0')}:00', style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))),
+                child: Text('${hour.toString().padLeft(2, '0')}:00', style: TextStyle(fontSize: 8, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8))),
               );
             } else if (isWeekly) {
               final idx = v.toInt();
@@ -680,7 +683,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
                   'Wk ${DateFormat('d/M').format(key)}', 
-                  style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))
+                  style: TextStyle(fontSize: 8, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8))
                 ),
               );
             } else {
@@ -689,7 +692,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
               final key = allKeys[idx];
               return Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(DateFormat('d MMM').format(key as DateTime), style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100))),
+                child: Text(DateFormat('d MMM').format(key as DateTime), style: TextStyle(fontSize: 8, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8))),
               );
             }
           },
@@ -733,12 +736,13 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
   }
 
   Widget _legendDot(Color color, String label, TextTheme textTheme) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text(label, style: textTheme.labelSmall?.copyWith(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+        Text(label, style: textTheme.labelSmall?.copyWith(fontSize: 10, color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
       ],
     );
   }

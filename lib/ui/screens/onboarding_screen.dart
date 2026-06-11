@@ -12,6 +12,7 @@ import 'profile_setup_screen.dart';
 import 'package:covary/ui/screens/app_shell.dart';
 import '../../services/sync_service.dart';
 import '../widgets/sync_summary_dialog.dart';
+import 'interactive_tutorial_screen.dart';
 
 
 class OnboardingScreen extends StatefulWidget {
@@ -162,29 +163,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         description: 'A versatile research tool designed to uncover the patterns between your habits, environment, and daily experiences.',
         icon: Icons.science_rounded,
         color: Colors.blue,
-        actionButton: TextButton.icon(
-          icon: const Icon(Icons.cloud_download_rounded),
-          label: const Text('Restore from cloud backup'),
-          onPressed: () async {
-            final navigator = Navigator.of(context);
-            final summary = await showDialog<SyncSummary?>(
-              context: context,
-              builder: (context) => const _RestoreBackupDialog(),
-            );
-            if (summary != null) {
-              if (context.mounted) {
-                await showDialog(
+        actionButton: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton.icon(
+              icon: const Icon(Icons.cloud_download_rounded),
+              label: const Text('Restore from cloud backup'),
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                final summary = await showDialog<SyncSummary?>(
                   context: context,
-                  barrierDismissible: false,
-                  builder: (context) => SyncSummaryDialog(summary: summary),
+                  builder: (context) => const _RestoreBackupDialog(),
                 );
-              }
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const AppShell()),
-                (route) => false,
-              );
-            }
-          },
+                if (summary != null) {
+                  if (context.mounted) {
+                    await showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => SyncSummaryDialog(summary: summary),
+                    );
+                  }
+                  navigator.pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const AppShell()),
+                    (route) => false,
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              icon: const Icon(Icons.videogame_asset_rounded),
+              label: const Text('Try Interactive Playground'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const InteractiveTutorialScreen()),
+                );
+              },
+            ),
+          ],
         ),
       ),
       // 2. Method

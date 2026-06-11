@@ -554,6 +554,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     final bool isInCrosshair = isHighlightedRow || isHighlightedCol;
     final bool isDiagonal = rowMetric.id == colMetric.id;
 
+    final heatmapColors = CovaryDesignSystem.getHeatmapColors(context);
     Color cellColor = Colors.white.withAlpha(5);
 
     bool hasData = correlation != null;
@@ -561,11 +562,11 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       cellColor = Colors.white.withAlpha(8);
     } else if (hasData) {
       if (correlation > 0.05) {
-        cellColor = colorScheme.primary.withValues(
+        cellColor = heatmapColors.$1.withValues(
           alpha: (0.15 + (0.85 * correlation)).clamp(0.15, 1.0),
         );
       } else if (correlation < -0.05) {
-        cellColor = colorScheme.secondaryContainer.withValues(
+        cellColor = heatmapColors.$2.withValues(
           alpha: (0.15 + (0.85 * correlation.abs())).clamp(0.15, 1.0),
         );
       } else {
@@ -811,6 +812,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   Widget _buildLegend(ColorScheme colorScheme, TextTheme textTheme) {
+    final heatmapColors = CovaryDesignSystem.getHeatmapColors(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       decoration: BoxDecoration(
@@ -820,11 +822,11 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _LegendItem(label: 'Positive', color: colorScheme.primary),
+          _LegendItem(label: 'Positive', color: heatmapColors.$1),
           _LegendItem(label: 'Neutral', color: Colors.white24),
           _LegendItem(
             label: 'Negative',
-            color: colorScheme.secondaryContainer,
+            color: heatmapColors.$2,
           ),
         ],
       ),
@@ -1312,6 +1314,14 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    
+    final lineColors = CovaryDesignSystem.getChartLineColors(context);
+    final colorA = lineColors.$1;
+    final colorB = lineColors.$2;
+
+    final heatmapColors = CovaryDesignSystem.getHeatmapColors(context);
+    final positiveColor = heatmapColors.$1;
+    final negativeColor = heatmapColors.$2;
 
     return Container(
       decoration: BoxDecoration(
@@ -1363,14 +1373,14 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: widget.correlation > 0
-                            ? colorScheme.primary.withValues(alpha: 0.2)
-                            : colorScheme.secondary.withValues(alpha: 0.2),
+                            ? positiveColor.withValues(alpha: 0.2)
+                            : negativeColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         widget.correlation.toStringAsFixed(2),
                         style: textTheme.labelLarge?.copyWith(
-                          color: widget.correlation > 0 ? colorScheme.primary : colorScheme.secondary,
+                          color: widget.correlation > 0 ? positiveColor : negativeColor,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -1521,25 +1531,25 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
                       LineChartBarData(
                         spots: _spotsRow,
                         isCurved: true,
-                        color: colorScheme.primary,
+                        color: colorA,
                         barWidth: 3,
                         isStrokeCapRound: true,
                         dotData: const FlDotData(show: false),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: colorScheme.primary.withValues(alpha: 0.05),
+                          color: colorA.withValues(alpha: 0.05),
                         ),
                       ),
                       LineChartBarData(
                         spots: _spotsCol,
                         isCurved: true,
-                        color: colorScheme.secondary,
+                        color: colorB,
                         barWidth: 3,
                         isStrokeCapRound: true,
                         dotData: const FlDotData(show: false),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: colorScheme.secondary.withValues(alpha: 0.05),
+                          color: colorB.withValues(alpha: 0.05),
                         ),
                       ),
                     ],
@@ -1551,9 +1561,9 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildLegendIndicator(_cleanLabel(widget.rowMetric), colorScheme.primary, textTheme),
+                _buildLegendIndicator(_cleanLabel(widget.rowMetric), colorA, textTheme),
                 const SizedBox(width: 24),
-                _buildLegendIndicator(_cleanLabel(widget.colMetric), colorScheme.secondary, textTheme),
+                _buildLegendIndicator(_cleanLabel(widget.colMetric), colorB, textTheme),
               ],
             ),
           ],

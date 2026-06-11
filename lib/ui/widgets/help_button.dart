@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/design_system.dart';
+import '../screens/interactive_tutorial_screen.dart';
 
 
 class HelpContent {
@@ -469,6 +470,33 @@ class AppBarHelpButton extends StatelessWidget {
                   ),
                 )),
                 const SizedBox(height: 8),
+                if (screenKey == 'home') ...[
+                  Center(
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const InteractiveTutorialScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.videogame_asset_rounded),
+                      label: const Text(
+                        'Open Interactive Playground',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Center(
                   child: TextButton.icon(
                     onPressed: () async {

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
+import '../theme/design_system.dart';
 import '../widgets/help_button.dart';
 import '../widgets/metric_icon.dart';
 
@@ -520,15 +521,16 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
       }
     }
 
-    final accentA = colorScheme.primary;
-    final accentB = colorScheme.secondary;
+    final lineColors = CovaryDesignSystem.getChartLineColors(context);
+    final accentA = lineColors.$1;
+    final accentB = lineColors.$2;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 20, 16, 12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withAlpha(40),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withAlpha(15)),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,7 +583,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                   show: true,
                   horizontalInterval: 0.25,
                   getDrawingHorizontalLine: (_) => FlLine(
-                    color: Colors.white.withAlpha(15),
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.15),
                     strokeWidth: 0.5,
                   ),
                   drawVerticalLine: false,
@@ -594,7 +596,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                       interval: 0.5,
                       getTitlesWidget: (v, _) => Text(
                         v.toStringAsFixed(1),
-                        style: TextStyle(fontSize: 9, color: Colors.white.withAlpha(80)),
+                        style: TextStyle(fontSize: 9, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8)),
                       ),
                     ),
                   ),
@@ -614,7 +616,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
                               date.hour == 0 ? DateFormat('E').format(date) : '${date.hour}h',
-                              style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100)),
+                              style: TextStyle(fontSize: 8, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8)),
                             ),
                           );
                         }
@@ -623,7 +625,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
                             DateFormat('d MMM').format(date),
-                            style: TextStyle(fontSize: 8, color: Colors.white.withAlpha(100)),
+                            style: TextStyle(fontSize: 8, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8)),
                           ),
                         );
                       },
@@ -687,6 +689,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   }
 
   Widget _legendDot(Color color, String label, TextTheme textTheme) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -696,7 +699,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
         ),
         const SizedBox(width: 6),
         Text(label,
-            style: textTheme.labelSmall?.copyWith(fontSize: 9, color: Colors.white.withAlpha(180))),
+            style: textTheme.labelSmall?.copyWith(fontSize: 9, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8))),
       ],
     );
   }

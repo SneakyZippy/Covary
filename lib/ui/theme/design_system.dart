@@ -119,4 +119,46 @@ class CovaryDesignSystem {
       ),
     );
   }
+
+  /// Returns a pair of primary and secondary colors for charts and graphs,
+  /// ensuring they are visually distinct and readable even when using a monochrome theme.
+  static (Color, Color) getChartLineColors(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final p = colorScheme.primary;
+    final s = colorScheme.secondary;
+    
+    // Check if the primary color is monochrome (e.g. white or black)
+    final isMonochrome = p.r == p.g && p.g == p.b;
+    
+    if (isMonochrome) {
+      if (isDark) {
+        return (Colors.white, const Color(0xFF60A5FA)); // White and Azure Blue
+      } else {
+        return (Colors.black, const Color(0xFF2563EB)); // Black and Deep Blue
+      }
+    }
+    
+    return (p, s);
+  }
+
+  /// Returns positive and negative correlation cell colors for heatmaps,
+  /// ensuring high visibility and brand alignment when using a monochrome theme.
+  static (Color, Color) getHeatmapColors(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final p = colorScheme.primary;
+    
+    final isMonochrome = p.r == p.g && p.g == p.b;
+    if (isMonochrome) {
+      if (isDark) {
+        return (const Color(0xFF38DEBB), const Color(0xFFFB923C)); // Aquamarine and Coral (Brand Colors)
+      } else {
+        return (const Color(0xFF0D9488), const Color(0xFFEA580C)); // Darker Teal and Darker Orange for light mode
+      }
+    }
+    
+    return (p, colorScheme.secondaryContainer);
+  }
 }

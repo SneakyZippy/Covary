@@ -31,6 +31,7 @@ import 'raw_data_screen.dart';
 import '../widgets/help_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/weather_location_bottom_sheet.dart';
+import 'interactive_tutorial_screen.dart';
 
 
 /// Settings screen for managing profile, notifications, and data.
@@ -784,6 +785,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     },
                   ),
+
                 ],
               ),
             ),
@@ -798,28 +800,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsTile(
                     leading: Icon(Icons.help_outline_rounded, color: colorScheme.secondary, size: 20),
                     title: 'Show Tutorial Again',
-                    subtitle: 'Review the research mission and setup tour',
+                    subtitle: 'Review the research mission or practice gestures',
                     onTap: () async {
-                      final confirm = await showDialog<bool>(
+                      showDialog(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Show Tutorial?'),
-                          content: const Text('This will take you back to the onboarding slides. Your current settings and data will not be deleted.'),
+                          title: const Text('Choose Tutorial Mode'),
+                          content: const Text(
+                            'Select how you want to experience the tutorial. Neither option deletes your data.',
+                            textAlign: TextAlign.center,
+                          ),
+                          actionsAlignment: MainAxisAlignment.center,
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Show')),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const InteractiveTutorialScreen()),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.videogame_asset_rounded),
+                                  label: const Text('Interactive Sandbox Tour'),
+                                  style: FilledButton.styleFrom(
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    Navigator.pop(ctx);
+                                    await profileService.resetOnboarding();
+                                    if (context.mounted) {
+                                      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                                        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                                        (route) => false,
+                                      );
+                                    }
+                                  },
+                                  icon: const Icon(Icons.slideshow_rounded),
+                                  label: const Text('Slides-Based Setup Wizard'),
+                                  style: OutlinedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       );
-                      if (confirm == true) {
-                        await profileService.resetOnboarding();
-                        if (context.mounted) {
-                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-                            (route) => false,
-                          );
-                        }
-                      }
                     },
                   ),
                   Container(
