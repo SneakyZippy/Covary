@@ -2,8 +2,9 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
-import '../data/database/app_database.dart' show TrackingWindow, TrackingWindowsCompanion, CustomMetricsCompanion, EventsCompanion;
+import '../data/database/app_database.dart' show TrackingWindow, TrackingWindowsCompanion, CustomMetricsCompanion, EventsCompanion, Event;
 import '../data/models/enums.dart';
+import '../data/models/window_occurrence.dart';
 import '../data/models/metric_definition.dart';
 import '../data/metric_presets.dart';
 import '../data/repositories/event_repository.dart';
@@ -999,5 +1000,94 @@ class MetricService extends ChangeNotifier {
 
     await _reload();
     debugPrint('[MetricService] Applied research preset: ${preset.name}');
+  }
+
+  /// Calculates the exact start, end, and target midpoint of a specific calendar date's window.
+  WindowOccurrence getOccurrenceForDate(DateTime date, TrackingWindow window) {
+    final start = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      window.startHour,
+      window.startMinute,
+    );
+    DateTime end;
+    if (window.startHour <= window.endHour) {
+      end = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        window.endHour,
+        window.endMinute,
+      );
+    } else {
+      end = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        window.endHour,
+        window.endMinute,
+      ).add(const Duration(days: 1));
+    }
+
+    final targetTime = start.add(end.difference(start) ~/ 2);
+    return WindowOccurrence(
+      window: window,
+      start: start,
+      end: end,
+      targetTime: targetTime,
+    );
+  }
+
+  /// Returns a list of occurrences of enabled tracking windows that are relevant for the current timeline.
+  ///
+  /// Includes:
+  /// 1. All occurrences belonging to today (upcoming, active, or passed).
+  /// 2. Yesterday's occurrence of a window, if it has already ended AND its today's equivalent occurrence has not yet started.
+  List<WindowOccurrence> getTimelineOccurrences(DateTime now, List<Event> allEvents) {
+    final list = <WindowOccurrence>[];
+
+    for (final window in _allWindows) {
+      if (!window.isEnabled) continue;
+
+      // 1. Get today's occurrence
+      final todayOcc = getOccurrenceForDate(now, window);
+
+      // 2. Get yesterday's occurrence
+      final yesterday = now.subtract(const Duration(days: 1));
+      final yesterdayOcc = getOccurrenceForDate(yesterday, window);
+
+      // Always show today's occurrence
+      list.add(todayOcc);
+
+      // Show yesterday's occurrence if:
+      // - It has ended (end <= now)
+      // - Today's occurrence has not started yet (now < start)
+      if ((yesterdayOcc.end.isBefore(now) || yesterdayOcc.end.isAtSameMomentAs(now)) &&
+          now.isBefore(todayOcc.start)) {
+        
+        final isYesterdayCompleted = allEvents.any((e) =>
+            e.category == EventCategory.meta &&
+            e.label == 'SessionCompleted' &&
+            e.value == yesterdayOcc.window.id &&
+            (e.timestamp.isAfter(yesterdayOcc.start) || e.timestamp.isAtSameMomentAs(yesterdayOcc.start)) &&
+            e.timestamp.isBefore(yesterdayOcc.end));
+
+        final isYesterdayDismissed = allEvents.any((e) =>
+            e.category == EventCategory.meta &&
+            e.label == 'SessionDismissed' &&
+            e.value == yesterdayOcc.window.id &&
+            (e.timestamp.isAfter(yesterdayOcc.start) || e.timestamp.isAtSameMomentAs(yesterdayOcc.start)) &&
+            e.timestamp.isBefore(yesterdayOcc.end));
+
+        if (!isYesterdayCompleted && !isYesterdayDismissed) {
+          list.add(yesterdayOcc);
+        }
+      }
+    }
+
+    // Sort chronologically by start time
+    list.sort((a, b) => a.start.compareTo(b.start));
+    return list;
   }
 }

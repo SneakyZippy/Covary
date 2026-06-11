@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/metric_definition.dart';
+import '../../data/models/window_occurrence.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../services/app_usage_service.dart';
@@ -16,7 +17,6 @@ import '../../services/health_service.dart';
 import '../../services/metric_service.dart';
 import '../../services/profile_service.dart';
 import '../widgets/metric_input_card.dart';
-import '../widgets/missed_session_card.dart';
 import '../widgets/quick_track_button.dart';
 import 'daily_checkin_screen.dart';
 import 'permission_shield_screen.dart';
@@ -40,10 +40,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  List<TrackingWindow> _missedWindows = [];
-  List<TrackingWindow> _activeWindows = [];
-  Set<String> _completedWindowIds = {};
-  Set<String> _dismissedWindowIds = {};
+  List<WindowOccurrence> _timelineOccurrences = [];
+  List<Event> _allEvents = [];
   List<Event> _todayEvents = [];
   
   // Activity Overview
@@ -119,22 +117,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     final metricService = context.read<MetricService>();
     
-    // Find ALL active windows
-    final activeWindows = metricService.allWindows
-        .where((w) => metricService.isTimeInWindow(now, w))
-        .toList();
-
     final todayEvents = allEvents.where((e) => e.timestamp.isAfter(todayStart)).toList();
-
-    final completedIds = todayEvents
-        .where((e) => e.category == EventCategory.meta && e.label == 'SessionCompleted')
-        .map((e) => e.value)
-        .toSet();
-
-    final dismissedIds = todayEvents
-        .where((e) => e.category == EventCategory.meta && e.label == 'SessionDismissed')
-        .map((e) => e.value)
-        .toSet();
 
     // Activity and Streak Computation
     final indicatorLabels = metricService.allMetrics
@@ -232,16 +215,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (mounted) {
       setState(() {
-        _activeWindows = activeWindows;
-        _completedWindowIds = completedIds;
-        _dismissedWindowIds = dismissedIds;
+        _allEvents = allEvents;
         _todayEvents = todayEvents;
         _activityLevels = activityLevels;
         _currentStreak = currentStreak;
         _totalLogs = totalLogs;
         _streakShields = streakShields;
       });
-      _updateMissedSessions(allEvents);
+      _updateTimelineOccurrences(allEvents);
       _checkPermissionsAndDismissal();
     }
   }
@@ -271,54 +252,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _updateMissedSessions(List<Event> allEvents) {
+  void _updateTimelineOccurrences(List<Event> allEvents) {
     final now = DateTime.now();
     final metricService = context.read<MetricService>();
     final profileService = context.read<ProfileService>();
     final firstLaunch = profileService.firstLaunchAt;
 
-    final missed = <TrackingWindow>[];
+    final occurrences = metricService.getTimelineOccurrences(now, allEvents);
 
-    for (var window in metricService.allWindows) {
-      // Skip disabled windows — they shouldn't show missed cards.
-      if (!window.isEnabled) continue;
-
-      if (metricService.hasWindowPassed(now, window)) {
-        final targetTime = metricService.getWindowTargetTime(now, window);
-
-        // Don't show "missed" cards for windows that ended before the user
-        // first launched the app. On the first day, windows that already
-        // passed before setup shouldn't count as missed.
-        if (firstLaunch != null) {
-          final windowEndToday = DateTime(
-            now.year, now.month, now.day,
-            window.endHour, window.endMinute,
-          );
-          if (windowEndToday.isBefore(firstLaunch)) continue;
-        }
-        
-        // Find if there's a completion/dismissal for THIS specific iteration of the window.
-        // We match by checking if the meta event timestamp falls on the same date as the targetTime.
-        final isCompleted = _completedWindowIds.contains(window.id) ||
-            _dismissedWindowIds.contains(window.id) ||
-            allEvents.any((e) => 
-                e.category == EventCategory.meta &&
-                (e.label == 'SessionCompleted' || e.label == 'SessionDismissed') &&
-                e.value == window.id &&
-                e.timestamp.year == targetTime.year &&
-                e.timestamp.month == targetTime.month &&
-                e.timestamp.day == targetTime.day
-            );
-
-        if (!isCompleted) {
-          missed.add(window);
-        }
-      }
+    // Filter out occurrences that ended before the user first launched the app
+    if (firstLaunch != null) {
+      occurrences.removeWhere((occ) => occ.end.isBefore(firstLaunch));
     }
 
     if (mounted) {
       setState(() {
-        _missedWindows = missed;
+        _timelineOccurrences = occurrences;
       });
     }
   }
@@ -403,28 +352,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 24),
   
-                if (_activeWindows.where((w) => !_completedWindowIds.contains(w.id)).isNotEmpty)
-                  StaggeredEntrance(
-                    delay: const Duration(milliseconds: 100),
-                    child: Column(
-                      children: _activeWindows
-                          .where((w) => !_completedWindowIds.contains(w.id))
-                          .map((window) => Column(
-                                children: [
-                                  _buildActiveWindowCard(window, colorScheme, textTheme),
-                                  const SizedBox(height: 24),
-                                ],
-                              ))
-                          .toList(),
-                    ),
-                  ),
-  
-                if (_missedWindows.isNotEmpty)
+                if (_timelineOccurrences.isNotEmpty)
                   StaggeredEntrance(
                     delay: const Duration(milliseconds: 150),
                     child: Column(
                       children: [
-                        ..._missedWindows.map((window) => _buildMissedSessionCard(window)),
+                        _buildDailyProgressTimeline(colorScheme, textTheme),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -714,53 +647,317 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildMissedSessionCard(TrackingWindow window) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final metricService = context.read<MetricService>();
+  Widget _buildDailyProgressTimeline(ColorScheme colorScheme, TextTheme textTheme) {
+    final completedCount = _timelineOccurrences.where((occ) {
+      return _allEvents.any((e) =>
+          e.category == EventCategory.meta &&
+          e.label == 'SessionCompleted' &&
+          e.value == occ.window.id &&
+          (e.timestamp.isAfter(occ.start) || e.timestamp.isAtSameMomentAs(occ.start)) &&
+          e.timestamp.isBefore(occ.end));
+    }).length;
 
-    // Compute exact target time (midpoint) of the missed window for backdated logging.
-    final targetTime = metricService.getWindowTargetTime(DateTime.now(), window);
+    final totalCount = _timelineOccurrences.length;
 
-    // Split metrics that belonged to this window by recall reliability.
-    final windowMetrics = metricService.allMetrics.where((m) {
-      if (!m.isEnabled) return false;
-      return m.windowIds.contains(window.id);
-    }).toList();
-
-    final reliableMetrics =
-        windowMetrics.where((m) => m.isRetrospectivelyReliable).toList();
-    final subjectiveMetrics =
-        windowMetrics.where((m) => !m.isRetrospectivelyReliable).toList();
-
-    return MissedSessionCard(
-      key: ValueKey('missed_${window.id}'),
-      window: window,
-      targetTime: targetTime,
-      reliableMetrics: reliableMetrics,
-      subjectiveMetrics: subjectiveMetrics,
-      colorScheme: colorScheme,
-      textTheme: textTheme,
-      onDismissed: () async {
-        setState(() {
-          _missedWindows.removeWhere((w) => w.id == window.id);
-          _dismissedWindowIds.add(window.id);
-        });
-        final eventRepo = context.read<EventRepository>();
-        await eventRepo.insertEvent(
-          EventsCompanion(
-            category: const Value(EventCategory.meta),
-            label: const Value('SessionDismissed'),
-            value: Value(window.id),
-            timestamp: Value(targetTime),
-            triggerSource: const Value(TriggerSource.system),
-            interactionType: const Value(InteractionType.swipeAway),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceContainerHighest.withAlpha(70),
+            colorScheme.surfaceContainer.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withAlpha(80),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(20),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-        );
-        _loadTodayStats();
-      },
-      onComplete: () => _startGuidedCheckin(window.id, targetTime),
-      onMetricLogged: _loadTodayStats,
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Daily Progress',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              Text(
+                '$completedCount of $totalCount Done',
+                style: textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...List.generate(_timelineOccurrences.length, (index) {
+            final occ = _timelineOccurrences[index];
+            final isLast = index == _timelineOccurrences.length - 1;
+
+            final isCompleted = _allEvents.any((e) =>
+                e.category == EventCategory.meta &&
+                e.label == 'SessionCompleted' &&
+                e.value == occ.window.id &&
+                (e.timestamp.isAfter(occ.start) || e.timestamp.isAtSameMomentAs(occ.start)) &&
+                e.timestamp.isBefore(occ.end));
+
+            final isDismissed = _allEvents.any((e) =>
+                e.category == EventCategory.meta &&
+                e.label == 'SessionDismissed' &&
+                e.value == occ.window.id &&
+                (e.timestamp.isAfter(occ.start) || e.timestamp.isAtSameMomentAs(occ.start)) &&
+                e.timestamp.isBefore(occ.end));
+
+            final now = DateTime.now();
+            final isActive = !isCompleted && !isDismissed &&
+                (now.isAfter(occ.start) || now.isAtSameMomentAs(occ.start)) &&
+                now.isBefore(occ.end);
+
+            final isMissed = !isCompleted && !isDismissed && now.isAfter(occ.end);
+            final isUpcoming = now.isBefore(occ.start);
+
+            final startStr = "${occ.window.startHour.toString().padLeft(2, '0')}:${occ.window.startMinute.toString().padLeft(2, '0')}";
+            final endStr = "${occ.window.endHour.toString().padLeft(2, '0')}:${occ.window.endMinute.toString().padLeft(2, '0')}";
+
+            String statusText = '';
+            Color statusColor = colorScheme.onSurfaceVariant;
+            Widget? actionWidget;
+
+            if (isCompleted) {
+              final completionEvent = _allEvents.where((e) =>
+                  e.category == EventCategory.meta &&
+                  e.label == 'SessionCompleted' &&
+                  e.value == occ.window.id &&
+                  (e.timestamp.isAfter(occ.start) || e.timestamp.isAtSameMomentAs(occ.start)) &&
+                  e.timestamp.isBefore(occ.end)).firstOrNull;
+              final timeToUse = completionEvent?.recordedAt ?? completionEvent?.timestamp ?? now;
+              statusText = "Completed at ${timeToUse.hour.toString().padLeft(2, '0')}:${timeToUse.minute.toString().padLeft(2, '0')}";
+              statusColor = colorScheme.primary;
+            } else if (isDismissed) {
+              statusText = "Dismissed";
+              statusColor = colorScheme.error.withAlpha(150);
+            } else if (isActive) {
+              statusText = "Active now ($startStr - $endStr)";
+              statusColor = colorScheme.primary;
+              actionWidget = FilledButton.icon(
+                onPressed: () => _startGuidedCheckin(occ.window.id),
+                icon: const Icon(Icons.edit_note_rounded, size: 16),
+                label: const Text('Log Now'),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                ),
+              );
+            } else if (isMissed) {
+              final todayStart = DateTime(now.year, now.month, now.day);
+              final isYesterday = occ.start.isBefore(todayStart);
+              if (isYesterday) {
+                statusText = "Yesterday's missed window ($startStr - $endStr)";
+              } else {
+                statusText = "Missed window ($startStr - $endStr)";
+              }
+              statusColor = colorScheme.error.withAlpha(180);
+              actionWidget = OutlinedButton.icon(
+                onPressed: () => _startGuidedCheckin(occ.window.id, occ.targetTime),
+                icon: const Icon(Icons.history_rounded, size: 14),
+                label: const Text('Log Late'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: BorderSide(color: colorScheme.error.withAlpha(120)),
+                  foregroundColor: colorScheme.error,
+                ),
+              );
+            } else if (isUpcoming) {
+              statusText = "Upcoming ($startStr - $endStr)";
+              statusColor = colorScheme.onSurfaceVariant.withAlpha(120);
+            }
+
+            Widget nodeIcon;
+            if (isCompleted) {
+              nodeIcon = Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.primary.withAlpha(30),
+                  border: Border.all(color: colorScheme.primary, width: 2),
+                ),
+                child: Icon(Icons.check, size: 12, color: colorScheme.primary),
+              );
+            } else if (isDismissed) {
+              nodeIcon = Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.error.withAlpha(30),
+                  border: Border.all(color: colorScheme.error.withAlpha(150), width: 2),
+                ),
+                child: Icon(Icons.close, size: 12, color: colorScheme.error.withAlpha(150)),
+              );
+            } else if (isActive) {
+              nodeIcon = _TimelinePulseNode(color: colorScheme.primary);
+            } else if (isMissed) {
+              nodeIcon = Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.error.withAlpha(15),
+                  border: Border.all(color: colorScheme.error.withAlpha(120), width: 2),
+                ),
+                child: Icon(Icons.access_time_rounded, size: 12, color: colorScheme.error.withAlpha(180)),
+              );
+            } else {
+              nodeIcon = Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.transparent,
+                  border: Border.all(color: colorScheme.outlineVariant.withAlpha(150), width: 2),
+                ),
+              );
+            }
+
+            Widget contentWidget;
+            if (isActive) {
+              contentWidget = Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primary.withAlpha(25),
+                      colorScheme.primary.withAlpha(5),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(
+                    color: colorScheme.primary.withAlpha(60),
+                    width: 1.0,
+                  ),
+                ),
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            occ.window.label,
+                            style: textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            statusText,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (actionWidget != null) ...[
+                      const SizedBox(width: 8),
+                      actionWidget,
+                    ],
+                  ],
+                ),
+              );
+            } else {
+              contentWidget = Padding(
+                padding: const EdgeInsets.only(bottom: 20.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            occ.window.label,
+                            style: textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isUpcoming ? colorScheme.onSurface.withAlpha(120) : colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            statusText,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: statusColor,
+                              fontWeight: isCompleted || isActive ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (actionWidget != null) ...[
+                      const SizedBox(width: 8),
+                      actionWidget,
+                    ],
+                  ],
+                ),
+              );
+            }
+
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Column(
+                    children: [
+                      SizedBox(height: isActive ? 16 : 4),
+                      nodeIcon,
+                      if (!isLast)
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            color: colorScheme.outlineVariant.withAlpha(80),
+                          ),
+                        )
+                      else
+                        const SizedBox(height: 24),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: contentWidget,
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 
@@ -771,116 +968,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return 'Good evening 👋';
   }
 
-  Widget _buildActiveWindowCard(TrackingWindow window, ColorScheme colorScheme, TextTheme textTheme) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primary,
-            colorScheme.secondary,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: colorScheme.primary.withAlpha(120),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withAlpha(50),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _startGuidedCheckin(window.id),
-          borderRadius: BorderRadius.circular(28),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.onPrimary.withAlpha(40),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _getWindowIcon(window.label),
-                        color: colorScheme.onPrimary,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${window.label} Check-in',
-                                  style: textTheme.headlineSmall?.copyWith(
-                                    color: colorScheme.onPrimary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              if (window.isNotificationEnabled)
-                                Icon(
-                                  Icons.notifications_active_rounded,
-                                  color: colorScheme.onPrimary.withAlpha(180),
-                                  size: 18,
-                                ),
-                            ],
-                          ),
-                          Text(
-                            'Ready to track your progress?',
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onPrimary.withAlpha(200),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => _startGuidedCheckin(window.id),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: colorScheme.onPrimary,
-                      foregroundColor: colorScheme.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      'Start Now',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildActionRow(ColorScheme colorScheme, TextTheme textTheme) {
     return Row(
@@ -917,13 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  IconData _getWindowIcon(String label) {
-    final l = label.toLowerCase();
-    if (l.contains('morning')) return Icons.wb_sunny_rounded;
-    if (l.contains('evening') || l.contains('night')) return Icons.nights_stay_rounded;
-    if (l.contains('afternoon')) return Icons.wb_twilight_rounded;
-    return Icons.timer_rounded;
-  }
+
 
   Future<void> _startGuidedCheckin([String? windowId, DateTime? targetTime]) async {
     await Navigator.of(context).push(
@@ -1523,6 +1605,74 @@ class _StreakPulseIconState extends State<_StreakPulseIcon>
           ),
         );
       },
+    );
+  }
+}
+
+class _TimelinePulseNode extends StatefulWidget {
+  final Color color;
+
+  const _TimelinePulseNode({required this.color});
+
+  @override
+  State<_TimelinePulseNode> createState() => _TimelinePulseNodeState();
+}
+
+class _TimelinePulseNodeState extends State<_TimelinePulseNode>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 20,
+      height: 20,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                child: Container(
+                  width: 20 + (12 * _controller.value),
+                  height: 20 + (12 * _controller.value),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.color.withAlpha((40 * (1.0 - _controller.value)).toInt()),
+                  ),
+                ),
+              ),
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.color.withAlpha(40),
+                  border: Border.all(color: widget.color, width: 2),
+                ),
+                child: Icon(Icons.play_arrow_rounded, size: 12, color: widget.color),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

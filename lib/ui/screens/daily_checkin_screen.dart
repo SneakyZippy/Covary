@@ -678,6 +678,14 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final sessionId = widget.sessionId ?? const Uuid().v4();
 
+    bool isMissedWindow = widget.targetTime != null;
+    if (widget.targetTime == null && widget.fulfilledSlotId != null) {
+      final window = metricService.allWindows.where((w) => w.id == widget.fulfilledSlotId).firstOrNull;
+      if (window != null && metricService.hasWindowPassed(DateTime.now(), window)) {
+        isMissedWindow = true;
+      }
+    }
+
     int? notificationDelayMs;
     if (widget.notificationDisplayedAt != null) {
       notificationDelayMs = DateTime.now().difference(widget.notificationDisplayedAt!).inMilliseconds;
@@ -703,6 +711,21 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
             sessionId: Value(sessionId),
           ),
         );
+
+        if (isMissedWindow && !metric.isRetrospectivelyReliable) {
+          await eventRepo.insertEvent(
+            EventsCompanion(
+              category: const Value(EventCategory.meta),
+              label: const Value('SubjectiveRetroOverride'),
+              value: Value(metric.id),
+              triggerSource: Value(widget.triggerSource),
+              interactionType: const Value(InteractionType.click),
+              timestamp: Value(data.$3 ?? effectiveTargetTime),
+              recordedAt: Value(now),
+              sessionId: Value(sessionId),
+            ),
+          );
+        }
       }
     }
 
@@ -733,6 +756,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           label: const Value('SessionCompleted'),
           value: Value(windowId ?? 'anytime'),
           timestamp: Value(effectiveTargetTime),
+          recordedAt: Value(DateTime.now()),
           triggerSource: const Value(TriggerSource.system),
           interactionType: const Value(InteractionType.click),
           sessionId: Value(sessionId),
