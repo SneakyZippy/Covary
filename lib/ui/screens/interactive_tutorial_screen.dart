@@ -32,10 +32,8 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
   int _step2DefaultValue = 250;
 
   // Step 3 State
-  bool _logSubjectiveAnyway = false;
   double _stressValue = 5.0;
   final int _mockStepCount = 4200;
-  bool _step3Dismissed = false;
 
   // Step 4 State
   bool _nodeExpanded = false;
@@ -582,258 +580,205 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
       children: [
         _buildInstructionCard(
           title: 'Missed Sessions & Recall Bias',
-          explanation: 'When a check-in window passes, a Missed Session card appears on the Home screen. Factual metrics (e.g., Step Count) are active, while subjective metrics (e.g., Stress Level) are dimmed with a "Log anyway" warning to prevent retrospective recall bias.',
-          hciMetric: 'Recall Bias Prevention: Restrict retroactive subjective logging to protect data integrity.',
+          explanation: 'When a check-in window passes, it shows up as a missed window on the Daily Progress Timeline (e.g. "Yesterday\'s missed window"). Tapping "Log Late" launches the check-in backdated to that window\'s midpoint. For research integrity, logging subjective scales retrospectively silently records a SubjectiveRetroOverride meta-event to track ecological recall bias, without blockading the user.',
+          hciMetric: 'Recall Bias Detection: Logging late tags subjective data with a SubjectiveRetroOverride so recall bias can be filtered in analysis.',
           colorScheme: colorScheme,
           textTheme: textTheme,
         ),
         const SizedBox(height: 32),
         
-        // Mock Missed Session Card
-        if (!_step3Dismissed)
-          Dismissible(
-            key: const ValueKey('mock_missed_dismiss_tutorial'),
-            direction: DismissDirection.horizontal,
-            confirmDismiss: (_) async {
-              final bool? skip = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Skip Check-in?'),
-                  content: const Text('Do you really want to leave out this check-in?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: colorScheme.error,
-                        foregroundColor: colorScheme.onError,
-                      ),
-                      onPressed: () => Navigator.of(ctx).pop(true),
-                      child: const Text('Skip'),
-                    ),
-                  ],
-                ),
-              );
-              return skip;
-            },
-            background: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: colorScheme.error,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.only(left: 24),
-              child: const Icon(Icons.delete_sweep_rounded, color: Colors.white),
-            ),
-            secondaryBackground: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: colorScheme.error,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 24),
-              child: const Icon(Icons.delete_sweep_rounded, color: Colors.white),
-            ),
-            onDismissed: (_) {
-              setState(() {
-                _step3Dismissed = true;
-                _step3Completed = true;
-              });
-            },
-            child: Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              color: colorScheme.errorContainer,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Row(
-                      children: [
-                        Icon(Icons.history_rounded, color: colorScheme.error, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Missed Afternoon Check-in',
-                            style: textTheme.titleSmall?.copyWith(
-                              color: colorScheme.onErrorContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _step3Completed = true;
-                            });
-                          },
-                          icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                          label: const Text('Complete'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: colorScheme.error,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    // Reliable metrics
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.check_circle_outline_rounded, size: 14, color: colorScheme.error),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Still accurate — log now',
-                          style: textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onErrorContainer,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildMockMetricChip(
-                          label: 'Step Count',
-                          icon: Icons.directions_run_rounded,
-                          dimmed: false,
-                          onTap: () => _showMockRetroLogSheet(context, 'Step Count', false),
-                          colorScheme: colorScheme,
-                          textTheme: textTheme,
-                        ),
-                      ],
-                    ),
-                    
-                    // Subjective metrics
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, size: 14, color: colorScheme.error),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            'Recall may be unreliable',
-                            style: textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onErrorContainer,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (!_logSubjectiveAnyway)
-                          GestureDetector(
-                            onTap: () => setState(() => _logSubjectiveAnyway = true),
-                            child: Text(
-                              'Log anyway',
-                              style: textTheme.labelSmall?.copyWith(
-                                color: colorScheme.error,
-                                fontWeight: FontWeight.w600,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildMockMetricChip(
-                          label: 'Stress Level',
-                          icon: Icons.psychology_rounded,
-                          dimmed: !_logSubjectiveAnyway,
-                          onTap: () => _showMockRetroLogSheet(context, 'Stress Level', true),
-                          colorScheme: colorScheme,
-                          textTheme: textTheme,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          )
-        else
-          Center(
-            child: Column(
-              children: [
-                Icon(Icons.swipe_left_rounded, color: colorScheme.onSurfaceVariant, size: 48),
-                const SizedBox(height: 16),
-                const Text('Card Dismissed (Skipped)!'),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _step3Dismissed = false;
-                      _step3Completed = false;
-                    });
-                  },
-                  child: const Text('Restore Card'),
-                ),
+        // Mock Daily Progress Timeline
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.surfaceContainerHighest.withAlpha(70),
+                colorScheme.surfaceContainer.withAlpha(40),
               ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withAlpha(80),
+              width: 1.0,
             ),
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Daily Progress',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  Text(
+                    _step3Completed ? '2 of 2 Done' : '1 of 2 Done',
+                    style: textTheme.labelLarge?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // 1. Early Morning (Completed)
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
+                      children: [
+                        const SizedBox(height: 4),
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colorScheme.primary.withAlpha(30),
+                            border: Border.all(color: colorScheme.primary, width: 2),
+                          ),
+                          child: Icon(Icons.check, size: 12, color: colorScheme.primary),
+                        ),
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            color: colorScheme.outlineVariant.withAlpha(80),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Early Morning',
+                              style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Completed at 08:30',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 2. Afternoon (Missed or Completed Late)
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
+                      children: [
+                        const SizedBox(height: 4),
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _step3Completed 
+                                ? colorScheme.primary.withAlpha(30)
+                                : colorScheme.error.withAlpha(15),
+                            border: Border.all(
+                              color: _step3Completed 
+                                  ? colorScheme.primary
+                                  : colorScheme.error.withAlpha(120),
+                              width: 2,
+                            ),
+                          ),
+                          child: Icon(
+                            _step3Completed ? Icons.check : Icons.access_time_rounded,
+                            size: 12,
+                            color: _step3Completed 
+                                ? colorScheme.primary 
+                                : colorScheme.error.withAlpha(180),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 20.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Afternoon',
+                                    style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _step3Completed 
+                                        ? 'Completed late at 14:32 (Retro Log)'
+                                        : 'Yesterday\'s missed window (14:00 - 16:00)',
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: _step3Completed ? colorScheme.primary : colorScheme.error.withAlpha(180),
+                                      fontWeight: _step3Completed ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (!_step3Completed) ...[
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: () => _showMockRetroLogSheet(context),
+                                icon: const Icon(Icons.history_rounded, size: 14),
+                                label: const Text('Log Late'),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  side: BorderSide(color: colorScheme.error.withAlpha(120)),
+                                  foregroundColor: colorScheme.error,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
           
         if (_step3Completed) ...[
           const SizedBox(height: 32),
-          _buildStepCompletedBanner(colorScheme, textTheme, 'Friction and compliance handling complete! Missed logs record a warning banner for subjective metrics, preventing cognitive memory bias. Click "Next Step".'),
+          _buildStepCompletedBanner(colorScheme, textTheme, 'Retrospective check-in complete! The timeline Afternoon row is now marked completed, and a SubjectiveRetroOverride event has been recorded for the subjective Stress Level. Click "Next Step".'),
         ],
       ],
     );
   }
 
-  Widget _buildMockMetricChip({
-    required String label,
-    required IconData icon,
-    required bool dimmed,
-    required VoidCallback onTap,
-    required ColorScheme colorScheme,
-    required TextTheme textTheme,
-  }) {
-    final chip = InkWell(
-      onTap: dimmed ? null : onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: colorScheme.error.withAlpha(dimmed ? 20 : 40),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: colorScheme.error.withAlpha(dimmed ? 40 : 100),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: colorScheme.error.withAlpha(dimmed ? 100 : 255)),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: textTheme.labelMedium?.copyWith(
-                color: colorScheme.onErrorContainer
-                    .withAlpha(dimmed ? 120 : 220),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    return dimmed ? Opacity(opacity: 0.55, child: chip) : chip;
-  }
-
-  void _showMockRetroLogSheet(BuildContext context, String metricName, bool isSubjective) {
+  void _showMockRetroLogSheet(BuildContext context) {
     double tempStress = _stressValue;
     int tempSteps = _mockStepCount;
 
@@ -873,81 +818,91 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  if (isSubjective)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning_amber_rounded,
-                              size: 16,
-                              color: colorScheme.error),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Best-effort recall — subjective data logged retroactively.',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                  
+                  // Metadata Warning Badge
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.error.withAlpha(20),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.error.withAlpha(50)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.psychology_rounded, size: 18, color: colorScheme.error),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Retrospective Log: Stress Level is a subjective scale and will be silently flagged with a SubjectiveRetroOverride event in your research data to track recall bias.',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onErrorContainer,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  Text(
-                    isSubjective ? '🧠 Log Retro Stress Level' : '👟 Log Retro Step Count',
-                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
+                  const SizedBox(height: 24),
+                  
+                  Text(
+                    '👟 Retro Log: Step Count',
+                    style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Steps Today', style: TextStyle(fontWeight: FontWeight.w500)),
+                      Text('$tempSteps steps', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Slider(
+                    value: tempSteps.toDouble(),
+                    min: 1000,
+                    max: 15000,
+                    divisions: 14,
+                    activeColor: colorScheme.primary,
+                    onChanged: (val) {
+                      setModalState(() {
+                        tempSteps = (val / 100).round() * 100;
+                      });
+                    },
+                  ),
+                  
                   const SizedBox(height: 16),
-                  if (isSubjective) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Stress Level', style: TextStyle(fontWeight: FontWeight.w500)),
-                        Text('${tempStress.toInt()}/10', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    Slider(
-                      value: tempStress,
-                      min: 1,
-                      max: 10,
-                      divisions: 9,
-                      activeColor: colorScheme.error,
-                      onChanged: (val) {
-                        setModalState(() {
-                          tempStress = val;
-                        });
-                      },
-                    ),
-                  ] else ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Steps Today', style: TextStyle(fontWeight: FontWeight.w500)),
-                        Text('$tempSteps steps', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Slider(
-                      value: tempSteps.toDouble(),
-                      min: 1000,
-                      max: 15000,
-                      divisions: 14,
-                      activeColor: colorScheme.error,
-                      onChanged: (val) {
-                        setModalState(() {
-                          tempSteps = (val / 100).round() * 100;
-                        });
-                      },
-                    ),
-                  ],
+                  Text(
+                    '🧠 Retro Log: Stress Level',
+                    style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Stress Level', style: TextStyle(fontWeight: FontWeight.w500)),
+                      Text('${tempStress.toInt()}/10', style: TextStyle(color: colorScheme.error, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Slider(
+                    value: tempStress,
+                    min: 1,
+                    max: 10,
+                    divisions: 9,
+                    activeColor: colorScheme.error,
+                    onChanged: (val) {
+                      setModalState(() {
+                        tempStress = val;
+                      });
+                    },
+                  ),
+                  
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: () {
                       Navigator.pop(ctx);
                       setState(() {
-                        if (isSubjective) {
-                          _stressValue = tempStress;
-                        }
+                        _stressValue = tempStress;
                         _step3Completed = true;
                       });
                       
@@ -959,17 +914,13 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
                       }
                     },
                     style: FilledButton.styleFrom(
-                      backgroundColor: colorScheme.error,
-                      foregroundColor: colorScheme.onError,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: Center(
-                      child: Text(
-                        isSubjective 
-                          ? 'Log Stress: ${tempStress.toInt()}/10' 
-                          : 'Log Steps: $tempSteps'
-                      ),
+                    child: const Center(
+                      child: Text('Save Late Check-in'),
                     ),
                   ),
                 ],
