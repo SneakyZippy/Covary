@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../widgets/confetti_animation.dart';
 import '../theme/design_system.dart';
 
@@ -33,7 +35,11 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
 
   // Step 3 State
   double _stressValue = 5.0;
-  final int _mockStepCount = 4200;
+  int _mockStepCount = 4200;
+  bool _step3RetroLogActive = false;
+  int _step3RetroPage = 0;
+  late final TextEditingController _step3StepsController;
+  late DateTime _step3MockCheckinTime;
 
   // Step 4 State
   bool _nodeExpanded = false;
@@ -46,11 +52,20 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
   void initState() {
     super.initState();
     _startStep1Timer();
+    _step3StepsController = TextEditingController(text: _mockStepCount.toString());
+    _step3MockCheckinTime = DateTime.now().subtract(const Duration(days: 1)).copyWith(
+      hour: 15,
+      minute: 0,
+      second: 0,
+      millisecond: 0,
+      microsecond: 0,
+    );
   }
 
   @override
   void dispose() {
     _step1Timer?.cancel();
+    _step3StepsController.dispose();
     super.dispose();
   }
 
@@ -575,6 +590,10 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
 
   // --- Step 3: Missed Check-in / Recall Bias ---
   Widget _buildStep3(ColorScheme colorScheme, TextTheme textTheme) {
+    if (_step3RetroLogActive) {
+      return _buildMockGuidedCheckin(colorScheme, textTheme);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -748,7 +767,12 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
                             if (!_step3Completed) ...[
                               const SizedBox(width: 8),
                               OutlinedButton.icon(
-                                onPressed: () => _showMockRetroLogSheet(context),
+                                onPressed: () {
+                                  setState(() {
+                                    _step3RetroLogActive = true;
+                                    _step3RetroPage = 0;
+                                  });
+                                },
                                 icon: const Icon(Icons.history_rounded, size: 14),
                                 label: const Text('Log Late'),
                                 style: OutlinedButton.styleFrom(
@@ -778,135 +802,405 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
     );
   }
 
-  void _showMockRetroLogSheet(BuildContext context) {
-    double tempStress = _stressValue;
-    int tempSteps = _mockStepCount;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            final colorScheme = Theme.of(ctx).colorScheme;
-            final textTheme = Theme.of(ctx).textTheme;
-
-            return Container(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+  Widget _buildMockGuidedCheckin(ColorScheme colorScheme, TextTheme textTheme) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colorScheme.outlineVariant.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header (Visual Match to daily_checkin_screen.dart Scaffold / AppBar)
+          Row(
+            children: [
+              const SizedBox(width: 8),
+              Icon(Icons.history_rounded, color: colorScheme.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Daily Check-in',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
               ),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                color: colorScheme.onSurfaceVariant,
+                onPressed: () {
+                  setState(() {
+                    _step3RetroLogActive = false;
+                  });
+                },
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colorScheme.outlineVariant,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          
+          // Progress bar (LinearProgressIndicator)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: LinearProgressIndicator(
+              value: (_step3RetroPage + 1) / 2,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              color: colorScheme.primary,
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Recall-reliability warning banner (exact visual replica from daily_checkin_screen.dart)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.schedule_rounded,
+                    size: 18, color: colorScheme.onTertiaryContainer),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Logging for a past window. Subjective ratings (mood, stress) may not be accurate.',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onTertiaryContainer,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  
-                  // Metadata Warning Badge
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.error.withAlpha(20),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: colorScheme.error.withAlpha(50)),
+                ),
+              ],
+            ),
+          ),
+
+          if (_step3RetroPage == 0) ...[
+            // Page 1: Stress Level (Subjective)
+            
+            // Recall Warning Badge
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 14,
+                      color: colorScheme.error),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Best-effort recall',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.error,
+                      fontWeight: FontWeight.w600,
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                ],
+              ),
+            ),
+
+            // Card representing MetricInputCard
+            Card(
+              elevation: 0,
+              color: colorScheme.surfaceContainerHighest,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Card Header Row
+                    Row(
                       children: [
-                        Icon(Icons.psychology_rounded, size: 18, color: colorScheme.error),
-                        const SizedBox(width: 10),
+                        Icon(
+                          Icons.psychology_rounded,
+                          size: 28,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            'Retrospective Log: Stress Level is a subjective scale and will be silently flagged with a SubjectiveRetroOverride event in your research data to track recall bias.',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onErrorContainer,
-                              fontWeight: FontWeight.w500,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Stress Level',
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.info_outline_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant.withAlpha(200),
+                          ),
+                          onPressed: () => _showTutorialMetricHelp(
+                            context,
+                            title: 'Stress Level',
+                            description: 'Rate your current psychological stress and pressure from 1 (Completely Calm/Relaxed) to 10 (Extremely Overwhelmed/Stressed).\n\nGuidelines:\n• Tune in to physical markers of stress (muscle tension, elevated heart rate) and mental state (racing thoughts, anxiety).\n• 1 indicates zero pressure; 10 indicates high crisis or intense cognitive overwhelm.',
+                            icon: Icons.psychology_rounded,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: colorScheme.primary,
+                          size: 28,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Slider Input
+                    Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '1',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
+                            Text(
+                              _stressValue.toInt().toString(),
+                              style: textTheme.headlineSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '10',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: _stressValue,
+                          min: 1,
+                          max: 10,
+                          divisions: 9,
+                          label: _stressValue.toInt().toString(),
+                          activeColor: colorScheme.primary,
+                          onChanged: (val) {
+                            setState(() {
+                              _stressValue = val;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Time Picker Button
+            _buildTutorialTimePickerButton(context, colorScheme, textTheme),
+            const SizedBox(height: 24),
+
+            // Navigation Button
+            FilledButton(
+              onPressed: () {
+                setState(() {
+                  _step3RetroPage = 1;
+                });
+              },
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: const Text('Next Question'),
+            ),
+          ] else ...[
+            // Page 2: Step Count (Factual)
+
+            // Card representing MetricInputCard
+            Card(
+              elevation: 0,
+              color: colorScheme.surfaceContainerHighest,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Card Header Row
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.directions_run_rounded,
+                          size: 28,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Step Count (Manual)',
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.info_outline_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant.withAlpha(200),
+                          ),
+                          onPressed: () => _showTutorialMetricHelp(
+                            context,
+                            title: 'Step Count (Manual)',
+                            description: 'Manually enter your total steps for today.\n\nGuidelines:\n• Check your pedometer, smartwatch, or phone health app at the end of the day.',
+                            icon: Icons.directions_run_rounded,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        if (_step3StepsController.text.trim().isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: colorScheme.primary,
+                            size: 28,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Numeric Input
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _step3StepsController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            decoration: InputDecoration(
+                              hintText: 'Enter value',
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: colorScheme.outlineVariant),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: colorScheme.outlineVariant),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                              ),
+                            ),
+                            style: textTheme.bodyLarge,
+                            onChanged: (_) {
+                              setState(() {}); // Rebuild to update check icon
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton.filled(
+                          onPressed: () {
+                            FocusScope.of(context).unfocus();
+                          },
+                          icon: const Icon(Icons.check_rounded),
+                          style: IconButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.all(12),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  Text(
-                    '👟 Retro Log: Step Count',
-                    style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Steps Today', style: TextStyle(fontWeight: FontWeight.w500)),
-                      Text('$tempSteps steps', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Slider(
-                    value: tempSteps.toDouble(),
-                    min: 1000,
-                    max: 15000,
-                    divisions: 14,
-                    activeColor: colorScheme.primary,
-                    onChanged: (val) {
-                      setModalState(() {
-                        tempSteps = (val / 100).round() * 100;
-                      });
-                    },
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  Text(
-                    '🧠 Retro Log: Stress Level',
-                    style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Stress Level', style: TextStyle(fontWeight: FontWeight.w500)),
-                      Text('${tempStress.toInt()}/10', style: TextStyle(color: colorScheme.error, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Slider(
-                    value: tempStress,
-                    min: 1,
-                    max: 10,
-                    divisions: 9,
-                    activeColor: colorScheme.error,
-                    onChanged: (val) {
-                      setModalState(() {
-                        tempStress = val;
-                      });
-                    },
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  FilledButton(
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Time Picker Button
+            _buildTutorialTimePickerButton(context, colorScheme, textTheme),
+            const SizedBox(height: 24),
+
+            // Navigation Button Row
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
                     onPressed: () {
-                      Navigator.pop(ctx);
                       setState(() {
-                        _stressValue = tempStress;
+                        _step3RetroPage = 0;
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Back'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () {
+                      final val = int.tryParse(_step3StepsController.text.trim());
+                      setState(() {
+                        if (val != null) {
+                          _mockStepCount = val;
+                        }
+                        _step3RetroLogActive = false;
                         _step3Completed = true;
                       });
+                      FocusScope.of(context).unfocus();
                       
-                      // Trigger confetti near center
+                      // Trigger confetti
                       final box = context.findRenderObject() as RenderBox?;
                       if (box != null) {
                         final pos = box.localToGlobal(Offset(box.size.width / 2, box.size.height / 2));
@@ -914,21 +1208,206 @@ class _InteractiveTutorialScreenState extends State<InteractiveTutorialScreen> {
                       }
                     },
                     style: FilledButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Center(
-                      child: Text('Save Late Check-in'),
+                    child: const Text('Save Check-in'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showTutorialMetricHelp(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          backgroundColor: colorScheme.surface,
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          title: Row(
+            children: [
+              Icon(icon, size: 32, color: colorScheme.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TRACKING GUIDELINES',
+                style: textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Text(
+                    description,
+                    style: textTheme.bodyLarge?.copyWith(
+                      height: 1.5,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                ],
+                ),
               ),
-            );
-          },
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildTutorialTimePickerButton(
+    BuildContext context,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    final now = DateTime.now();
+    final isToday = _step3MockCheckinTime.year == now.year &&
+                    _step3MockCheckinTime.month == now.month &&
+                    _step3MockCheckinTime.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = _step3MockCheckinTime.year == yesterday.year &&
+                        _step3MockCheckinTime.month == yesterday.month &&
+                        _step3MockCheckinTime.day == yesterday.day;
+
+    final dateStr = isToday
+        ? 'Today'
+        : (isYesterday ? 'Yesterday' : DateFormat('MMM d').format(_step3MockCheckinTime));
+    final timeStr = "${_step3MockCheckinTime.hour.toString().padLeft(2, '0')}:${_step3MockCheckinTime.minute.toString().padLeft(2, '0')}";
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Happened at ',
+          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
+        InkWell(
+          onTap: () async {
+            final time = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(_step3MockCheckinTime),
+            );
+            if (time != null && mounted) {
+              setState(() {
+                _step3MockCheckinTime = DateTime(
+                  _step3MockCheckinTime.year,
+                  _step3MockCheckinTime.month,
+                  _step3MockCheckinTime.day,
+                  time.hour,
+                  time.minute,
+                );
+              });
+            }
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              timeStr,
+              style: textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ),
+        Text(
+          ' on ',
+          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
+        InkWell(
+          onTap: () async {
+            final date = await showDatePicker(
+              context: context,
+              initialDate: _step3MockCheckinTime,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
+            if (date != null && mounted) {
+              setState(() {
+                _step3MockCheckinTime = DateTime(
+                  date.year,
+                  date.month,
+                  date.day,
+                  _step3MockCheckinTime.hour,
+                  _step3MockCheckinTime.minute,
+                );
+              });
+            }
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isToday ? colorScheme.surfaceContainerHighest : colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isToday) ...[
+                  Icon(Icons.calendar_today_rounded, size: 10, color: colorScheme.onTertiaryContainer),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  dateStr,
+                  style: textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isToday ? colorScheme.onSurface : colorScheme.onTertiaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
