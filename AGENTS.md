@@ -28,7 +28,7 @@ Every user interaction must record:
 - **Permissions:** Always include user-facing explanations for Health and App Usage data.
 
 ## 6. Custom Macros & Commands
-- **"Ship it"**: When the user says "Ship it", perform the following steps:
+- **"Ship it"**: When the user says "Ship it", **ALWAYS stop and ask for explicit confirmation first** before doing anything. Show the user the current version and what the new version will be, and ask them to confirm they want to proceed with the release. Only continue if the user explicitly confirms. Never execute the "Ship it" workflow autonomously. Then, perform the following steps:
     1. Increment `build_number` in `version.json` and `version` in `pubspec.yaml`.
     2. Generate a current timestamp (ISO 8601 format) and update `build_timestamp` in `version.json`.
     3. Stage and commit the version bump: `git commit -am "Bump version to v<version>"`
