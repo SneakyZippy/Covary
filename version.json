@@ -1,7 +1,7 @@
 {
     "latest_version":  "1.3.0",
-    "build_number":  49,
-    "build_timestamp":  "2026-06-10T14:36:00+02:00",
+    "build_number":  50,
+    "build_timestamp":  "2026-06-11T14:32:23+02:00",
     "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "Release v1.3.0+49\n\n- **PWA Viewport \u0026 Touch Alignment**: Removed viewport-locking position constraints in CSS to allow WebKit layout viewport to naturally align with touch coordinates in iOS standalone PWAs, resolving the first-launch vertical touch offset bug.\n- **Adaptive Safe Area Logic**: Updated the onboarding screen to dynamically detect native PWA safe area insets via MediaQuery, only falling back to custom browser-chrome margins when native padding is zero."
+    "release_notes":  "Release v1.3.0+50\n\n- **Daily Progress Timeline**: Redesigned the home screen missed/active check-in experience to a unified daily timeline, resolving midnight rollover visibility and timeline duplication bugs.\n- **Premium Highlights & Stabilized Animations**: Constrained the timeline pulse node animations to prevent row shifting, and added a premium colored accent card highlighting the active window.\n- **HCI Research Compliance & Retrospective overrides**: Backdated retroactive scale logs to target midpoints and automatically flagged subjective entries with `SubjectiveRetroOverride` meta-events for ecological recall bias research."
 }
