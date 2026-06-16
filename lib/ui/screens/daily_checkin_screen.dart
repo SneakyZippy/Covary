@@ -137,7 +137,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           centerTitle: true,
         ),
         body: SafeArea(
-          child: metrics.isEmpty
+          child: allWindowMetrics.isEmpty
               ? _buildEmptyState(colorScheme, textTheme)
               : widget.mode == CheckinMode.guided
                   ? _buildGuidedFlow(metrics, colorScheme, textTheme, isMissedWindow, currentTime)
@@ -997,39 +997,49 @@ class _CheckinReviewCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     Expanded(
-                      child: ListView.separated(
-                        itemCount: metrics.length,
-                        separatorBuilder: (_, _) =>
-                            const Divider(height: 1, indent: 48),
-                        itemBuilder: (context, index) {
-                          final metric = metrics[index];
-                          final data = sessionData[metric.id];
-                          final hasValue = data != null;
+                      child: metrics.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No factual metrics in this window.\nToggle "Complete Check-in" above to log subjective ratings.',
+                                textAlign: TextAlign.center,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: metrics.length,
+                              separatorBuilder: (_, _) =>
+                                  const Divider(height: 1, indent: 48),
+                              itemBuilder: (context, index) {
+                                final metric = metrics[index];
+                                final data = sessionData[metric.id];
+                                final hasValue = data != null;
 
-                          return ListTile(
-                            onTap: () => onJumpToPage(index),
-                            contentPadding: EdgeInsets.zero,
-                            leading: MetricIcon(
-                              iconName: metric.emoji,
-                              size: 24,
+                                return ListTile(
+                                  onTap: () => onJumpToPage(index),
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: MetricIcon(
+                                    iconName: metric.emoji,
+                                    size: 24,
+                                  ),
+                                  title: Text(
+                                    metric.label,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  trailing: hasValue
+                                      ? Text(
+                                          _formatValue(data.$1, inputType: metric.inputType),
+                                          style: TextStyle(
+                                            color: colorScheme.primary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        )
+                                      : const Icon(Icons.warning_amber_rounded,
+                                          color: Colors.orange),
+                                );
+                              },
                             ),
-                            title: Text(
-                              metric.label,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            trailing: hasValue
-                                ? Text(
-                                    _formatValue(data.$1, inputType: metric.inputType),
-                                    style: TextStyle(
-                                      color: colorScheme.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : const Icon(Icons.warning_amber_rounded,
-                                    color: Colors.orange),
-                          );
-                        },
-                      ),
                     ),
                   ],
                 ),
