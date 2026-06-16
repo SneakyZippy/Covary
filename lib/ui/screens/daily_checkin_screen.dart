@@ -70,6 +70,12 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   bool _factualOnly = false;
   bool _factualOnlyInitialized = false;
 
+  /// Tracks if a submission is currently in progress to prevent double-submits.
+  bool _isSubmitting = false;
+
+  /// Tracks if a programmatic page transition animation is in progress.
+  bool _isPageAnimating = false;
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +86,24 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _safeNextPage({required Duration duration, required Curve curve}) async {
+    if (!mounted) return;
+    setState(() => _isPageAnimating = true);
+    await _pageController.nextPage(duration: duration, curve: curve);
+    if (mounted) {
+      setState(() => _isPageAnimating = false);
+    }
+  }
+
+  Future<void> _safeAnimateToPage(int page, {required Duration duration, required Curve curve}) async {
+    if (!mounted) return;
+    setState(() => _isPageAnimating = true);
+    await _pageController.animateToPage(page, duration: duration, curve: curve);
+    if (mounted) {
+      setState(() => _isPageAnimating = false);
+    }
   }
 
   @override
@@ -219,7 +243,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                       _factualOnly = newSelection.first;
                       _currentPage = 0;
                     });
-                    _pageController.animateToPage(
+                    _safeAnimateToPage(
                       0,
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
@@ -236,102 +260,109 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         const SizedBox(height: 8),
 
         Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: totalPages,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-                _cardVisibleAt = DateTime.now();
-              });
-            },
-            itemBuilder: (context, index) {
-              if (index < metrics.length) {
-                final metric = metrics[index];
-                final showRecallWarning =
-                    isMissedWindow && !metric.isRetrospectivelyReliable;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8.0,
-                    vertical: 16.0,
-                  ),
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          if (showRecallWarning)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.warning_amber_rounded,
-                                      size: 14,
-                                      color: colorScheme.error),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Best-effort recall',
-                                    style: textTheme.labelSmall?.copyWith(
-                                      color: colorScheme.error,
-                                      fontWeight: FontWeight.w600,
+          child: IgnorePointer(
+            ignoring: _isPageAnimating,
+            child: PageView.builder(
+              controller: _pageController,
+              physics: _isPageAnimating
+                  ? const NeverScrollableScrollPhysics()
+                  : null,
+              itemCount: totalPages,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentPage = index;
+                  _cardVisibleAt = DateTime.now();
+                });
+              },
+              itemBuilder: (context, index) {
+                if (index < metrics.length) {
+                  final metric = metrics[index];
+                  final showRecallWarning =
+                      isMissedWindow && !metric.isRetrospectivelyReliable;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8.0,
+                      vertical: 16.0,
+                    ),
+                    child: Center(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            if (showRecallWarning)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded,
+                                        size: 14,
+                                        color: colorScheme.error),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Best-effort recall',
+                                      style: textTheme.labelSmall?.copyWith(
+                                        color: colorScheme.error,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          MetricInputCard(
-                            key: ValueKey(metric.id),
-                            metric: metric,
-                            initialValue: _sessionData[metric.id]?.$1,
-                            onChanged: (value) {
-                              final latency = DateTime.now()
-                                  .difference(_cardVisibleAt)
-                                  .inMilliseconds;
-                              final customTime = _sessionData[metric.id]?.$3;
+                            MetricInputCard(
+                              key: ValueKey(metric.id),
+                              metric: metric,
+                              initialValue: _sessionData[metric.id]?.$1,
+                              onChanged: (value) {
+                                final latency = DateTime.now()
+                                    .difference(_cardVisibleAt)
+                                    .inMilliseconds;
+                                final customTime = _sessionData[metric.id]?.$3;
 
-                              if (metric.inputType == MetricInputType.counter) {
-                                setState(() {
-                                  _sessionData[metric.id] = ('1', latency, customTime);
-                                });
-                              } else {
-                                setState(() {
-                                  _sessionData[metric.id] = (value, latency, customTime);
-                                });
-                              }
-                              // Auto-advance for all types
-                              const shouldAutoAdvance = true;
-                              if (shouldAutoAdvance && index < metrics.length) {
-                                _pageController.nextPage(
-                                  duration: const Duration(milliseconds: 400),
-                                  curve: Curves.easeInOut,
-                                );
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTimePickerButton(
-                            metric.id, 
-                            _sessionData[metric.id]?.$3 ?? effectiveTargetTime,
-                            colorScheme,
-                          ),
-                        ],
+                                if (metric.inputType == MetricInputType.counter) {
+                                  setState(() {
+                                    _sessionData[metric.id] = ('1', latency, customTime);
+                                  });
+                                } else {
+                                  setState(() {
+                                    _sessionData[metric.id] = (value, latency, customTime);
+                                  });
+                                }
+                                // Auto-advance for all types
+                                const shouldAutoAdvance = true;
+                                if (shouldAutoAdvance && index < metrics.length) {
+                                  _safeNextPage(
+                                    duration: const Duration(milliseconds: 400),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTimePickerButton(
+                              metric.id, 
+                              _sessionData[metric.id]?.$3 ?? effectiveTargetTime,
+                              colorScheme,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              } else {
-                return _CheckinReviewCard(
-                  metrics: metrics,
-                  sessionData: _sessionData,
-                  onJumpToPage: (page) => _pageController.animateToPage(
-                    page,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOut,
-                  ),
-                  onSubmit: () => _submitSession(metrics, effectiveTargetTime),
-                );
-              }
-            },
+                  );
+                } else {
+                  return _CheckinReviewCard(
+                    metrics: metrics,
+                    sessionData: _sessionData,
+                    isSubmitting: _isSubmitting,
+                    onJumpToPage: (page) => _safeAnimateToPage(
+                      page,
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                    ),
+                    onSubmit: () => _submitSession(metrics, effectiveTargetTime),
+                  );
+                }
+              },
+            ),
           ),
         ),
       ],
@@ -735,8 +766,14 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   }
 
   Future<void> _submitSession(List<MetricDefinition> metrics, DateTime effectiveTargetTime) async {
-    final eventRepo = context.read<EventRepository>();
-    final metricService = context.read<MetricService>();
+    if (_isSubmitting) return;
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final eventRepo = context.read<EventRepository>();
+      final metricService = context.read<MetricService>();
     final colorScheme = Theme.of(context).colorScheme;
     final sessionId = widget.sessionId ?? const Uuid().v4();
 
@@ -850,6 +887,13 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
       );
       Navigator.of(context).pop();
     }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   Widget _buildEmptyState(ColorScheme colorScheme, TextTheme textTheme) {
@@ -951,12 +995,14 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 class _CheckinReviewCard extends StatelessWidget {
   final List<MetricDefinition> metrics;
   final Map<String, (String, int, DateTime?)> sessionData;
+  final bool isSubmitting;
   final ValueChanged<int> onJumpToPage;
   final VoidCallback onSubmit;
 
   const _CheckinReviewCard({
     required this.metrics,
     required this.sessionData,
+    required this.isSubmitting,
     required this.onJumpToPage,
     required this.onSubmit,
   });
@@ -1051,16 +1097,25 @@ class _CheckinReviewCard extends StatelessWidget {
             width: double.infinity,
             height: 64,
             child: FilledButton(
-              onPressed: onSubmit,
+              onPressed: isSubmitting ? null : onSubmit,
               style: FilledButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              child: const Text(
-                'Finish & Submit',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              child: isSubmitting
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: colorScheme.onPrimary,
+                      ),
+                    )
+                  : const Text(
+                      'Finish & Submit',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
             ),
           ),
         ],
