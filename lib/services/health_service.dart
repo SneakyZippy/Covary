@@ -124,9 +124,14 @@ class HealthService {
       final effectiveEnd = endTime ?? now;
       final effectiveStart = startTime ?? now.subtract(const Duration(hours: 24));
 
+      // We look back an extra 24 hours to catch sleep sessions that started
+      // the previous evening but ended within our target window.
+      final queryStart = effectiveStart.subtract(const Duration(hours: 24));
+      final queryEnd = effectiveEnd;
+
       final data = await _health.getHealthDataFromTypes(
-        startTime: effectiveStart,
-        endTime: effectiveEnd,
+        startTime: queryStart,
+        endTime: queryEnd,
         types: [HealthDataType.SLEEP_SESSION, HealthDataType.SLEEP_ASLEEP],
       );
 
@@ -135,29 +140,26 @@ class HealthService {
         return null;
       }
 
-      // 1. Extract and clip all intervals to the requested window
-      // We force UTC comparison to avoid timezone-related clipping failures.
+      // 1. Extract and filter all intervals to the requested window (based on end time)
       final windowStartUtc = effectiveStart.toUtc();
       final windowEndUtc = effectiveEnd.toUtc();
 
       debugPrint('[HealthService] Sync Window (Local): $effectiveStart to $effectiveEnd');
 
-      List<({DateTime start, DateTime end})> intervals = data.map((p) {
-        final pStartUtc = p.dateFrom.toUtc();
-        final pEndUtc = p.dateTo.toUtc();
-
-        final clipStartUtc =
-            pStartUtc.isBefore(windowStartUtc) ? windowStartUtc : pStartUtc;
-        final clipEndUtc =
-            pEndUtc.isAfter(windowEndUtc) ? windowEndUtc : pEndUtc;
-
-        return (start: clipStartUtc.toLocal(), end: clipEndUtc.toLocal());
-      }).where((i) => i.end.isAfter(i.start)).toList();
+      List<({DateTime start, DateTime end})> intervals = data
+          .where((p) {
+            final pEndUtc = p.dateTo.toUtc();
+            // Include session if it ends within the window (exclusive of start, inclusive of end)
+            return pEndUtc.isAfter(windowStartUtc) && !pEndUtc.isAfter(windowEndUtc);
+          })
+          .map((p) => (start: p.dateFrom, end: p.dateTo))
+          .where((i) => i.end.isAfter(i.start))
+          .toList();
 
       // 2. Sort by start time
       intervals.sort((a, b) => a.start.compareTo(b.start));
 
-      debugPrint('[HealthService] Clipped sleep intervals before merge:');
+      debugPrint('[HealthService] Sleep intervals before merge:');
       for (final i in intervals) {
         debugPrint('  - ${i.start} to ${i.end} (${i.end.difference(i.start).inMinutes} min)');
       }
@@ -211,14 +213,28 @@ class HealthService {
       final effectiveEnd = endTime ?? now;
       final effectiveStart = startTime ?? now.subtract(const Duration(hours: 24));
 
+      // We look back an extra 24 hours to catch sleep sessions that started
+      // the previous evening but ended within our target window.
+      final queryStart = effectiveStart.subtract(const Duration(hours: 24));
+      final queryEnd = effectiveEnd;
+
       final data = await _health.getHealthDataFromTypes(
-        startTime: effectiveStart,
-        endTime: effectiveEnd,
+        startTime: queryStart,
+        endTime: queryEnd,
         types: [HealthDataType.SLEEP_SESSION, HealthDataType.SLEEP_ASLEEP],
       );
 
-      if (data.isEmpty) {
-        debugPrint('[HealthService] No sleep session data found for timing extraction.');
+      // Filter to keep only the sessions that ended within the target window
+      final windowStartUtc = effectiveStart.toUtc();
+      final windowEndUtc = effectiveEnd.toUtc();
+
+      final targetData = data.where((p) {
+        final pEndUtc = p.dateTo.toUtc();
+        return pEndUtc.isAfter(windowStartUtc) && !pEndUtc.isAfter(windowEndUtc);
+      }).toList();
+
+      if (targetData.isEmpty) {
+        debugPrint('[HealthService] No sleep session data found for timing extraction in target window.');
         return null;
       }
 
@@ -226,7 +242,7 @@ class HealthService {
       DateTime? bedtime;
       DateTime? wakeup;
 
-      for (final p in data) {
+      for (final p in targetData) {
         if (bedtime == null || p.dateFrom.isBefore(bedtime)) {
           bedtime = p.dateFrom;
         }
