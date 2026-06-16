@@ -26,6 +26,7 @@ class _InteractionScreenState extends State<InteractionScreen> {
   List<DateTime> _trendDates = [];
   double _recentClicks = 0.0;
   double _recentFriction = 0.0;
+  double _avgNotificationDelay = 0.0;
 
   @override
   void initState() {
@@ -42,6 +43,8 @@ class _InteractionScreenState extends State<InteractionScreen> {
     int swipesCount = 0;
     int totalLatency = 0;
     int latencyCount = 0;
+    int totalNotificationDelay = 0;
+    int notificationDelayCount = 0;
 
     for (final e in events) {
       // Latency is only on active logging metrics (non-meta, non-system, latencyMs > 0)
@@ -51,6 +54,16 @@ class _InteractionScreenState extends State<InteractionScreen> {
           e.latencyMs > 0) {
         totalLatency += e.latencyMs;
         latencyCount++;
+      }
+
+      // Calculate notification delay (only for notification-triggered research events)
+      if (e.category != EventCategory.meta &&
+          e.category != EventCategory.appUsage &&
+          e.triggerSource == TriggerSource.notification &&
+          e.notificationDelayMs != null &&
+          e.notificationDelayMs! > 0) {
+        totalNotificationDelay += e.notificationDelayMs!;
+        notificationDelayCount++;
       }
 
       // Categorize session-level interactions
@@ -130,11 +143,15 @@ class _InteractionScreenState extends State<InteractionScreen> {
     }
 
     final total = clicksCount + snoozesCount + swipesCount;
+    final avgNotificationDelay = notificationDelayCount > 0 
+        ? totalNotificationDelay / notificationDelayCount 
+        : 0.0;
 
     if (mounted) {
       setState(() {
         _interactionCounts = counts;
         _avgLatency = latencyCount > 0 ? totalLatency / latencyCount : 0.0;
+        _avgNotificationDelay = avgNotificationDelay;
         _totalInteractions = total;
         _engagementScore = total > 0 ? clicksCount / total : 0.0;
         _clickSpots = clicks;
@@ -246,27 +263,52 @@ class _InteractionScreenState extends State<InteractionScreen> {
     );
   }
 
+  String _formatDelay(double ms) {
+    if (ms <= 0) return 'N/A';
+    final duration = Duration(milliseconds: ms.toInt());
+    if (duration.inSeconds < 60) {
+      return '${duration.inSeconds}s';
+    } else if (duration.inMinutes < 60) {
+      return '${duration.inMinutes}m';
+    } else {
+      final hours = duration.inMinutes / 60.0;
+      return '${hours.toStringAsFixed(1)}h';
+    }
+  }
+
   Widget _buildPrimaryStats(TextTheme textTheme, ColorScheme colorScheme) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _StatCard(
-            label: 'Response Speed',
-            value: '${(_avgLatency / 1000).toStringAsFixed(2)}s',
-            subtitle: 'Avg. time to log',
-            icon: Icons.timer_outlined,
-            color: colorScheme.primary,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                label: 'Response Speed',
+                value: '${(_avgLatency / 1000).toStringAsFixed(2)}s',
+                subtitle: 'Avg. form fill time',
+                icon: Icons.timer_outlined,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _StatCard(
+                label: 'Prompt Open Delay',
+                value: _formatDelay(_avgNotificationDelay),
+                subtitle: 'Avg. notification delay',
+                icon: Icons.notifications_active_outlined,
+                color: Colors.orange,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _StatCard(
-            label: 'Interaction count',
-            value: '$_totalInteractions',
-            subtitle: 'Total events',
-            icon: Icons.analytics_outlined,
-            color: colorScheme.secondary,
-          ),
+        const SizedBox(height: 16),
+        _StatCard(
+          label: 'Interaction count',
+          value: '$_totalInteractions',
+          subtitle: 'Total events logged in the database',
+          icon: Icons.analytics_outlined,
+          color: colorScheme.secondary,
         ),
       ],
     );

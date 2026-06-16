@@ -20,6 +20,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   double _overallCompliance = 0.0;
   int _completedSessions = 0;
   int _totalPossibleSessions = 0;
+  double _subjectiveBiasRisk = 0.0;
 
   @override
   void initState() {
@@ -98,10 +99,25 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       completedCount += sessionsThisDay;
     }
 
+    final subjectiveEvents = events.where((e) => 
+      e.category == EventCategory.mood || 
+      e.category == EventCategory.biological
+    ).toList();
+
+    final retroOverrides = events.where((e) =>
+      e.category == EventCategory.meta &&
+      e.label == 'SubjectiveRetroOverride'
+    ).length;
+
+    final subjectiveBiasRisk = subjectiveEvents.isNotEmpty
+        ? (retroOverrides / subjectiveEvents.length).clamp(0.0, 1.0)
+        : 0.0;
+
     if (mounted) {
       setState(() {
         _complianceMap = tempMap;
         _recallRatio = total > 0 ? (total - recall) / total : 1.0;
+        _subjectiveBiasRisk = subjectiveBiasRisk;
         _overallCompliance = sumRatios / 14;
         _completedSessions = completedCount;
         _totalPossibleSessions = totalWindows * 14;
@@ -135,6 +151,8 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
               _buildComplianceRingsGrid(textTheme, colorScheme),
               const SizedBox(height: 24),
               _buildRecallCard(textTheme, colorScheme),
+              const SizedBox(height: 24),
+              _buildSubjectiveRecallCard(textTheme, colorScheme),
               const SizedBox(height: 24),
               _buildInfoCard(textTheme, colorScheme),
             ],
@@ -459,6 +477,77 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
               'Higher percentages indicate better data validity by reducing retrospective recall bias.',
               style: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onTertiaryContainer.withAlpha(180),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubjectiveRecallCard(TextTheme textTheme, ColorScheme colorScheme) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.errorContainer.withAlpha(50),
+            colorScheme.surfaceContainerHighest.withAlpha(40),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.error.withAlpha(50),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Subjective Recall Bias Risk',
+                  style: textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onErrorContainer,
+                  ),
+                ),
+                Icon(Icons.warning_amber_rounded, color: colorScheme.error, size: 20),
+              ],
+            ),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              value: _subjectiveBiasRisk,
+              backgroundColor: colorScheme.error.withAlpha(30),
+              color: colorScheme.error,
+              borderRadius: BorderRadius.circular(8),
+              minHeight: 12,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '${(_subjectiveBiasRisk * 100).toStringAsFixed(1)}% Recall Bias Risk',
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onErrorContainer,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Percentage of subjective logs backdated retrospectively. Higher percentages increase the risk of recall bias in mood & well-being metrics.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onErrorContainer.withAlpha(180),
               ),
             ),
           ],
