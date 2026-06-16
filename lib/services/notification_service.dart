@@ -188,7 +188,7 @@ class NotificationService {
           receivedAction.payload,
         );
       } else {
-        await _resetDismissCount();
+        await resetDismissCount();
 
         final sessionId = const Uuid().v4();
         final windowId = receivedAction.payload?['window_id'];
@@ -332,7 +332,7 @@ class NotificationService {
     }
   }
 
-  static Future<void> _resetDismissCount() async {
+  static Future<void> resetDismissCount() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('dismiss_count', 0);
   }

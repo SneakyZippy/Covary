@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import '../../services/profile_service.dart';
+import '../../services/notification_service.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/models/enums.dart';
@@ -64,6 +65,11 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   /// Tracks when the current card became visible.
   DateTime _cardVisibleAt = DateTime.now();
 
+  /// Whether to only show retrospectively reliable (factual) metrics.
+  /// Default is true for missed check-ins (to prevent recall bias), false otherwise.
+  bool _factualOnly = false;
+  bool _factualOnlyInitialized = false;
+
   @override
   void initState() {
     super.initState();
@@ -93,30 +99,50 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         isMissedWindow = true;
       }
     }
+
+    if (!_factualOnlyInitialized) {
+      _factualOnly = isMissedWindow; // Default to true (Factual Only) for missed check-ins
+      _factualOnlyInitialized = true;
+    }
     
     // Guided mode: only metrics assigned to the current time window.
     // Manual/Quick Log mode: ALL enabled metrics (including "Quick Log Only"
     // metrics that have no window assignments).
-    final List<MetricDefinition> metrics;
+    final List<MetricDefinition> allWindowMetrics;
     if (widget.mode == CheckinMode.manual) {
-      metrics = metricService.allMetrics.where((m) => m.isEnabled).toList();
+      allWindowMetrics = metricService.allMetrics.where((m) => m.isEnabled).toList();
     } else {
-      metrics = metricService.activeMetricsAt(currentTime);
+      allWindowMetrics = metricService.activeMetricsAt(currentTime);
     }
+
+    final List<MetricDefinition> metrics = _factualOnly && widget.mode == CheckinMode.guided
+        ? allWindowMetrics.where((m) => m.isRetrospectivelyReliable).toList()
+        : allWindowMetrics;
     
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.mode == CheckinMode.guided
-            ? 'Daily Check-in'
-            : 'Quick Log'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: metrics.isEmpty
-            ? _buildEmptyState(colorScheme, textTheme)
-            : widget.mode == CheckinMode.guided
-                ? _buildGuidedFlow(metrics, colorScheme, textTheme, isMissedWindow, currentTime)
-                : _buildManualGrid(metrics, colorScheme, textTheme, currentTime),
+    return PopScope(
+      canPop: widget.mode != CheckinMode.guided || (_currentPage == 0 && _sessionData.isEmpty),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        
+        final shouldExit = await _showSnoozeExitDialog(currentTime);
+        if (shouldExit && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.mode == CheckinMode.guided
+              ? 'Daily Check-in'
+              : 'Quick Log'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: metrics.isEmpty
+              ? _buildEmptyState(colorScheme, textTheme)
+              : widget.mode == CheckinMode.guided
+                  ? _buildGuidedFlow(metrics, colorScheme, textTheme, isMissedWindow, currentTime)
+                  : _buildManualGrid(metrics, colorScheme, textTheme, currentTime),
+        ),
       ),
     );
   }
@@ -148,23 +174,60 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         if (isMissedWindow)
           Container(
             margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: colorScheme.tertiaryContainer,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colorScheme.tertiary.withAlpha(80)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.schedule_rounded,
-                    size: 18, color: colorScheme.onTertiaryContainer),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Logging for a past window. Subjective ratings (mood, stress) may not be accurate.',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onTertiaryContainer,
-                      fontWeight: FontWeight.w500,
+                Row(
+                  children: [
+                    Icon(Icons.schedule_rounded,
+                        size: 20, color: colorScheme.onTertiaryContainer),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Logging for a past window. Subjective ratings (mood, stress) may suffer from recall bias.',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment<bool>(
+                      value: true,
+                      label: Text('Factual Only'),
+                      icon: Icon(Icons.fact_check_outlined, size: 16),
+                    ),
+                    ButtonSegment<bool>(
+                      value: false,
+                      label: Text('Complete Check-in'),
+                      icon: Icon(Icons.playlist_add_check_rounded, size: 16),
+                    ),
+                  ],
+                  selected: {_factualOnly},
+                  onSelectionChanged: (Set<bool> newSelection) {
+                    setState(() {
+                      _factualOnly = newSelection.first;
+                      _currentPage = 0;
+                    });
+                    _pageController.animateToPage(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  style: SegmentedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    textStyle: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -227,7 +290,6 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                               final customTime = _sessionData[metric.id]?.$3;
 
                               if (metric.inputType == MetricInputType.counter) {
-                                _logCounterTap(metric, latency, customTime: customTime);
                                 setState(() {
                                   _sessionData[metric.id] = ('1', latency, customTime);
                                 });
@@ -692,8 +754,6 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     }
 
     for (var metric in metrics) {
-      if (metric.inputType == MetricInputType.counter) continue;
-
       final data = _sessionData[metric.id];
       if (data != null) {
         final now = DateTime.now();
@@ -764,6 +824,12 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
       );
     }
 
+    try {
+      await NotificationService.resetDismissCount();
+    } catch (e) {
+      debugPrint('Error resetting dismiss count: $e');
+    }
+
     if (mounted) {
       try {
         final profileService = Provider.of<ProfileService>(context, listen: false);
@@ -817,6 +883,67 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<bool> _showSnoozeExitDialog(DateTime effectiveTargetTime) async {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard Check-in?'),
+        content: const Text(
+          'Would you like to snooze this session for later, or discard your current progress?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'keep'),
+            child: const Text('Keep Editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'discard'),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.error),
+            child: const Text('Discard'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, 'snooze'),
+            icon: const Icon(Icons.snooze_rounded, size: 18),
+            label: const Text('Snooze'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'discard') {
+      return true;
+    } else if (result == 'snooze') {
+      if (mounted) {
+        _showSnoozeSelectionBottomSheet(effectiveTargetTime);
+      }
+      return false;
+    }
+
+    return false;
+  }
+
+  void _showSnoozeSelectionBottomSheet(DateTime effectiveTargetTime) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return _SnoozeBottomSheet(
+          windowId: widget.fulfilledSlotId,
+          sessionId: widget.sessionId ?? const Uuid().v4(),
+          onSnoozeScheduled: () {
+            if (mounted) {
+              Navigator.of(this.context).pop(); // Exit bottom sheet
+              Navigator.of(this.context).pop(); // Exit check-in screen
+            }
+          },
+        );
+      },
     );
   }
 }
@@ -936,5 +1063,242 @@ class _CheckinReviewCard extends StatelessWidget {
     if (value == 'true') return 'Yes';
     if (value == 'false') return 'No';
     return value;
+  }
+}
+
+class _SnoozeBottomSheet extends StatefulWidget {
+  final String? windowId;
+  final String sessionId;
+  final VoidCallback onSnoozeScheduled;
+
+  const _SnoozeBottomSheet({
+    required this.windowId,
+    required this.sessionId,
+    required this.onSnoozeScheduled,
+  });
+
+  @override
+  State<_SnoozeBottomSheet> createState() => _SnoozeBottomSheetState();
+}
+
+class _SnoozeBottomSheetState extends State<_SnoozeBottomSheet> {
+  final TextEditingController _customController = TextEditingController();
+  int? _selectedMinutes;
+  TimeOfDay? _selectedTime;
+  bool _isScheduling = false;
+
+  @override
+  void dispose() {
+    _customController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _scheduleSnooze(Duration delay, String valueText) async {
+    setState(() => _isScheduling = true);
+    try {
+      final db = AppDatabase.getInstance();
+      
+      // Fetch window label
+      String windowLabel = 'EMA_Prompt';
+      if (widget.windowId != null) {
+        final windows = await db.getAllTrackingWindows();
+        final window = windows.where((w) => w.id == widget.windowId).firstOrNull;
+        if (window != null) {
+          windowLabel = window.label;
+        }
+      }
+
+      // 1. Log snooze interaction to database
+      final label = 'Notification: $windowLabel';
+      await db.insertEvent(
+        EventsCompanion(
+          category: const Value(EventCategory.meta),
+          label: Value(label),
+          value: Value(valueText),
+          triggerSource: const Value(TriggerSource.manual),
+          interactionType: const Value(InteractionType.snooze),
+          sessionId: Value(widget.sessionId),
+          timestamp: Value(DateTime.now()),
+          recordedAt: Value(DateTime.now()),
+        ),
+      );
+
+      // 2. Schedule notification
+      await NotificationService.schedulePrompt(
+        delay: delay,
+        payload: {
+          'metric_id': 'default',
+          'window_id': widget.windowId ?? 'anytime',
+          'window_label': windowLabel,
+        },
+      );
+
+      widget.onSnoozeScheduled();
+    } catch (e) {
+      debugPrint('Error scheduling snooze: $e');
+    } finally {
+      if (mounted) setState(() => _isScheduling = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.snooze_rounded, color: colorScheme.primary, size: 28),
+              const SizedBox(width: 12),
+              Text(
+                'Snooze Check-in',
+                style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Choose when you would like to be reminded again.',
+            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 24),
+          
+          // --- Remind me in (Relative duration) ---
+          Text(
+            'REMIND ME IN',
+            style: textTheme.labelMedium?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [10, 15, 30, 60, 120].map((mins) {
+              final isSelected = _selectedMinutes == mins && _selectedTime == null;
+              final label = mins >= 60 ? '${mins ~/ 60}h' : '${mins}m';
+              return ChoiceChip(
+                label: Text(label),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedMinutes = selected ? mins : null;
+                    _selectedTime = null;
+                    if (selected) _customController.clear();
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _customController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: 'Custom minutes',
+              isDense: true,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onChanged: (val) {
+              final mins = int.tryParse(val);
+              setState(() {
+                _selectedMinutes = mins;
+                _selectedTime = null;
+              });
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // --- Remind me at (Clock picker) ---
+          Text(
+            'REMIND ME AT',
+            style: textTheme.labelMedium?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final time = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay.now(),
+              );
+              if (time != null) {
+                setState(() {
+                  _selectedTime = time;
+                  _selectedMinutes = null;
+                  _customController.clear();
+                });
+              }
+            },
+            icon: const Icon(Icons.access_time_rounded),
+            label: Text(_selectedTime != null 
+                ? 'At ${_selectedTime!.format(context)}' 
+                : 'Select specific time...'),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // --- Confirm Button ---
+          FilledButton(
+            onPressed: (_selectedMinutes == null && _selectedTime == null) || _isScheduling
+                ? null
+                : () {
+                    if (_selectedMinutes != null) {
+                      final delay = Duration(minutes: _selectedMinutes!);
+                      final snoozeVal = _selectedMinutes! >= 60 && _selectedMinutes! % 60 == 0 
+                          ? '+${_selectedMinutes! ~/ 60}h' 
+                          : '+${_selectedMinutes!}m';
+                      _scheduleSnooze(delay, snoozeVal);
+                    } else if (_selectedTime != null) {
+                      final now = DateTime.now();
+                      var scheduledTime = DateTime(
+                        now.year,
+                        now.month,
+                        now.day,
+                        _selectedTime!.hour,
+                        _selectedTime!.minute,
+                      );
+                      if (scheduledTime.isBefore(now)) {
+                        scheduledTime = scheduledTime.add(const Duration(days: 1));
+                      }
+                      final delay = scheduledTime.difference(now);
+                      final timeStr = "${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}";
+                      _scheduleSnooze(delay, 'Until $timeStr');
+                    }
+                  },
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: _isScheduling
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('Confirm Snooze', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 }
