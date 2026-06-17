@@ -354,37 +354,66 @@ class _DebugScreenState extends State<DebugScreen> {
       
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Scheduled Notifications'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: scheduled.isEmpty
-                  ? [const Text('No notifications scheduled.')]
-                  : scheduled.map((n) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('ID: ${n.content?.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Text('Title: ${n.content?.title}'),
-                            Text('Channel: ${n.content?.channelKey}'),
-                            Text('Schedule: ${n.schedule?.toMap()}'),
-                          ],
-                        ),
+        builder: (context) {
+          final list = List.from(scheduled);
+          return AlertDialog(
+            title: const Text('Scheduled Notifications'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: StatefulBuilder(
+                builder: (context, setDialogState) {
+                  if (list.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: Text('No notifications scheduled.'),
+                    );
+                  }
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: list.length,
+                    separatorBuilder: (context, index) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final n = list[index];
+                      final id = n.content?.id;
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('ID: $id', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text('Title: ${n.content?.title ?? "No title"}'),
+                                Text('Body: ${n.content?.body ?? "No body"}', style: const TextStyle(fontSize: 12)),
+                                Text('Channel: ${n.content?.channelKey ?? "N/A"}', style: const TextStyle(fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          if (id != null)
+                            IconButton(
+                              icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                              onPressed: () async {
+                                await AwesomeNotifications().cancel(id);
+                                setDialogState(() {
+                                  list.removeAt(index);
+                                });
+                                _showSnackbar('Cancelled notification ID $id');
+                              },
+                            ),
+                        ],
                       );
-                    }).toList(),
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
       );
     } catch (e) {
       if (mounted) _showSnackbar('Error: $e');
@@ -395,51 +424,255 @@ class _DebugScreenState extends State<DebugScreen> {
     _showSnackbar('Fetching SharedPreferences...');
     try {
       final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys();
+      final keys = prefs.getKeys().toList();
       if (!mounted) return;
       
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('SharedPreferences'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: keys.isEmpty
-                  ? [const Text('No preferences found.')]
-                  : keys.map((k) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Text(
-                          '$k: ${prefs.get(k)}',
-                          style: const TextStyle(fontSize: 13),
-                        ),
+        builder: (context) {
+          final colorScheme = Theme.of(context).colorScheme;
+          return AlertDialog(
+            title: const Text('SharedPreferences Inspector'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: StatefulBuilder(
+                builder: (context, setDialogState) {
+                  if (keys.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: Text('No preferences found.'),
+                    );
+                  }
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: keys.length,
+                    separatorBuilder: (context, index) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final key = keys[index];
+                      final value = prefs.get(key);
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  key,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$value',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                            onPressed: () async {
+                              await prefs.remove(key);
+                              setDialogState(() {
+                                keys.removeAt(index);
+                              });
+                              _showSnackbar('Deleted key: $key');
+                            },
+                          ),
+                        ],
                       );
-                    }).toList(),
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-            TextButton(
-              onPressed: () async {
-                await prefs.clear();
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  _showSnackbar('SharedPreferences cleared!');
-                }
-              },
-              child: const Text('Clear All', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final confirmed = await showTextConfirmationDialog(
+                    context: context,
+                    title: 'Reset Preferences?',
+                    content: 'This will delete settings, cached states, and developer mode. The persistent user_uuid identity will be preserved.',
+                    confirmationWord: 'RESET',
+                    confirmLabel: 'Reset Settings',
+                  );
+                  if (confirmed && context.mounted) {
+                    final uuid = prefs.getString('user_uuid');
+                    final devMode = prefs.getBool('is_developer_mode');
+                    await prefs.clear();
+                    if (uuid != null) {
+                      await prefs.setString('user_uuid', uuid);
+                    }
+                    if (devMode != null) {
+                      await prefs.setBool('is_developer_mode', devMode);
+                    }
+                    if (context.mounted) {
+                      Navigator.pop(context); // Close inspector
+                      _showSnackbar('Settings reset (Identity preserved).');
+                    }
+                  }
+                },
+                child: const Text('Clear Settings (Keep UUID)', style: TextStyle(color: Colors.orange)),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final confirmed = await showTextConfirmationDialog(
+                    context: context,
+                    title: 'Full Factory Reset?',
+                    content: 'WARNING: This will permanently delete your user_uuid researcher identity alongside all settings. This cannot be undone and will break sync history alignment!',
+                    confirmationWord: 'DESTROY',
+                    confirmLabel: 'Full Reset',
+                  );
+                  if (confirmed && context.mounted) {
+                    await prefs.clear();
+                    if (context.mounted) {
+                      Navigator.pop(context); // Close inspector
+                      _showSnackbar('Full factory reset complete.');
+                    }
+                  }
+                },
+                child: const Text('Full Reset (Destructive)', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          );
+        },
       );
     } catch (e) {
       if (mounted) _showSnackbar('Error: $e');
     }
+  }
+
+  Future<void> _showDatabaseInspector() async {
+    _showSnackbar('Loading database details...');
+    try {
+      final eventRepo = context.read<EventRepository>();
+      final events = await eventRepo.getAllEvents();
+      
+      final Map<EventCategory, int> categoryCounts = {};
+      for (final cat in EventCategory.values) {
+        categoryCounts[cat] = 0;
+      }
+      for (final event in events) {
+        categoryCounts[event.category] = (categoryCounts[event.category] ?? 0) + 1;
+      }
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) {
+          final colorScheme = Theme.of(context).colorScheme;
+          return AlertDialog(
+            title: const Text('Drift Database Inspector'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.analytics_outlined),
+                    title: const Text('Total Recorded Events'),
+                    trailing: Text(
+                      '${events.length}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                  const Divider(),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: Text(
+                      'Breakdown by Category:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                  ...EventCategory.values.map((cat) {
+                    final count = categoryCounts[cat] ?? 0;
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        cat.name,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      trailing: Text(
+                        '$count',
+                        style: TextStyle(
+                          color: count > 0 ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                          fontWeight: count > 0 ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      if (mounted) _showSnackbar('Error: $e');
+    }
+  }
+
+  Widget _buildCategoryCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+    Color? color,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: color?.withValues(alpha: 0.5) ?? colorScheme.outlineVariant.withAlpha(80),
+          width: 1,
+        ),
+      ),
+      color: colorScheme.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0, top: 4.0, bottom: 8.0),
+              child: Row(
+                children: [
+                  Icon(icon, color: color ?? colorScheme.primary, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color ?? colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ...children,
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -453,172 +686,184 @@ class _DebugScreenState extends State<DebugScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Database Section
-          _buildSectionHeader('Database', Icons.storage),
-          ListTile(
-            title: const Text('Total DB Events'),
-            trailing: Text(
-              '$_eventCount',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            subtitle: const Text('Tap to refresh count'),
-            onTap: _refreshEventCount,
+          _buildCategoryCard(
+            title: 'Database & Export',
+            icon: Icons.storage,
+            children: [
+              ListTile(
+                title: const Text('Total DB Events'),
+                subtitle: const Text('Tap to refresh count'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$_eventCount',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.info_outline),
+                      onPressed: _showDatabaseInspector,
+                      tooltip: 'Inspect breakdown',
+                    ),
+                  ],
+                ),
+                onTap: _refreshEventCount,
+              ),
+              ListTile(
+                title: const Text('Seed Dummy Data'),
+                subtitle: const Text('Inserts 20 random past events for UI testing'),
+                trailing: const Icon(Icons.auto_fix_high),
+                onTap: _seedDummyData,
+              ),
+              ListTile(
+                title: const Text('Export Data (JSON)'),
+                subtitle: const Text('Generates and shares standard export'),
+                trailing: const Icon(Icons.share),
+                onTap: () async {
+                  try {
+                    await context.read<ExportService>().exportData();
+                  } catch (e) {
+                    _showSnackbar('Export failed: $e');
+                  }
+                },
+              ),
+              ListTile(
+                title: const Text('Simulate Missed Check-in'),
+                subtitle: const Text('Creates a tracking window that ended 5 mins ago'),
+                trailing: const Icon(Icons.history_rounded),
+                onTap: _testMissedCheckin,
+              ),
+            ],
           ),
-          ListTile(
-            title: const Text('Clear All Events'),
-            subtitle: const Text('Deletes every event in the database'),
-            trailing: const Icon(Icons.delete_forever, color: Colors.red),
-            onTap: _clearDatabase,
+          
+          _buildCategoryCard(
+            title: 'Researcher Identity',
+            icon: Icons.perm_identity,
+            children: [
+              ListTile(
+                title: const Text('Copy Identity UUID'),
+                subtitle: const Text('Copies your persistent researcher UUID to clipboard'),
+                trailing: const Icon(Icons.perm_identity),
+                onTap: _copyUuid,
+              ),
+              ListTile(
+                title: const Text('Set Custom UUID'),
+                subtitle: const Text('Overwrites the local user UUID (useful for backup restores)'),
+                trailing: const Icon(Icons.edit),
+                onTap: _setCustomUuid,
+              ),
+            ],
           ),
-          ListTile(
-            title: const Text('Reset Metrics & Windows'),
-            subtitle: const Text('Deletes definitions and re-seeds defaults'),
-            trailing: const Icon(Icons.refresh, color: Colors.orange),
-            onTap: _resetMetrics,
-          ),
-          ListTile(
-            title: const Text('Seed Dummy Data'),
-            subtitle: const Text('Inserts 20 random past events for UI testing'),
-            trailing: const Icon(Icons.auto_fix_high),
-            onTap: _seedDummyData,
-          ),
-          ListTile(
-            title: const Text('Export Data (JSON)'),
-            subtitle: const Text('Generates and shares standard export'),
-            trailing: const Icon(Icons.share),
-            onTap: () async {
-              try {
-                await context.read<ExportService>().exportData();
-              } catch (e) {
-                _showSnackbar('Export failed: $e');
-              }
-            },
-          ),
-          ListTile(
-            title: const Text('View SharedPreferences'),
-            subtitle: const Text('Show all local key-value storage items'),
-            trailing: const Icon(Icons.data_object),
-            onTap: _viewSharedPreferences,
-          ),
-          ListTile(
-            title: const Text('Copy Identity UUID'),
-            subtitle: const Text('Copies your persistent researcher UUID to clipboard'),
-            trailing: const Icon(Icons.perm_identity),
-            onTap: _copyUuid,
-          ),
-          ListTile(
-            title: const Text('Set Custom UUID'),
-            subtitle: const Text('Overwrites the local user UUID (useful for backup restores)'),
-            trailing: const Icon(Icons.edit),
-            onTap: _setCustomUuid,
-          ),
-          ListTile(
-            title: const Text('Simulate Missed Check-in'),
-            subtitle: const Text('Creates a tracking window that ended 5 mins ago'),
-            trailing: const Icon(Icons.history_rounded),
-            onTap: _testMissedCheckin,
-          ),
-          const Divider(),
 
-          // App Updates Section
-          _buildSectionHeader('App Updates', Icons.update),
-          ListTile(
-            title: const Text('Check for Updates (Verbose)'),
-            subtitle: const Text('Runs the standard update check with UI feedback'),
-            trailing: const Icon(Icons.refresh),
-            onTap: () {
-              UpdateService.checkAndPrompt(context, silent: false);
-            },
+          _buildCategoryCard(
+            title: 'Notifications & Prompts',
+            icon: Icons.notifications_active,
+            children: [
+              ListTile(
+                title: const Text('Request Permissions'),
+                subtitle: const Text('Prompt for notification access'),
+                trailing: const Icon(Icons.security),
+                onTap: () async {
+                  await context.read<NotificationService>().requestPermissions();
+                  _showSnackbar('Requested notification permissions');
+                },
+              ),
+              ListTile(
+                title: const Text('Test Notification (5s)'),
+                subtitle: const Text('Schedule EMA prompt in 5 seconds'),
+                trailing: const Icon(Icons.timer),
+                onTap: () {
+                  NotificationService.schedulePrompt(
+                    delay: const Duration(seconds: 5),
+                  );
+                  _showSnackbar('Notification scheduled in 5 seconds');
+                },
+              ),
+              ListTile(
+                title: const Text('Cancel All Notifications'),
+                subtitle: const Text('Clears all scheduled background alarms'),
+                trailing: const Icon(Icons.notifications_off, color: Colors.red),
+                onTap: _cancelAllNotifications,
+              ),
+              ListTile(
+                title: const Text('View Scheduled Notifications'),
+                subtitle: const Text('Shows list of all pending OS notifications'),
+                trailing: const Icon(Icons.list_alt),
+                onTap: _viewScheduledNotifications,
+              ),
+              ListTile(
+                title: const Text('Trigger Fatigue Dialog'),
+                subtitle: const Text('Fakes 3 missed notifications'),
+                trailing: const Icon(Icons.warning_amber),
+                onTap: _testFatigueDialog,
+              ),
+            ],
           ),
-          ListTile(
-            title: const Text('Compare Versions (Debug)'),
-            subtitle: const Text('Shows local vs server version details'),
-            trailing: const Icon(Icons.bug_report),
-            onTap: _showUpdateDebugInfo,
-          ),
-          const Divider(),
 
-          // Notifications Section
-          _buildSectionHeader('Notifications API', Icons.notifications_active),
-          ListTile(
-            title: const Text('Request Permissions'),
-            subtitle: const Text('Prompt for notification access'),
-            trailing: const Icon(Icons.security),
-            onTap: () async {
-              await context.read<NotificationService>().requestPermissions();
-              _showSnackbar('Requested notification permissions');
-            },
+          _buildCategoryCard(
+            title: 'System & Background Jobs',
+            icon: Icons.sync,
+            children: [
+              ListTile(
+                title: const Text('Force Passive Sync'),
+                subtitle: const Text('Manually run 4-hour background job'),
+                trailing: const Icon(Icons.play_arrow),
+                onTap: () async {
+                  _showSnackbar('Syncing passive data...');
+                  try {
+                    await context.read<PassiveSensingService>().syncAll();
+                    _showSnackbar('Passive sync completed!');
+                    _refreshEventCount();
+                  } catch (e) {
+                    _showSnackbar('Passive sync failed: $e');
+                  }
+                },
+              ),
+              ListTile(
+                title: const Text('Check for Updates (Verbose)'),
+                subtitle: const Text('Runs the standard update check with UI feedback'),
+                trailing: const Icon(Icons.refresh),
+                onTap: () {
+                  UpdateService.checkAndPrompt(context, silent: false);
+                },
+              ),
+              ListTile(
+                title: const Text('Compare Versions (Debug)'),
+                subtitle: const Text('Shows local vs server version details'),
+                trailing: const Icon(Icons.bug_report),
+                onTap: _showUpdateDebugInfo,
+              ),
+            ],
           ),
-          ListTile(
-            title: const Text('Test Notification (5s)'),
-            subtitle: const Text('Schedule EMA prompt in 5 seconds'),
-            trailing: const Icon(Icons.timer),
-            onTap: () {
-              NotificationService.schedulePrompt(
-                delay: const Duration(seconds: 5),
-              );
-              _showSnackbar('Notification scheduled in 5 seconds');
-            },
-          ),
-          ListTile(
-            title: const Text('Cancel All Notifications'),
-            subtitle: const Text('Clears all scheduled background alarms'),
-            trailing: const Icon(Icons.notifications_off, color: Colors.red),
-            onTap: _cancelAllNotifications,
-          ),
-          ListTile(
-            title: const Text('View Scheduled Notifications'),
-            subtitle: const Text('Shows list of all pending OS notifications'),
-            trailing: const Icon(Icons.list_alt),
-            onTap: _viewScheduledNotifications,
-          ),
-          ListTile(
-            title: const Text('Trigger Fatigue Dialog'),
-            subtitle: const Text('Fakes 3 missed notifications'),
-            trailing: const Icon(Icons.warning_amber),
-            onTap: _testFatigueDialog,
-          ),
-          const Divider(),
 
-          // Passive Sensing Section
-          _buildSectionHeader('Background Jobs', Icons.sync),
-          ListTile(
-            title: const Text('Force Passive Sync'),
-            subtitle: const Text('Manually run 4-hour background job'),
-            trailing: const Icon(Icons.play_arrow),
-            onTap: () async {
-              _showSnackbar('Syncing passive data...');
-              try {
-                await context.read<PassiveSensingService>().syncAll();
-                _showSnackbar('Passive sync completed!');
-                _refreshEventCount();
-              } catch (e) {
-                _showSnackbar('Passive sync failed: $e');
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          _buildCategoryCard(
+            title: 'Danger Zone',
+            icon: Icons.dangerous_outlined,
+            color: colorScheme.error,
+            children: [
+              ListTile(
+                title: const Text('View & Manage SharedPreferences'),
+                subtitle: const Text('Inspect, delete individual keys, or clear settings'),
+                trailing: Icon(Icons.data_object, color: colorScheme.error),
+                onTap: _viewSharedPreferences,
+              ),
+              ListTile(
+                title: const Text('Clear All Events'),
+                subtitle: const Text('Deletes every event in the database'),
+                trailing: Icon(Icons.delete_forever, color: colorScheme.error),
+                onTap: _clearDatabase,
+              ),
+              ListTile(
+                title: const Text('Reset Metrics & Windows'),
+                subtitle: const Text('Deletes definitions and re-seeds defaults'),
+                trailing: Icon(Icons.refresh, color: colorScheme.error),
+                onTap: _resetMetrics,
+              ),
+            ],
           ),
         ],
       ),

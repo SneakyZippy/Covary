@@ -102,7 +102,8 @@ async function scheduleSnoozeInSupabase(data, delayMinutes) {
   const newPayload = {
     title: title,
     body: body,
-    data: data
+    data: data,
+    actions: data.actions || []
   };
 
   const response = await fetch(`${supabaseUrl}/rest/v1/pwa_push_reminders`, {

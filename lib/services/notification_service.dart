@@ -1001,14 +1001,6 @@ class NotificationService {
       );
       return;
     }
-    bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
-    if (!isAllowed) {
-      debugPrint(
-        '[NotificationService] Missing notification permissions.',
-      );
-      return;
-    }
-
     final snoozeDurations = await getSnoozeDurations();
 
     // Use a distinct ID range for snooze to prevent overwriting tomorrow's daily scheduled reminders
@@ -1062,6 +1054,9 @@ class NotificationService {
             ..._buildSnoozeButtons(snoozeDurations),
           ];
 
+    final String localTimeZone = await AwesomeNotifications().getLocalTimeZoneIdentifier();
+    final targetDate = DateTime.now().add(delay ?? const Duration(seconds: 10));
+
     try {
       await AwesomeNotifications().createNotification(
         content: NotificationContent(
@@ -1074,8 +1069,14 @@ class NotificationService {
           category: NotificationCategory.Reminder,
           wakeUpScreen: true,
         ),
-        schedule: NotificationCalendar.fromDate(
-          date: DateTime.now().add(delay ?? const Duration(seconds: 10)),
+        schedule: NotificationCalendar(
+          year: targetDate.year,
+          month: targetDate.month,
+          day: targetDate.day,
+          hour: targetDate.hour,
+          minute: targetDate.minute,
+          second: targetDate.second,
+          timeZone: localTimeZone,
           allowWhileIdle: true,
           preciseAlarm: true,
         ),
@@ -1095,8 +1096,14 @@ class NotificationService {
             category: NotificationCategory.Reminder,
             wakeUpScreen: true,
           ),
-          schedule: NotificationCalendar.fromDate(
-            date: DateTime.now().add(delay ?? const Duration(seconds: 10)),
+          schedule: NotificationCalendar(
+            year: targetDate.year,
+            month: targetDate.month,
+            day: targetDate.day,
+            hour: targetDate.hour,
+            minute: targetDate.minute,
+            second: targetDate.second,
+            timeZone: localTimeZone,
             allowWhileIdle: true,
             preciseAlarm: false,
           ),
@@ -1159,6 +1166,9 @@ class NotificationService {
       data['user_uuid'] = userUuid;
       data['supabase_url'] = SupabaseConfig.supabaseUrl;
       data['supabase_anon_key'] = SupabaseConfig.supabaseAnonKey;
+      if (payload.containsKey('actions')) {
+        data['actions'] = payload['actions'];
+      }
       payload['data'] = data;
 
       final String? subscriptionJson = await PwaPushInterop.subscribe(SupabaseConfig.vapidPublicKey);
