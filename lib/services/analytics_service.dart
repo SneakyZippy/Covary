@@ -327,6 +327,8 @@ class AnalyticsService {
 
       if (firstEvent.category == EventCategory.mood || 
           firstEvent.category == EventCategory.productivity ||
+          firstEvent.category == EventCategory.weather ||
+          firstEvent.category == EventCategory.biological ||
           firstEvent.label.toLowerCase().contains('quality')) {
         result[date] = vals.reduce((a, b) => a + b) / vals.length;
       } else if (firstEvent.label == 'step_segment' || 
@@ -452,6 +454,8 @@ class AnalyticsService {
       // Determine aggregation strategy
       if (firstEvent.category == EventCategory.mood || 
           firstEvent.category == EventCategory.productivity ||
+          firstEvent.category == EventCategory.weather ||
+          firstEvent.category == EventCategory.biological ||
           firstEvent.label.toLowerCase().contains('quality')) {
         // Average for scales and quality metrics
         result[date] = vals.reduce((a, b) => a + b) / vals.length;
@@ -508,6 +512,8 @@ class AnalyticsService {
       if (!hourlyGroups.containsKey(i)) {
         if (firstEvent.category == EventCategory.mood || 
             firstEvent.category == EventCategory.productivity ||
+            firstEvent.category == EventCategory.weather ||
+            firstEvent.category == EventCategory.biological ||
             firstEvent.label.toLowerCase().contains('quality')) {
           // Do not insert 0.0 for subjective scales, leave it missing to avoid graph drops
           continue;
@@ -522,6 +528,8 @@ class AnalyticsService {
       
       if (firstEvent.category == EventCategory.mood || 
           firstEvent.category == EventCategory.productivity ||
+          firstEvent.category == EventCategory.weather ||
+          firstEvent.category == EventCategory.biological ||
           firstEvent.label.toLowerCase().contains('quality')) {
         // Average for scales and quality metrics
         result[i] = vals.reduce((a, b) => a + b) / vals.length;

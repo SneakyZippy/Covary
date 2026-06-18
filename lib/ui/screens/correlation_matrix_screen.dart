@@ -103,6 +103,30 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       isEnabled: true,
       emoji: 'run',
     ),
+    MetricDefinition(
+      id: 'passive_weather_rain',
+      label: 'core_weather_rain',
+      category: EventCategory.weather,
+      inputType: MetricInputType.scale1to10,
+      isEnabled: true,
+      emoji: 'umbrella',
+    ),
+    MetricDefinition(
+      id: 'passive_weather_sun',
+      label: 'core_weather_sun',
+      category: EventCategory.weather,
+      inputType: MetricInputType.scale1to10,
+      isEnabled: true,
+      emoji: 'sunny',
+    ),
+    MetricDefinition(
+      id: 'passive_weather_wind',
+      label: 'core_weather_wind',
+      category: EventCategory.weather,
+      inputType: MetricInputType.scale1to10,
+      isEnabled: true,
+      emoji: 'air',
+    ),
   ];
 
   @override
@@ -860,6 +884,9 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   String _cleanLabel(MetricDefinition m) {
+    if (m.id == 'passive_weather_rain') return 'RAIN (PASSIVE)';
+    if (m.id == 'passive_weather_sun') return 'SUN (PASSIVE)';
+    if (m.id == 'passive_weather_wind') return 'WIND (PASSIVE)';
     if (m.id.startsWith('passive_')) {
       String label = m.label;
       if (label.contains(':')) {
@@ -1300,6 +1327,9 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
   }
 
   String _cleanLabel(MetricDefinition m) {
+    if (m.id == 'passive_weather_rain') return 'RAIN (PASSIVE)';
+    if (m.id == 'passive_weather_sun') return 'SUN (PASSIVE)';
+    if (m.id == 'passive_weather_wind') return 'WIND (PASSIVE)';
     if (m.id.startsWith('passive_')) {
       String label = m.label;
       if (label.contains(':')) {
