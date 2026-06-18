@@ -552,15 +552,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   String _displayLabel(MetricDefinition m) {
-    if (m.id.startsWith('passive_')) {
-      // Clean up internal labels for display: "category_time:social" -> "SOCIAL"
-      String label = m.label;
-      if (label.contains(':')) {
-        label = label.split(':').last;
-      }
-      return label.replaceAll('_', ' ').toUpperCase();
-    }
-    return m.label;
+    return _formatDisplayLabel(m);
   }
 
   Widget _buildCell(
@@ -884,17 +876,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   String _cleanLabel(MetricDefinition m) {
-    if (m.id == 'passive_weather_rain') return 'RAIN (PASSIVE)';
-    if (m.id == 'passive_weather_sun') return 'SUN (PASSIVE)';
-    if (m.id == 'passive_weather_wind') return 'WIND (PASSIVE)';
-    if (m.id.startsWith('passive_')) {
-      String label = m.label;
-      if (label.contains(':')) {
-        label = label.split(':').last;
-      }
-      return label.replaceAll('_', ' ').toUpperCase();
-    }
-    return m.label;
+    return _formatDisplayLabel(m);
   }
 
   Widget _buildInsightsSpotlightCard(ColorScheme colorScheme, TextTheme textTheme) {
@@ -1169,15 +1151,7 @@ class _MetricSelectionDialogState extends State<_MetricSelectionDialog> {
   }
 
   String _displayLabel(MetricDefinition m) {
-    if (m.id.startsWith('passive_')) {
-      // Clean up internal labels for display: "category_time:social" -> "SOCIAL"
-      String label = m.label;
-      if (label.contains(':')) {
-        label = label.split(':').last;
-      }
-      return label.replaceAll('_', ' ').toUpperCase();
-    }
-    return m.label;
+    return _formatDisplayLabel(m);
   }
 }
 
@@ -1327,17 +1301,7 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
   }
 
   String _cleanLabel(MetricDefinition m) {
-    if (m.id == 'passive_weather_rain') return 'RAIN (PASSIVE)';
-    if (m.id == 'passive_weather_sun') return 'SUN (PASSIVE)';
-    if (m.id == 'passive_weather_wind') return 'WIND (PASSIVE)';
-    if (m.id.startsWith('passive_')) {
-      String label = m.label;
-      if (label.contains(':')) {
-        label = label.split(':').last;
-      }
-      return label.replaceAll('_', ' ').toUpperCase();
-    }
-    return m.label;
+    return _formatDisplayLabel(m);
   }
 
   @override
@@ -1638,4 +1602,32 @@ class _DiagonalLinePainter extends CustomPainter {
   
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+String _formatDisplayLabel(MetricDefinition m) {
+  if (m.id == 'passive_weather_rain') return 'Rain (Passive)';
+  if (m.id == 'passive_weather_sun') return 'Sun (Passive)';
+  if (m.id == 'passive_weather_wind') return 'Wind (Passive)';
+  if (m.id == 'passive_steps') return 'Steps (Passive)';
+  if (m.id == 'passive_sleep') return 'Sleep Duration (Passive)';
+  if (m.id == 'passive_bedtime') return 'Bedtime (Passive)';
+  if (m.id == 'passive_wakeup') return 'Wake-up Time (Passive)';
+  if (m.id == 'passive_midpoint') return 'Sleep Midpoint (Passive)';
+  if (m.id == 'passive_social_usage') return 'Social Media (Passive)';
+  if (m.id == 'passive_total_usage') return 'Screen Time (Passive)';
+  if (m.id == 'passive_entertainment_usage') return 'Entertainment (Passive)';
+
+  if (m.id.startsWith('passive_')) {
+    String label = m.label;
+    if (label.contains(':')) {
+      label = label.split(':').last;
+    }
+    final clean = label.replaceAll('_', ' ');
+    if (clean.isEmpty) return m.label;
+    return clean.split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
+  }
+  return m.label;
 }
