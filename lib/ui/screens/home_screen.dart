@@ -755,16 +755,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             } else if (isActive) {
               statusText = "Active now ($startStr - $endStr)";
               statusColor = colorScheme.primary;
-              actionWidget = FilledButton.icon(
-                onPressed: () => _startGuidedCheckin(occ.window.id),
-                icon: const Icon(Icons.edit_note_rounded, size: 16),
-                label: const Text('Log Now'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                ),
+              actionWidget = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => _dismissWindowOccurrence(occ.window.id, occ.targetTime),
+                    tooltip: 'Dismiss Check-in',
+                    style: IconButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      foregroundColor: colorScheme.error.withAlpha(150),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  FilledButton.icon(
+                    onPressed: () => _startGuidedCheckin(occ.window.id),
+                    icon: const Icon(Icons.edit_note_rounded, size: 16),
+                    label: const Text('Log Now'),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
+                    ),
+                  ),
+                ],
               );
             } else if (isMissed) {
               final todayStart = DateTime(now.year, now.month, now.day);
@@ -775,16 +790,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 statusText = "Missed window ($startStr - $endStr)";
               }
               statusColor = colorScheme.error.withAlpha(180);
-              actionWidget = OutlinedButton.icon(
-                onPressed: () => _startGuidedCheckin(occ.window.id, occ.targetTime),
-                icon: const Icon(Icons.history_rounded, size: 14),
-                label: const Text('Log Late'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  side: BorderSide(color: colorScheme.error.withAlpha(120)),
-                  foregroundColor: colorScheme.error,
-                ),
+              actionWidget = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => _dismissWindowOccurrence(occ.window.id, occ.targetTime),
+                    tooltip: 'Dismiss Check-in',
+                    style: IconButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      foregroundColor: colorScheme.error.withAlpha(150),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  OutlinedButton.icon(
+                    onPressed: () => _startGuidedCheckin(occ.window.id, occ.targetTime),
+                    icon: const Icon(Icons.history_rounded, size: 14),
+                    label: const Text('Log Late'),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      side: BorderSide(color: colorScheme.error.withAlpha(120)),
+                      foregroundColor: colorScheme.error,
+                    ),
+                  ),
+                ],
               );
             } else if (isUpcoming) {
               statusText = "Upcoming ($startStr - $endStr)";
@@ -1018,6 +1048,54 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
     _loadTodayStats();
+  }
+
+  Future<void> _dismissWindowOccurrence(String windowId, DateTime targetTime) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Dismiss Check-in?'),
+        content: const Text(
+          'This will hide this window from your timeline. You will not be able to log it later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: const Text('Dismiss'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (confirmed == true) {
+      try {
+        final eventRepo = context.read<EventRepository>();
+        await eventRepo.insertEvent(
+          EventsCompanion(
+            category: const Value(EventCategory.meta),
+            label: const Value('SessionDismissed'),
+            value: Value(windowId),
+            triggerSource: const Value(TriggerSource.manual),
+            interactionType: const Value(InteractionType.swipeAway),
+            timestamp: Value(targetTime),
+            recordedAt: Value(DateTime.now()),
+          ),
+        );
+        _loadTodayStats();
+      } catch (e) {
+        debugPrint('Error dismissing window occurrence: $e');
+      }
+    }
   }
 
   Future<void> _startManualLog() async {

@@ -1,7 +1,7 @@
 {
     "latest_version":  "1.3.0",
-    "build_number":  52,
-    "build_timestamp":  "2026-06-11T15:10:15+02:00",
+    "build_number":  54,
+    "build_timestamp":  "2026-06-17T12:49:00+02:00",
     "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "Release v1.3.0+52\n\n- **Tutorial Retro Log Redesign**: The mock retrospective check-in in Step 3 of the interactive sandbox now visually matches the real guided check-in screen exactly — featuring the same recall-warning banner, `MetricInputCard`-style layout with icon/title/info button, `Best-effort recall` badge, slider with endpoints, time-picker row, and back/save navigation."
+    "release_notes":  "Release v1.3.0+54\n\n- **Snooze Notification Fix**: Updated notification scheduling to use specific calendar components and local timezone to resolve scheduling and delivery issues.\n- **PWA Push Actions Support**: Added support for passing custom actions in PWA push payload.\n- **Debug Screen Cleanup**: Redesigned and refactored the debug menu for better usability and clarity."
 }

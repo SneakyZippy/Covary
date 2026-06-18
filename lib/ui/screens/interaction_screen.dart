@@ -24,6 +24,9 @@ class _InteractionScreenState extends State<InteractionScreen> {
   List<FlSpot> _clickSpots = [];
   List<FlSpot> _frictionSpots = []; // Snoozes + Swipes
   List<DateTime> _trendDates = [];
+  double _recentClicks = 0.0;
+  double _recentFriction = 0.0;
+  double _avgNotificationDelay = 0.0;
 
   @override
   void initState() {
@@ -35,28 +38,59 @@ class _InteractionScreenState extends State<InteractionScreen> {
     final eventRepo = context.read<EventRepository>();
     final events = await eventRepo.getAllEvents();
 
-    final researchEvents = events.where((e) {
-      if (e.category == EventCategory.appUsage) return false;
-      if (e.category == EventCategory.meta) {
-        if (e.triggerSource == TriggerSource.notification) return true;
-        if (e.interactionType == InteractionType.swipeAway) return true;
-        if (e.interactionType == InteractionType.snooze) return true;
-        return false;
-      }
-      return true;
-    }).toList();
-
-    final counts = <InteractionType, int>{};
+    int clicksCount = 0;
+    int snoozesCount = 0;
+    int swipesCount = 0;
     int totalLatency = 0;
     int latencyCount = 0;
+    int totalNotificationDelay = 0;
+    int notificationDelayCount = 0;
 
-    for (final e in researchEvents) {
-      counts[e.interactionType] = (counts[e.interactionType] ?? 0) + 1;
-      if (e.latencyMs > 0) {
+    for (final e in events) {
+      // Latency is only on active logging metrics (non-meta, non-system, latencyMs > 0)
+      if (e.category != EventCategory.meta && 
+          e.category != EventCategory.appUsage && 
+          e.triggerSource != TriggerSource.system && 
+          e.latencyMs > 0) {
         totalLatency += e.latencyMs;
         latencyCount++;
       }
+
+      // Calculate notification delay (only for notification-triggered research events)
+      if (e.category != EventCategory.meta &&
+          e.category != EventCategory.appUsage &&
+          e.triggerSource == TriggerSource.notification &&
+          e.notificationDelayMs != null &&
+          e.notificationDelayMs! > 0) {
+        totalNotificationDelay += e.notificationDelayMs!;
+        notificationDelayCount++;
+      }
+
+      // Categorize session-level interactions
+      if (e.category == EventCategory.meta) {
+        if (e.label == 'SessionCompleted') {
+          clicksCount++;
+        } else if (e.label == 'SessionDismissed' || 
+            (e.label.startsWith('Notification:') && e.interactionType == InteractionType.swipeAway)) {
+          swipesCount++;
+        } else if (e.interactionType == InteractionType.snooze) {
+          snoozesCount++;
+        }
+      } else if (e.category != EventCategory.meta && 
+                 e.category != EventCategory.appUsage && 
+                 e.category != EventCategory.health && 
+                 e.triggerSource == TriggerSource.manual && 
+                 e.sessionId == null) {
+        // Voluntary manual quick log
+        clicksCount++;
+      }
     }
+
+    final counts = {
+      InteractionType.click: clicksCount,
+      InteractionType.snooze: snoozesCount,
+      InteractionType.swipeAway: swipesCount,
+    };
 
     // --- Trend Calculation (Last 14 Days) ---
     final now = DateTime.now();
@@ -69,32 +103,62 @@ class _InteractionScreenState extends State<InteractionScreen> {
       final date = today.subtract(Duration(days: i));
       dates.add(date);
       
-      final dayEvents = researchEvents.where((e) =>
+      final dayEvents = events.where((e) =>
           e.timestamp.year == date.year &&
           e.timestamp.month == date.month &&
           e.timestamp.day == date.day).toList();
 
-      final dayClicks = dayEvents.where((e) => e.interactionType == InteractionType.click).length;
-      final dayFriction = dayEvents.where((e) => 
-          e.interactionType == InteractionType.snooze || 
-          e.interactionType == InteractionType.swipeAway).length;
+      int dayClicks = 0;
+      int dayFriction = 0;
+
+      for (final e in dayEvents) {
+        if (e.category == EventCategory.meta) {
+          if (e.label == 'SessionCompleted') {
+            dayClicks++;
+          } else if (e.label == 'SessionDismissed' || 
+              (e.label.startsWith('Notification:') && e.interactionType == InteractionType.swipeAway)) {
+            dayFriction++;
+          } else if (e.interactionType == InteractionType.snooze) {
+            dayFriction++;
+          }
+        } else if (e.category != EventCategory.meta && 
+                   e.category != EventCategory.appUsage && 
+                   e.category != EventCategory.health && 
+                   e.triggerSource == TriggerSource.manual && 
+                   e.sessionId == null) {
+          dayClicks++;
+        }
+      }
 
       clicks.add(FlSpot((13 - i).toDouble(), dayClicks.toDouble()));
       friction.add(FlSpot((13 - i).toDouble(), dayFriction.toDouble()));
     }
 
-    final clickCount = counts[InteractionType.click] ?? 0;
-    final total = researchEvents.length;
+    // Calculate recent 7-day counts for fatigue threshold
+    double recentClicks = 0.0;
+    double recentFriction = 0.0;
+    for (int i = 0; i < 7; i++) {
+      recentClicks += clicks[13 - i].y;
+      recentFriction += friction[13 - i].y;
+    }
+
+    final total = clicksCount + snoozesCount + swipesCount;
+    final avgNotificationDelay = notificationDelayCount > 0 
+        ? totalNotificationDelay / notificationDelayCount 
+        : 0.0;
 
     if (mounted) {
       setState(() {
         _interactionCounts = counts;
         _avgLatency = latencyCount > 0 ? totalLatency / latencyCount : 0.0;
+        _avgNotificationDelay = avgNotificationDelay;
         _totalInteractions = total;
-        _engagementScore = total > 0 ? clickCount / total : 0.0;
+        _engagementScore = total > 0 ? clicksCount / total : 0.0;
         _clickSpots = clicks;
         _frictionSpots = friction;
         _trendDates = dates;
+        _recentClicks = recentClicks;
+        _recentFriction = recentFriction;
         _isLoading = false;
       });
     }
@@ -199,27 +263,52 @@ class _InteractionScreenState extends State<InteractionScreen> {
     );
   }
 
+  String _formatDelay(double ms) {
+    if (ms <= 0) return 'N/A';
+    final duration = Duration(milliseconds: ms.toInt());
+    if (duration.inSeconds < 60) {
+      return '${duration.inSeconds}s';
+    } else if (duration.inMinutes < 60) {
+      return '${duration.inMinutes}m';
+    } else {
+      final hours = duration.inMinutes / 60.0;
+      return '${hours.toStringAsFixed(1)}h';
+    }
+  }
+
   Widget _buildPrimaryStats(TextTheme textTheme, ColorScheme colorScheme) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _StatCard(
-            label: 'Response Speed',
-            value: '${(_avgLatency / 1000).toStringAsFixed(2)}s',
-            subtitle: 'Avg. time to log',
-            icon: Icons.timer_outlined,
-            color: colorScheme.primary,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                label: 'Response Speed',
+                value: '${(_avgLatency / 1000).toStringAsFixed(2)}s',
+                subtitle: 'Avg. form fill time',
+                icon: Icons.timer_outlined,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _StatCard(
+                label: 'Prompt Open Delay',
+                value: _formatDelay(_avgNotificationDelay),
+                subtitle: 'Avg. notification delay',
+                icon: Icons.notifications_active_outlined,
+                color: Colors.orange,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _StatCard(
-            label: 'Interaction count',
-            value: '$_totalInteractions',
-            subtitle: 'Total events',
-            icon: Icons.analytics_outlined,
-            color: colorScheme.secondary,
-          ),
+        const SizedBox(height: 16),
+        _StatCard(
+          label: 'Interaction count',
+          value: '$_totalInteractions',
+          subtitle: 'Total events logged in the database',
+          icon: Icons.analytics_outlined,
+          color: colorScheme.secondary,
         ),
       ],
     );
@@ -399,7 +488,10 @@ class _InteractionScreenState extends State<InteractionScreen> {
   Widget _buildInsightCard(TextTheme textTheme, ColorScheme colorScheme) {
     String insight;
     IconData icon;
-    if (_avgLatency < 5000 && _engagementScore > 0.7) {
+    if (_recentFriction > _recentClicks && _recentFriction > 0) {
+      insight = 'Survey fatigue detected: dismissals/snoozes have overtaken check-ins in the last 7 days. Consider rescheduling your check-in times or turning off some metrics to reduce the cognitive burden.';
+      icon = Icons.warning_amber_rounded;
+    } else if (_avgLatency < 5000 && _engagementScore > 0.7) {
       insight = 'Quick responses and high engagement suggest low "survey friction" and high data reliability.';
       icon = Icons.bolt_rounded;
     } else if (_avgLatency > 15000) {
