@@ -94,7 +94,7 @@ void main() async {
     trackingWindowRepo: trackingWindowRepo,
     profileService: profileService,
   );
-  final analyticsService = AnalyticsService(eventRepo);
+  final analyticsService = AnalyticsService(eventRepo, metricRepo);
   final importService = ImportService(
     eventRepo: eventRepo,
     metricRepo: metricRepo,
