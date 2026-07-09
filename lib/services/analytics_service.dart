@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import '../data/database/app_database.dart' show Event;
 import '../data/repositories/event_repository.dart';
@@ -141,7 +142,7 @@ class AnalyticsService {
     final daily = await _aggregateByDay(events);
 
     // Filter to last N days
-    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final cutoff = clock.now().subtract(Duration(days: lastNDays));
     final cutoffDate = DateTime(cutoff.year, cutoff.month, cutoff.day);
     daily.removeWhere((date, _) => date.isBefore(cutoffDate));
 
@@ -168,7 +169,7 @@ class AnalyticsService {
   /// Fills gaps in a daily time series with 0.0.
   Map<DateTime, double> _zeroFillDaily(Map<DateTime, double> data, int lastNDays) {
     final Map<DateTime, double> filled = {};
-    final now = DateTime.now();
+    final now = clock.now();
     final today = DateTime(now.year, now.month, now.day);
     
     for (int i = 0; i < lastNDays; i++) {
@@ -189,7 +190,7 @@ class AnalyticsService {
     double? minValue,
     double? maxValue,
   }) async {
-    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final cutoff = clock.now().subtract(Duration(days: lastNDays));
     final events = await _eventRepo.getEventsByLabel(label);
     
     // Filter to last N days
@@ -262,7 +263,7 @@ class AnalyticsService {
     double? minValue,
     double? maxValue,
   }) async {
-    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final cutoff = clock.now().subtract(Duration(days: lastNDays));
     final events = await _eventRepo.getEventsByLabel(label);
     
     final filteredEvents = events.where((e) => e.timestamp.isAfter(cutoff)).toList();
@@ -293,7 +294,7 @@ class AnalyticsService {
   /// Fills gaps in an hourly timeline with 0.0.
   Map<DateTime, double> _zeroFillHourly(Map<DateTime, double> data, int lastNDays) {
     final Map<DateTime, double> filled = {};
-    final now = DateTime.now();
+    final now = clock.now();
     final currentHour = DateTime(now.year, now.month, now.day, now.hour);
     
     final int totalHours = lastNDays * 24;

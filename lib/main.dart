@@ -27,6 +27,7 @@ import 'services/sync_service.dart';
 import 'ui/screens/app_shell.dart';
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/profile_setup_screen.dart';
+import 'ui/screens/questionnaire_screen.dart';
 import 'ui/screens/restore_selection_screen.dart';
 import 'ui/theme/app_theme.dart';
 import 'ui/theme/design_system.dart';
@@ -170,7 +171,7 @@ class CovaryApp extends StatelessWidget {
     final themeService = context.watch<ThemeService>();
 
     return MaterialApp(
-      key: ValueKey('${profileService.hasSeenOnboarding}_${profileService.hasRestoredData}_${profileService.isFirstLaunch}'),
+      key: ValueKey('${profileService.hasSeenOnboarding}_${profileService.hasRestoredData}_${profileService.isFirstLaunch}_${profileService.hasCompletedQuestionnaire}'),
       navigatorKey: NotificationService.navigatorKey,
       title: 'Covary',
       debugShowCheckedModeBanner: false,
@@ -197,6 +198,8 @@ class CovaryApp extends StatelessWidget {
           ? const OnboardingScreen()
           : profileService.isFirstLaunch
           ? const ProfileSetupScreen()
+          : !profileService.hasCompletedQuestionnaire
+          ? const QuestionnaireScreen()
           : const AppShell(),
     );
   }
