@@ -1980,12 +1980,9 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
     if (!_initialized) {
       final metricService = Provider.of<MetricService>(context, listen: false);
       _metrics = metricService.allMetrics;
-      // Pre-select only currently enabled metrics
-      for (final m in _metrics) {
-        if (m.isEnabled) {
-          _selectedLabels.add(m.label);
-        }
-      }
+      // Pre-select everything by default; the user can deselect before confirming.
+      _selectedLabels.addAll(_metrics.map((m) => m.label));
+      _selectedPassiveKeys.addAll(_passiveOptions.map((o) => o.matchKey));
       _initialized = true;
     }
   }
