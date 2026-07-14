@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:math';
 import '../../services/analytics_service.dart';
 import '../../services/metric_service.dart';
+import '../../services/app_usage_service.dart';
 import 'dart:ui';
 import '../../data/models/metric_definition.dart';
 import '../../data/models/enums.dart';
@@ -52,16 +53,11 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   String? _highlightedRowId;
   String? _highlightedColId;
 
-  // "Virtual" metrics for passive sensing data that don't have definitions in MetricService
+  // "Virtual" metrics for passive sensing data that don't have definitions in MetricService.
+  // Per-app breakdowns are deliberately excluded here (too granular for a matrix), but
+  // per-category screen time is added dynamically in _autoselectMetrics() below, since
+  // categories are user-defined and can't be hardcoded.
   static const List<MetricDefinition> _passiveMetrics = [
-    MetricDefinition(
-      id: 'passive_social_usage',
-      label: 'category_time:social',
-      category: EventCategory.appUsage,
-      inputType: MetricInputType.counter,
-      isEnabled: true,
-      emoji: 'social',
-    ),
     MetricDefinition(
       id: 'passive_total_usage',
       label: 'total_screen_time',
@@ -69,14 +65,6 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       inputType: MetricInputType.counter,
       isEnabled: true,
       emoji: 'screen_time',
-    ),
-    MetricDefinition(
-      id: 'passive_entertainment_usage',
-      label: 'category_time:entertainment',
-      category: EventCategory.appUsage,
-      inputType: MetricInputType.counter,
-      isEnabled: true,
-      emoji: 'entertainment',
     ),
     MetricDefinition(
       id: 'passive_sleep',
@@ -152,13 +140,39 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     });
   }
 
-  void _autoselectMetrics() {
+  /// Builds one virtual [MetricDefinition] per user-defined app usage category
+  /// (Settings > App Category Manager), since categories aren't static and
+  /// can't be hardcoded like the other passive metrics above.
+  List<MetricDefinition> _dynamicCategoryMetrics() {
+    final categories = context.read<AppUsageService>().categories.keys;
+    return categories.map((catName) {
+      final emoji = catName == 'social'
+          ? 'social'
+          : catName == 'entertainment'
+              ? 'entertainment'
+              : 'screen_time';
+      return MetricDefinition(
+        id: 'passive_category_$catName',
+        label: 'category_time:$catName',
+        category: EventCategory.appUsage,
+        inputType: MetricInputType.counter,
+        isEnabled: true,
+        emoji: emoji,
+      );
+    }).toList();
+  }
+
+  List<MetricDefinition> _buildAllAvailableMetrics() {
     final allSubjective = context
         .read<MetricService>()
         .allMetrics
         .where((m) => m.isEnabled)
         .toList();
-    final allAvailable = [...allSubjective, ..._passiveMetrics];
+    return [...allSubjective, ..._passiveMetrics, ..._dynamicCategoryMetrics()];
+  }
+
+  void _autoselectMetrics() {
+    final allAvailable = _buildAllAvailableMetrics();
 
     setState(() {
       // Symmetrical by default for better research overview
@@ -274,12 +288,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   void _showMetricSelection() {
-    final allSubjective = context
-        .read<MetricService>()
-        .allMetrics
-        .where((m) => m.isEnabled)
-        .toList();
-    final allAvailable = [...allSubjective, ..._passiveMetrics];
+    final allAvailable = _buildAllAvailableMetrics();
 
     showDialog(
       context: context,
