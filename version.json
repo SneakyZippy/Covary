@@ -1,7 +1,7 @@
 {
     "latest_version":  "1.3.1",
-    "build_number":  55,
-    "build_timestamp":  "2026-06-18T17:12:00+02:00",
+    "build_number":  56,
+    "build_timestamp":  "2026-07-14T16:09:29+02:00",
     "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "Release v1.3.1+55\n\n- **Weather & Passive Metrics Cleanup**: Refactored the Correlation Matrix and Raw Data screens to use consistent, clear display labels for passive background metrics (e.g., 'Rain (Passive)' instead of internal keys like 'CORE_WEATHER_RAIN')."
+    "release_notes":  "Release v1.3.1+56\n\n- **Correlation Matrix**: Fixed bug and added significance p-value calculation.\n- **Analytics & Export**: Fixed display values in analytics, updated preselected metrics for export, and fixed exporting of passive data.\n- **Questionnaires**: Added basic questionnaire and miscellaneous bug fixes."
 }
