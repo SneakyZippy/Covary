@@ -73,7 +73,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap the Confirm button
-      await tester.tap(find.byType(FilledButton));
+      await tester.tap(find.byWidgetPredicate((w) => w is FilledButton));
       await tester.pumpAndSettle();
 
       // Verify confirmedTime is exactly June 9, 2026, at 23:30:00

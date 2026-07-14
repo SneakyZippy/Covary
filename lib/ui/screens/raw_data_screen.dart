@@ -276,10 +276,13 @@ String _getDisplayLabel(BuildContext context, Event event) {
     return metricDef.label;
   }
 
-  // Weather Location
+  // Weather Location & Passive Metrics
   if (event.label == 'core_weather_location') {
     return 'Weather Location';
   }
+  if (event.label == 'core_weather_rain') return 'Rain (Passive)';
+  if (event.label == 'core_weather_sun') return 'Sun (Passive)';
+  if (event.label == 'core_weather_wind') return 'Wind (Passive)';
 
   // Sleep
   if (event.label == 'sleep_duration_hours') return 'Sleep Duration';

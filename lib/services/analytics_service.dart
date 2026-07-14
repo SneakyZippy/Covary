@@ -1,13 +1,19 @@
 import 'dart:math';
+import 'package:clock/clock.dart';
+import 'package:flutter/foundation.dart';
 import '../data/database/app_database.dart' show Event;
 import '../data/repositories/event_repository.dart';
+import '../data/repositories/metric_repository.dart';
 import '../data/models/enums.dart';
+import '../data/metric_presets.dart';
+
 
 /// Service responsible for on-device statistical analysis and correlations.
 class AnalyticsService {
   final EventRepository _eventRepo;
+  final MetricRepository _metricRepo;
 
-  AnalyticsService(this._eventRepo);
+  AnalyticsService(this._eventRepo, this._metricRepo);
 
   /// Calculates the Spearman Rank Correlation between two metrics.
   /// 
@@ -28,22 +34,23 @@ class AnalyticsService {
     if (eventsA.isEmpty || eventsB.isEmpty) return null;
 
     // 2. Aggregate by day
-    final Map<DateTime, double> dailyA = _aggregateByDay(eventsA);
-    final Map<DateTime, double> dailyB = _aggregateByDay(eventsB);
+    final Map<DateTime, double> dailyA = await _aggregateByDay(eventsA);
+    final Map<DateTime, double> dailyB = await _aggregateByDay(eventsB);
 
-    // 3. Align dates with lag
-    final List<double> listA = [];
-    final List<double> listB = [];
+    final zeroFillA = await _isCounterOrYesNo(metricA, eventsA.first.category);
+    final zeroFillB = await _isCounterOrYesNo(metricB, eventsB.first.category);
 
-    // We iterate through dates in dailyA
-    for (final dateA in dailyA.keys) {
-      final dateB = dateA.add(Duration(days: lagDays));
-      
-      if (dailyB.containsKey(dateB)) {
-        listA.add(dailyA[dateA]!);
-        listB.add(dailyB[dateB]!);
-      }
-    }
+    // 3. Align dates with lag and zero-fill if needed
+    final aligned = _alignAndZeroFill(
+      dailyA: dailyA,
+      dailyB: dailyB,
+      zeroFillA: zeroFillA,
+      zeroFillB: zeroFillB,
+      lagDays: lagDays,
+    );
+
+    final listA = aligned.listA;
+    final listB = aligned.listB;
 
     if (listA.length < 3) return null; // Need at least 3 points for a meaningful correlation
 
@@ -132,18 +139,16 @@ class AnalyticsService {
     final events = await _eventRepo.getEventsByLabel(label);
     if (events.isEmpty) return {};
 
-    final daily = _aggregateByDay(events);
+    final daily = await _aggregateByDay(events);
 
     // Filter to last N days
-    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final cutoff = clock.now().subtract(Duration(days: lastNDays));
     final cutoffDate = DateTime(cutoff.year, cutoff.month, cutoff.day);
     daily.removeWhere((date, _) => date.isBefore(cutoffDate));
 
     // Zero-fill for counters/behavior/nutrition (things that have a "none" state)
     final firstEvent = events.first;
-    bool shouldZeroFill = firstEvent.category == EventCategory.nutrition || 
-                         firstEvent.category == EventCategory.behavior ||
-                         firstEvent.category == EventCategory.social;
+    bool shouldZeroFill = await _isCounterOrYesNo(firstEvent.label, firstEvent.category);
                          
     Map<DateTime, double> result = shouldZeroFill ? _zeroFillDaily(daily, lastNDays) : daily;
 
@@ -164,7 +169,7 @@ class AnalyticsService {
   /// Fills gaps in a daily time series with 0.0.
   Map<DateTime, double> _zeroFillDaily(Map<DateTime, double> data, int lastNDays) {
     final Map<DateTime, double> filled = {};
-    final now = DateTime.now();
+    final now = clock.now();
     final today = DateTime(now.year, now.month, now.day);
     
     for (int i = 0; i < lastNDays; i++) {
@@ -185,14 +190,14 @@ class AnalyticsService {
     double? minValue,
     double? maxValue,
   }) async {
-    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final cutoff = clock.now().subtract(Duration(days: lastNDays));
     final events = await _eventRepo.getEventsByLabel(label);
     
     // Filter to last N days
     final filteredEvents = events.where((e) => e.timestamp.isAfter(cutoff)).toList();
     if (filteredEvents.isEmpty) return {};
 
-    final hourly = _aggregateByHour(filteredEvents);
+    final hourly = await _aggregateByHour(filteredEvents);
 
     if (!normalize || hourly.isEmpty) return hourly;
 
@@ -258,7 +263,7 @@ class AnalyticsService {
     double? minValue,
     double? maxValue,
   }) async {
-    final cutoff = DateTime.now().subtract(Duration(days: lastNDays));
+    final cutoff = clock.now().subtract(Duration(days: lastNDays));
     final events = await _eventRepo.getEventsByLabel(label);
     
     final filteredEvents = events.where((e) => e.timestamp.isAfter(cutoff)).toList();
@@ -289,7 +294,7 @@ class AnalyticsService {
   /// Fills gaps in an hourly timeline with 0.0.
   Map<DateTime, double> _zeroFillHourly(Map<DateTime, double> data, int lastNDays) {
     final Map<DateTime, double> filled = {};
-    final now = DateTime.now();
+    final now = clock.now();
     final currentHour = DateTime(now.year, now.month, now.day, now.hour);
     
     final int totalHours = lastNDays * 24;
@@ -327,6 +332,8 @@ class AnalyticsService {
 
       if (firstEvent.category == EventCategory.mood || 
           firstEvent.category == EventCategory.productivity ||
+          firstEvent.category == EventCategory.weather ||
+          firstEvent.category == EventCategory.biological ||
           firstEvent.label.toLowerCase().contains('quality')) {
         result[date] = vals.reduce((a, b) => a + b) / vals.length;
       } else if (firstEvent.label == 'step_segment' || 
@@ -420,11 +427,91 @@ class AnalyticsService {
     );
   }
 
+  /// Returns true if the metric should be treated as a counter or yes/no toggle.
+  /// Used to decide zero-filling and aggregation (SUM vs MAX/AVERAGE).
+  Future<bool> _isCounterOrYesNo(String label, EventCategory category) async {
+    // 1. Check core metric templates (case-insensitive and ID support)
+    for (final template in MetricPresets.metricTemplates) {
+      if (template.label.toLowerCase() == label.toLowerCase() ||
+          template.id.toLowerCase() == label.toLowerCase()) {
+        return template.inputType == MetricInputType.counter || 
+               template.inputType == MetricInputType.yesNo;
+      }
+    }
+
+    // 2. Check CustomMetrics table from DB
+    try {
+      final customMetrics = await _metricRepo.getAllCustomMetrics();
+      for (final metric in customMetrics) {
+        if (metric.label.toLowerCase() == label.toLowerCase() ||
+            metric.id.toLowerCase() == label.toLowerCase()) {
+          return metric.inputType == MetricInputType.counter || 
+                 metric.inputType == MetricInputType.yesNo;
+        }
+      }
+    } catch (e) {
+      debugPrint('[AnalyticsService] Error checking custom metrics for counter: $e');
+    }
+
+    // 3. Fallback for custom/passive metrics using their high-level category
+    return category == EventCategory.nutrition || 
+           category == EventCategory.behavior || 
+           category == EventCategory.social;
+  }
+
+  /// Aligns daily values for two series, optionally zero-filling counters/yes-no.
+  ({List<double> listA, List<double> listB}) _alignAndZeroFill({
+    required Map<DateTime, double> dailyA,
+    required Map<DateTime, double> dailyB,
+    required bool zeroFillA,
+    required bool zeroFillB,
+    required int lagDays,
+  }) {
+    // Copy the maps to avoid modifying the originals if they are cached or reused
+    final Map<DateTime, double> mapA = Map.from(dailyA);
+    final Map<DateTime, double> mapB = Map.from(dailyB);
+
+    if (zeroFillA || zeroFillB) {
+      final allDates = {...mapA.keys, ...mapB.keys};
+      if (allDates.isNotEmpty) {
+        DateTime minDate = allDates.reduce((a, b) => a.isBefore(b) ? a : b);
+        DateTime maxDate = allDates.reduce((a, b) => a.isAfter(b) ? a : b);
+        
+        minDate = DateTime(minDate.year, minDate.month, minDate.day);
+        maxDate = DateTime(maxDate.year, maxDate.month, maxDate.day);
+        
+        var current = minDate;
+        while (current.isBefore(maxDate) || current.isAtSameMomentAs(maxDate)) {
+          if (zeroFillA && !mapA.containsKey(current)) {
+            mapA[current] = 0.0;
+          }
+          if (zeroFillB && !mapB.containsKey(current)) {
+            mapB[current] = 0.0;
+          }
+          current = current.add(const Duration(days: 1));
+        }
+      }
+    }
+
+    final List<double> listA = [];
+    final List<double> listB = [];
+
+    for (final dateA in mapA.keys) {
+      final dateB = dateA.add(Duration(days: lagDays));
+      if (mapB.containsKey(dateB)) {
+        listA.add(mapA[dateA]!);
+        listB.add(mapB[dateB]!);
+      }
+    }
+
+    return (listA: listA, listB: listB);
+  }
+
   /// Aggregates events into daily values.
   /// 
   /// For mood/scales, it takes the average.
   /// For screen time/counters, it takes the sum (or the latest value if it's already a daily total).
-  Map<DateTime, double> _aggregateByDay(List<Event> events) {
+  Future<Map<DateTime, double>> _aggregateByDay(List<Event> events) async {
     final Map<DateTime, List<double>> dailyGroups = {};
 
     for (final e in events) {
@@ -448,13 +535,19 @@ class AnalyticsService {
       if (vals.isEmpty) continue;
       
       final firstEvent = events.firstWhere((e) => e.label == events.first.label);
+      final isCounter = await _isCounterOrYesNo(firstEvent.label, firstEvent.category);
       
       // Determine aggregation strategy
       if (firstEvent.category == EventCategory.mood || 
           firstEvent.category == EventCategory.productivity ||
+          firstEvent.category == EventCategory.weather ||
+          firstEvent.category == EventCategory.biological ||
           firstEvent.label.toLowerCase().contains('quality')) {
         // Average for scales and quality metrics
         result[date] = vals.reduce((a, b) => a + b) / vals.length;
+      } else if (isCounter) {
+        // Sum for counters/behavior/yesNo
+        result[date] = vals.reduce((a, b) => a + b);
       } else if (firstEvent.category == EventCategory.appUsage || 
                  firstEvent.category == EventCategory.health) {
         if (firstEvent.label.contains('segment')) {
@@ -472,13 +565,14 @@ class AnalyticsService {
     }
 
     return result;
+
   }
 
   /// Aggregates events into an average 24-hour day.
   /// 
   /// For mood/scales, it calculates the average of all entries logged in that hour.
   /// For behavior/counts, it calculates the average occurrence per day for that hour.
-  Map<int, double> _aggregateByHour(List<Event> events) {
+  Future<Map<int, double>> _aggregateByHour(List<Event> events) async {
     final Map<int, List<double>> hourlyGroups = {};
     final Set<String> uniqueDays = {};
 
@@ -506,22 +600,32 @@ class AnalyticsService {
 
     for (int i = 0; i < 24; i++) {
       if (!hourlyGroups.containsKey(i)) {
+        final isCounter = await _isCounterOrYesNo(firstEvent.label, firstEvent.category);
         if (firstEvent.category == EventCategory.mood || 
             firstEvent.category == EventCategory.productivity ||
+            firstEvent.category == EventCategory.weather ||
+            firstEvent.category == EventCategory.biological ||
             firstEvent.label.toLowerCase().contains('quality')) {
           // Do not insert 0.0 for subjective scales, leave it missing to avoid graph drops
           continue;
-        } else {
+        } else if (isCounter || 
+                   firstEvent.category == EventCategory.appUsage || 
+                   firstEvent.category == EventCategory.health) {
           // For counters like steps, 0.0 is accurate
           result[i] = 0.0;
+          continue;
+        } else {
           continue;
         }
       }
       
       final vals = hourlyGroups[i]!;
+      final isCounter = await _isCounterOrYesNo(firstEvent.label, firstEvent.category);
       
       if (firstEvent.category == EventCategory.mood || 
           firstEvent.category == EventCategory.productivity ||
+          firstEvent.category == EventCategory.weather ||
+          firstEvent.category == EventCategory.biological ||
           firstEvent.label.toLowerCase().contains('quality')) {
         // Average for scales and quality metrics
         result[i] = vals.reduce((a, b) => a + b) / vals.length;
@@ -529,7 +633,9 @@ class AnalyticsService {
                  firstEvent.label == 'app_usage_segment' ||
                  firstEvent.label.startsWith('app_segment:') ||
                  firstEvent.label.startsWith('category_segment:') ||
-                 firstEvent.category == EventCategory.behavior) {
+                 isCounter ||
+                 firstEvent.category == EventCategory.appUsage || 
+                 firstEvent.category == EventCategory.health) {
         // Average amount per day for that specific hour
         result[i] = vals.reduce((a, b) => a + b) / totalDays;
       } else {
@@ -594,19 +700,22 @@ class AnalyticsService {
 
     if (eventsA.isEmpty || eventsB.isEmpty) return null;
 
-    final Map<DateTime, double> dailyA = _aggregateByDay(eventsA);
-    final Map<DateTime, double> dailyB = _aggregateByDay(eventsB);
+    final Map<DateTime, double> dailyA = await _aggregateByDay(eventsA);
+    final Map<DateTime, double> dailyB = await _aggregateByDay(eventsB);
 
-    final List<double> listA = [];
-    final List<double> listB = [];
+    final zeroFillA = await _isCounterOrYesNo(metricA, eventsA.first.category);
+    final zeroFillB = await _isCounterOrYesNo(metricB, eventsB.first.category);
 
-    for (final dateA in dailyA.keys) {
-      final dateB = dateA.add(Duration(days: lagDays));
-      if (dailyB.containsKey(dateB)) {
-        listA.add(dailyA[dateA]!);
-        listB.add(dailyB[dateB]!);
-      }
-    }
+    final aligned = _alignAndZeroFill(
+      dailyA: dailyA,
+      dailyB: dailyB,
+      zeroFillA: zeroFillA,
+      zeroFillB: zeroFillB,
+      lagDays: lagDays,
+    );
+
+    final listA = aligned.listA;
+    final listB = aligned.listB;
 
     final n = listA.length;
     if (n < 3) return null;

@@ -51,6 +51,9 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
     _SelectableMetric('sleep_wakeup', 'Wake-up Time', 'sunny'),
     _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', 'midpoint'),
     _SelectableMetric('step_count', 'Steps', 'run', inputType: MetricInputType.counter),
+    _SelectableMetric('core_weather_rain', 'Rain (Passive)', 'umbrella', inputType: MetricInputType.scale1to10),
+    _SelectableMetric('core_weather_sun', 'Sun (Passive)', 'sunny', inputType: MetricInputType.scale1to10),
+    _SelectableMetric('core_weather_wind', 'Wind (Passive)', 'air', inputType: MetricInputType.scale1to10),
   ];
 
   @override

@@ -59,6 +59,9 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     _SelectableMetric('sleep_wakeup', 'Wake-up Time', 'sunny'),
     _SelectableMetric('sleep_midpoint', 'Sleep Midpoint', 'midpoint'),
     _SelectableMetric('step_count', 'Steps', 'run'),
+    _SelectableMetric('core_weather_rain', 'Rain (Passive)', 'umbrella'),
+    _SelectableMetric('core_weather_sun', 'Sun (Passive)', 'sunny'),
+    _SelectableMetric('core_weather_wind', 'Wind (Passive)', 'air'),
   ];
 
   @override

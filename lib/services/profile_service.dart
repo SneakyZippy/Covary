@@ -81,6 +81,10 @@ class ProfileService extends ChangeNotifier {
   /// Whether the user has seen the onboarding slider.
   bool get hasSeenOnboarding => _hasSeenOnboarding;
 
+  /// Whether the user has completed the initial demographics questionnaire.
+  bool get hasCompletedQuestionnaire =>
+      _profileRepo.getBoolSetting('has_completed_questionnaire', defaultValue: false);
+
   /// Whether developer mode is enabled.
   bool get isDeveloperMode => _isDeveloperMode;
 
@@ -362,6 +366,29 @@ class ProfileService extends ChangeNotifier {
   Future<void> resetOnboarding() async {
     _hasSeenOnboarding = false;
     await _profileRepo.setHasSeenOnboarding(false);
+    await _profileRepo.setBoolSetting('has_completed_questionnaire', false);
+    notifyListeners();
+  }
+
+  /// Marks the demographics questionnaire as completed and logs a meta event.
+  Future<void> setCompletedQuestionnaire(bool value) async {
+    await _profileRepo.setBoolSetting('has_completed_questionnaire', value);
+    
+    if (value) {
+      try {
+        await _eventRepo.insertEvent(EventsCompanion(
+          category: const Value(EventCategory.meta),
+          label: const Value('questionnaire_completed'),
+          value: const Value('true'),
+          triggerSource: const Value(TriggerSource.manual),
+          interactionType: const Value(InteractionType.click),
+        ));
+        debugPrint('[ProfileService] Logged questionnaire_completed event');
+      } catch (e) {
+        debugPrint('[ProfileService] Error logging questionnaire completion: $e');
+      }
+    }
+    
     notifyListeners();
   }
 

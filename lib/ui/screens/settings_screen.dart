@@ -8,6 +8,7 @@ import '../../services/profile_service.dart';
 import '../../data/models/enums.dart';
 import 'package:covary/services/theme_service.dart';
 import 'profile_setup_screen.dart';
+import 'questionnaire_screen.dart';
 import 'permission_shield_screen.dart';
 import 'app_category_manager_screen.dart';
 import 'debug_screen.dart';
@@ -444,6 +445,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const AppCategoryManagerScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    height: 1,
+                    color: colorScheme.outlineVariant.withAlpha(80),
+                  ),
+                  _SettingsTile(
+                    leading: Icon(Icons.assignment_ind_rounded, color: colorScheme.primary, size: 20),
+                    title: 'Demographics Questionnaire',
+                    subtitle: 'View or update your age group, status, and tracking goals',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const QuestionnaireScreen(isEditMode: true),
                         ),
                       );
                     },
