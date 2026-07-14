@@ -21,11 +21,26 @@ class CorrelationMatrixScreen extends StatefulWidget {
       _CorrelationMatrixScreenState();
 }
 
+/// A single correlation matrix cell: the coefficient plus enough context
+/// (sample size, p-value) to know whether it's worth trusting.
+class _MatrixCellData {
+  final double? correlation;
+  final int n;
+  final double? pValue;
+  final bool significant;
+  const _MatrixCellData({
+    required this.correlation,
+    required this.n,
+    required this.pValue,
+    required this.significant,
+  });
+}
+
 class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   bool _isLoading = true;
   List<MetricDefinition> _rowMetrics = [];
   List<MetricDefinition> _colMetrics = [];
-  Map<String, Map<String, double?>> _matrix = {};
+  Map<String, Map<String, _MatrixCellData?>> _matrix = {};
   MetricDefinition? _spotlightRow;
   MetricDefinition? _spotlightCol;
   double? _spotlightCorrelation;
@@ -191,7 +206,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     });
     final eventRepo = context.read<EventRepository>();
     final analyticsService = context.read<AnalyticsService>();
-    final newMatrix = <String, Map<String, double?>>{};
+    final newMatrix = <String, Map<String, _MatrixCellData?>>{};
 
     for (final row in _rowMetrics) {
       newMatrix[row.id] = {};
@@ -199,20 +214,25 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
         // Only show 1.0 on diagonal if the user has actually logged data for it
         if (row.id == col.id) {
           final events = await eventRepo.getEventsByLabel(row.label);
-          if (events.isNotEmpty) {
-            newMatrix[row.id]![col.id] = 1.0;
-          } else {
-            newMatrix[row.id]![col.id] = null;
-          }
+          newMatrix[row.id]![col.id] = events.isNotEmpty
+              ? const _MatrixCellData(correlation: 1.0, n: 0, pValue: null, significant: true)
+              : null;
           continue;
         }
 
-        final correlation = await analyticsService.calculateSpearmanCorrelation(
+        final detailed = await analyticsService.calculateSpearmanCorrelationDetailed(
           metricA: row.label,
           metricB: col.label,
           lagDays: 0,
         );
-        newMatrix[row.id]![col.id] = correlation;
+        newMatrix[row.id]![col.id] = detailed == null
+            ? null
+            : _MatrixCellData(
+                correlation: detailed.correlation,
+                n: detailed.n,
+                pValue: detailed.pValue,
+                significant: detailed.pValue < 0.05,
+              );
       }
     }
 
@@ -227,23 +247,15 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     for (final row in _rowMetrics) {
       for (final col in _colMetrics) {
         if (row.id == col.id) continue;
-        final corr = newMatrix[row.id]?[col.id];
-        if (corr != null && corr.abs() >= 0.3) {
-          final detailed = await analyticsService.calculateSpearmanCorrelationDetailed(
-            metricA: row.label,
-            metricB: col.label,
-            lagDays: 0,
-          );
-          if (detailed != null && detailed.pValue < 0.05) {
-            if (corr.abs() > bestAbsCorr) {
-              bestAbsCorr = corr.abs();
-              bestRow = row;
-              bestCol = col;
-              bestPValue = detailed.pValue;
-              bestN = detailed.n;
-              bestCorrVal = detailed.correlation;
-            }
-          }
+        final cell = newMatrix[row.id]?[col.id];
+        if (cell == null || !cell.significant || cell.correlation == null) continue;
+        if (cell.correlation!.abs() >= 0.3 && cell.correlation!.abs() > bestAbsCorr) {
+          bestAbsCorr = cell.correlation!.abs();
+          bestRow = row;
+          bestCol = col;
+          bestPValue = cell.pValue;
+          bestN = cell.n;
+          bestCorrVal = cell.correlation;
         }
       }
     }
@@ -556,7 +568,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   }
 
   Widget _buildCell(
-    double? correlation,
+    _MatrixCellData? cell,
     double size,
     ColorScheme colorScheme,
     TextTheme textTheme,
@@ -570,6 +582,9 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     final bool isInCrosshair = isHighlightedRow || isHighlightedCol;
     final bool isDiagonal = rowMetric.id == colMetric.id;
 
+    final double? correlation = cell?.correlation;
+    final bool isSignificant = cell?.significant ?? false;
+
     final heatmapColors = CovaryDesignSystem.getHeatmapColors(context);
     Color cellColor = Colors.white.withAlpha(5);
 
@@ -577,13 +592,16 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
     if (isDiagonal) {
       cellColor = Colors.white.withAlpha(8);
     } else if (hasData) {
+      // Non-significant cells (small sample or high p-value) are shown at
+      // reduced intensity so they don't visually compete with real signal.
+      final double confidence = isSignificant ? 1.0 : 0.4;
       if (correlation > 0.05) {
         cellColor = heatmapColors.$1.withValues(
-          alpha: (0.15 + (0.85 * correlation)).clamp(0.15, 1.0),
+          alpha: ((0.15 + (0.85 * correlation)) * confidence).clamp(0.08, 1.0),
         );
       } else if (correlation < -0.05) {
         cellColor = heatmapColors.$2.withValues(
-          alpha: (0.15 + (0.85 * correlation.abs())).clamp(0.15, 1.0),
+          alpha: ((0.15 + (0.85 * correlation.abs())) * confidence).clamp(0.08, 1.0),
         );
       } else {
         cellColor = Colors.white.withValues(alpha: 0.04);
@@ -601,8 +619,8 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
       );
     }
 
-    final bool isStrong = !isDiagonal && hasData && correlation.abs() > 0.6;
-    final bool isVeryStrong = !isDiagonal && hasData && correlation.abs() > 0.85;
+    final bool isStrong = !isDiagonal && hasData && isSignificant && correlation.abs() > 0.6;
+    final bool isVeryStrong = !isDiagonal && hasData && isSignificant && correlation.abs() > 0.85;
 
     // Premium Cell Glow
     List<BoxShadow>? shadows;
@@ -815,7 +833,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'To ensure statistical validity, correlations are only calculated once 3 days of overlapping data are present. The intensity of color represents the strength of the relationship.',
+              'To ensure statistical validity, correlations are only calculated once 7 days of overlapping data are present. Cells that are not statistically significant (p ≥ 0.05) are shown at reduced intensity, even if the coefficient looks strong.',
               style: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 height: 1.5,
@@ -865,7 +883,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Try logging more behaviors daily. Metrics will automatically appear here once 3 days of data are recorded.',
+              'Try logging more behaviors daily. Metrics will automatically appear here once 7 days of data are recorded.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
@@ -1226,10 +1244,13 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
       dateLabels.add('${date.month}/${date.day}');
     }
 
+    // Match the 14-day window the trend chart above actually plots, instead
+    // of silently computing the stat over the user's entire history.
     final detailed = await analyticsService.calculateSpearmanCorrelationDetailed(
       metricA: widget.rowMetric.label,
       metricB: widget.colMetric.label,
       lagDays: 0,
+      lastNDays: 14,
     );
 
     if (mounted) {

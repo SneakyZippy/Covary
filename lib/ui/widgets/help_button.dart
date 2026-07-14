@@ -112,7 +112,7 @@ class AppBarHelpButton extends StatelessWidget {
         ),
         HelpSection(
           title: 'Data Constraints',
-          body: 'For statistical relevance, the matrix requires at least 14 days of logged entries across overlapping metrics.',
+          body: 'For statistical relevance, the matrix requires at least 7 days of overlapping entries per pair. Cells that don\'t reach statistical significance (p ≥ 0.05) are shown dimmed, even if the raw coefficient looks strong.',
           icon: Icons.warning_amber_rounded,
         ),
         HelpSection(
@@ -138,7 +138,7 @@ class AppBarHelpButton extends StatelessWidget {
         ),
         HelpSection(
           title: 'Overlapping Threshold',
-          body: 'Requires at least 3 days of overlapping data for the selected day offset to avoid displaying inaccurate predictive trends.',
+          body: 'Requires at least 7 days of overlapping data for the selected day offset to avoid displaying inaccurate predictive trends.',
           icon: Icons.info_outline_rounded,
         ),
       ],

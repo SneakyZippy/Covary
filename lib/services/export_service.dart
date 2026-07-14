@@ -40,7 +40,12 @@ class ExportService {
     final filteredEvents = filteredMetricLabels == null
         ? events
         : events.where((e) {
-            return e.category == EventCategory.meta || filteredMetricLabels.contains(e.label);
+            if (e.category == EventCategory.meta || filteredMetricLabels.contains(e.label)) {
+              return true;
+            }
+            // Passive metrics can select a whole family of dynamically-generated
+            // labels (e.g. one per installed app) via a "prefix:" entry.
+            return filteredMetricLabels.any((f) => f.endsWith(':') && e.label.startsWith(f));
           }).toList();
 
     final filteredCustomMetrics = filteredMetricLabels == null

@@ -15,17 +15,31 @@ class AnalyticsService {
 
   AnalyticsService(this._eventRepo, this._metricRepo);
 
+  /// Minimum overlapping data points required before a correlation is
+  /// reported. Below this, Spearman's rho is dominated by a handful of
+  /// discrete outcomes and routinely hits +/-1.0 by chance alone.
+  static const int _minSampleSize = 7;
+
+  /// Midnight [days] days before today, used to restrict a correlation
+  /// calculation to a recent window instead of the entire logged history.
+  DateTime _dayCutoff(int days) {
+    final now = clock.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return today.subtract(Duration(days: days));
+  }
+
   /// Calculates the Spearman Rank Correlation between two metrics.
-  /// 
+  ///
   /// [metricA] and [metricB] are the labels of the metrics to correlate.
-  /// [lagDays] specifies the time offset (0-7 days). Positive value means 
+  /// [lagDays] specifies the time offset (0-7 days). Positive value means
   /// [metricA] at Day T is correlated with [metricB] at Day T + lagDays.
+  /// [lastNDays], if provided, restricts the calculation to that trailing
+  /// window instead of the full logged history.
   Future<double?> calculateSpearmanCorrelation({
     required String metricA,
     required String metricB,
     int lagDays = 0,
-    DateTime? start,
-    DateTime? end,
+    int? lastNDays,
   }) async {
     // 1. Fetch data for both metrics
     final eventsA = await _eventRepo.getEventsByLabel(metricA);
@@ -34,8 +48,14 @@ class AnalyticsService {
     if (eventsA.isEmpty || eventsB.isEmpty) return null;
 
     // 2. Aggregate by day
-    final Map<DateTime, double> dailyA = await _aggregateByDay(eventsA);
-    final Map<DateTime, double> dailyB = await _aggregateByDay(eventsB);
+    Map<DateTime, double> dailyA = await _aggregateByDay(eventsA);
+    Map<DateTime, double> dailyB = await _aggregateByDay(eventsB);
+
+    if (lastNDays != null) {
+      final cutoff = _dayCutoff(lastNDays);
+      dailyA = Map.fromEntries(dailyA.entries.where((e) => !e.key.isBefore(cutoff)));
+      dailyB = Map.fromEntries(dailyB.entries.where((e) => !e.key.isBefore(cutoff)));
+    }
 
     final zeroFillA = await _isCounterOrYesNo(metricA, eventsA.first.category);
     final zeroFillB = await _isCounterOrYesNo(metricB, eventsB.first.category);
@@ -52,7 +72,7 @@ class AnalyticsService {
     final listA = aligned.listA;
     final listB = aligned.listB;
 
-    if (listA.length < 3) return null; // Need at least 3 points for a meaningful correlation
+    if (listA.length < _minSampleSize) return null;
 
     // 4. Calculate Spearman Rank Correlation
     return _computeSpearman(listA, listB);
@@ -86,7 +106,7 @@ class AnalyticsService {
       }
     }
 
-    if (listA.length < 5) return null; 
+    if (listA.length < _minSampleSize) return null;
     return _computeSpearman(listA, listB);
   }
 
@@ -364,6 +384,7 @@ class AnalyticsService {
     required String metricA,
     required String metricB,
     int maxLag = 7,
+    int? lastNDays,
   }) async {
     final Map<int, double?> all = {};
     int bestLag = 0;
@@ -375,6 +396,7 @@ class AnalyticsService {
         metricA: metricA,
         metricB: metricB,
         lagDays: lag,
+        lastNDays: lastNDays,
       );
       all[lag] = r;
       if (r != null && r.abs() > bestAbs) {
@@ -694,14 +716,21 @@ class AnalyticsService {
     required String metricA,
     required String metricB,
     int lagDays = 0,
+    int? lastNDays,
   }) async {
     final eventsA = await _eventRepo.getEventsByLabel(metricA);
     final eventsB = await _eventRepo.getEventsByLabel(metricB);
 
     if (eventsA.isEmpty || eventsB.isEmpty) return null;
 
-    final Map<DateTime, double> dailyA = await _aggregateByDay(eventsA);
-    final Map<DateTime, double> dailyB = await _aggregateByDay(eventsB);
+    Map<DateTime, double> dailyA = await _aggregateByDay(eventsA);
+    Map<DateTime, double> dailyB = await _aggregateByDay(eventsB);
+
+    if (lastNDays != null) {
+      final cutoff = _dayCutoff(lastNDays);
+      dailyA = Map.fromEntries(dailyA.entries.where((e) => !e.key.isBefore(cutoff)));
+      dailyB = Map.fromEntries(dailyB.entries.where((e) => !e.key.isBefore(cutoff)));
+    }
 
     final zeroFillA = await _isCounterOrYesNo(metricA, eventsA.first.category);
     final zeroFillB = await _isCounterOrYesNo(metricB, eventsB.first.category);
@@ -718,18 +747,21 @@ class AnalyticsService {
     final listB = aligned.listB;
 
     final n = listA.length;
-    if (n < 3) return null;
+    if (n < _minSampleSize) return null;
 
     final correlation = _computeSpearman(listA, listB);
 
-    double pValue;
-    if (correlation.abs() >= 1.0) {
-      pValue = 0.0;
-    } else {
-      final df = n - 2;
-      final t = correlation * sqrt(df / (1.0 - correlation * correlation));
-      pValue = _getTDistributionPValue(t.abs(), df);
-    }
+    // Clamp instead of special-casing |r| == 1.0 to p = 0.0: a "perfect"
+    // rank correlation from a small sample is expected by chance fairly
+    // often and isn't automatically significant. Running it through the
+    // same t-approximation as every other value gives an honest p-value
+    // that still correctly approaches 0 as n grows.
+    final df = n - 2;
+    final clampedR = correlation.abs() >= 1.0
+        ? (correlation.isNegative ? -0.999999 : 0.999999)
+        : correlation;
+    final t = clampedR * sqrt(df / (1.0 - clampedR * clampedR));
+    final pValue = _getTDistributionPValue(t.abs(), df);
 
     return (correlation: correlation, pValue: pValue, n: n);
   }

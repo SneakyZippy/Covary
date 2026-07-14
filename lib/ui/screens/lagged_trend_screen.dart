@@ -139,7 +139,11 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
     if (_viewMode == LagViewMode.daily) {
       final seriesA = await analytics.getDailyTimeSeries(_labelA!, normalize: true, lastNDays: _dayRange);
       final seriesB = await analytics.getDailyTimeSeries(_labelB!, normalize: true, lastNDays: _dayRange);
-      final lagResult = await analytics.findPeakLagCorrelation(metricA: _labelA!, metricB: _labelB!);
+      final lagResult = await analytics.findPeakLagCorrelation(
+        metricA: _labelA!,
+        metricB: _labelB!,
+        lastNDays: _dayRange,
+      );
 
       if (mounted) {
         setState(() {
@@ -197,6 +201,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
         metricA: _labelA!,
         metricB: _labelB!,
         lagDays: lag,
+        lastNDays: _dayRange,
       );
     } else {
       r = await analytics.calculateSpearmanCorrelationHourly(
@@ -1081,7 +1086,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
                 textAlign: TextAlign.center, style: textTheme.titleMedium),
             const SizedBox(height: 8),
             const Text(
-              'Enable at least two metrics and log data for 3+ days to see lagged trend analysis.',
+              'Enable at least two metrics and log data for 7+ days to see lagged trend analysis.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),

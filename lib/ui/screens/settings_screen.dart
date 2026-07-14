@@ -23,6 +23,7 @@ import '../widgets/sync_summary_dialog.dart';
 import '../widgets/metric_icon.dart';
 import '../../services/metric_service.dart';
 import '../../data/models/metric_definition.dart';
+import '../../data/passive_metric_presets.dart';
 
 import 'metrics_screen.dart';
 import 'tracking_windows_screen.dart';
@@ -1967,6 +1968,8 @@ class _ExportMetricSelectorSheet extends StatefulWidget {
 
 class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> {
   final Set<String> _selectedLabels = {};
+  final Set<String> _selectedPassiveKeys = {};
+  final List<PassiveMetricOption> _passiveOptions = PassiveMetricPresets.options;
   List<MetricDefinition> _metrics = [];
   bool _initialized = false;
   String _searchQuery = "";
@@ -1998,13 +2001,26 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
           m.category.name.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
+    final filteredPassiveOptions = _passiveOptions.where((o) {
+      if (_searchQuery.isEmpty) return true;
+      return o.label.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          o.category.name.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+
     // Group by category
     final Map<EventCategory, List<MetricDefinition>> grouped = {};
     for (final m in filteredMetrics) {
       grouped.putIfAbsent(m.category, () => []).add(m);
     }
 
-    final categoriesInOrder = EventCategory.values.where((c) => grouped.containsKey(c)).toList();
+    final Map<EventCategory, List<PassiveMetricOption>> groupedPassive = {};
+    for (final o in filteredPassiveOptions) {
+      groupedPassive.putIfAbsent(o.category, () => []).add(o);
+    }
+
+    final categoriesInOrder = EventCategory.values
+        .where((c) => grouped.containsKey(c) || groupedPassive.containsKey(c))
+        .toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -2085,6 +2101,7 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
                   onPressed: () {
                     setState(() {
                       _selectedLabels.addAll(filteredMetrics.map((m) => m.label));
+                      _selectedPassiveKeys.addAll(filteredPassiveOptions.map((o) => o.matchKey));
                     });
                   },
                   icon: const Icon(Icons.select_all_rounded, size: 16),
@@ -2095,6 +2112,7 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
                   onPressed: () {
                     setState(() {
                       _selectedLabels.removeAll(filteredMetrics.map((m) => m.label));
+                      _selectedPassiveKeys.removeAll(filteredPassiveOptions.map((o) => o.matchKey));
                     });
                   },
                   icon: const Icon(Icons.deselect_rounded, size: 16),
@@ -2108,7 +2126,7 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${_selectedLabels.length} of ${_metrics.length} selected',
+                    '${_selectedLabels.length + _selectedPassiveKeys.length} of ${_metrics.length + _passiveOptions.length} selected',
                     style: textTheme.labelSmall?.copyWith(
                       color: colorScheme.primary,
                       fontWeight: FontWeight.bold,
@@ -2133,6 +2151,7 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
                 itemBuilder: (context, catIndex) {
                   final cat = categoriesInOrder[catIndex];
                   final catMetrics = grouped[cat] ?? [];
+                  final catPassive = groupedPassive[cat] ?? [];
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2141,6 +2160,12 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: _buildMetricTile(metric, colorScheme, textTheme),
+                        );
+                      }),
+                      ...catPassive.map((option) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: _buildPassiveMetricTile(option, colorScheme, textTheme),
                         );
                       }),
                     ],
@@ -2171,10 +2196,10 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
                 const SizedBox(width: 16),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _selectedLabels.isEmpty
+                    onPressed: (_selectedLabels.isEmpty && _selectedPassiveKeys.isEmpty)
                         ? null
                         : () {
-                            Navigator.pop(context, _selectedLabels.toList());
+                            Navigator.pop(context, [..._selectedLabels, ..._selectedPassiveKeys]);
                           },
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -2276,6 +2301,91 @@ class _ExportMetricSelectorSheetState extends State<_ExportMetricSelectorSheet> 
                 ),
               ),
             ),
+            // Animated Checkbox
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: isSelected ? colorScheme.primary : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? colorScheme.primary : colorScheme.outline,
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(
+                      Icons.check,
+                      size: 16,
+                      color: colorScheme.onPrimary,
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPassiveMetricTile(PassiveMetricOption option, ColorScheme colorScheme, TextTheme textTheme) {
+    final isSelected = _selectedPassiveKeys.contains(option.matchKey);
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _selectedPassiveKeys.remove(option.matchKey);
+          } else {
+            _selectedPassiveKeys.add(option.matchKey);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primaryContainer.withAlpha(25)
+              : colorScheme.surfaceContainerHighest.withAlpha(80),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? colorScheme.primary.withAlpha(120)
+                : colorScheme.outlineVariant.withAlpha(80),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? colorScheme.primary.withAlpha(40)
+                    : colorScheme.surfaceContainerHighest,
+                shape: BoxShape.circle,
+              ),
+              child: MetricIcon(
+                iconName: option.emoji,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Label
+            Expanded(
+              child: Text(
+                option.label,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? colorScheme.onSurface : colorScheme.onSurface.withAlpha(200),
+                ),
+              ),
+            ),
+            Icon(Icons.sensors_rounded, size: 14, color: colorScheme.onSurfaceVariant.withAlpha(150)),
+            const SizedBox(width: 8),
             // Animated Checkbox
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
