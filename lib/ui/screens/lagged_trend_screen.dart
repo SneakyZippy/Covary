@@ -42,9 +42,9 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   bool _isLoading = true;
   bool _isAutoDetecting = false;
 
-  // Date range: 7, 14, 30 days
+  // Date range: 7, 14, 30 days, or 0 (All)
   int _dayRange = 14;
-  static const List<int> _dayRangeOptions = [7, 14, 30];
+  static const List<int> _dayRangeOptions = [7, 14, 30, 0];
 
   // Animation
   late AnimationController _fadeController;
@@ -136,13 +136,15 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
 
     final analytics = context.read<AnalyticsService>();
 
+    final int? effectiveRange = _dayRange == 0 ? null : _dayRange;
+
     if (_viewMode == LagViewMode.daily) {
-      final seriesA = await analytics.getDailyTimeSeries(_labelA!, normalize: true, lastNDays: _dayRange);
-      final seriesB = await analytics.getDailyTimeSeries(_labelB!, normalize: true, lastNDays: _dayRange);
+      final seriesA = await analytics.getDailyTimeSeries(_labelA!, normalize: true, lastNDays: effectiveRange);
+      final seriesB = await analytics.getDailyTimeSeries(_labelB!, normalize: true, lastNDays: effectiveRange);
       final lagResult = await analytics.findPeakLagCorrelation(
         metricA: _labelA!,
         metricB: _labelB!,
-        lastNDays: _dayRange,
+        lastNDays: effectiveRange,
       );
 
       if (mounted) {
@@ -195,13 +197,14 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
   Future<void> _updateCorrelationForLag(int lag) async {
     if (_labelA == null || _labelB == null) return;
     final analytics = context.read<AnalyticsService>();
+    final int? effectiveRange = _dayRange == 0 ? null : _dayRange;
     final double? r;
     if (_viewMode == LagViewMode.daily) {
       r = await analytics.calculateSpearmanCorrelation(
         metricA: _labelA!,
         metricB: _labelB!,
         lagDays: lag,
-        lastNDays: _dayRange,
+        lastNDays: effectiveRange,
       );
     } else {
       r = await analytics.calculateSpearmanCorrelationHourly(
@@ -471,7 +474,7 @@ class _LaggedTrendScreenState extends State<LaggedTrendScreen>
           return Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
-              label: Text('${d}d'),
+              label: Text(d == 0 ? 'All' : '${d}d'),
               selected: isActive,
               onSelected: (_) {
                 setState(() => _dayRange = d);

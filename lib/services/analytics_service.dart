@@ -152,7 +152,7 @@ class AnalyticsService {
   Future<Map<DateTime, double>> getDailyTimeSeries(
     String label, {
     bool normalize = false,
-    int lastNDays = 14,
+    int? lastNDays = 14,
     double? minValue,
     double? maxValue,
   }) async {
@@ -161,16 +161,33 @@ class AnalyticsService {
 
     final daily = await _aggregateByDay(events);
 
-    // Filter to last N days
-    final cutoff = clock.now().subtract(Duration(days: lastNDays));
-    final cutoffDate = DateTime(cutoff.year, cutoff.month, cutoff.day);
-    daily.removeWhere((date, _) => date.isBefore(cutoffDate));
+    // Filter to last N days if specified (> 0)
+    if (lastNDays != null && lastNDays > 0) {
+      final cutoff = clock.now().subtract(Duration(days: lastNDays));
+      final cutoffDate = DateTime(cutoff.year, cutoff.month, cutoff.day);
+      daily.removeWhere((date, _) => date.isBefore(cutoffDate));
+    }
 
     // Zero-fill for counters/behavior/nutrition (things that have a "none" state)
     final firstEvent = events.first;
     bool shouldZeroFill = await _isCounterOrYesNo(firstEvent.label, firstEvent.category);
+
+    int effectiveDays = (lastNDays != null && lastNDays > 0)
+        ? lastNDays
+        : (daily.isNotEmpty
+            ? () {
+                final earliest = daily.keys.reduce((a, b) => a.isBefore(b) ? a : b);
+                final today = clock.now();
+                return DateTime.utc(today.year, today.month, today.day)
+                        .difference(DateTime.utc(earliest.year, earliest.month, earliest.day))
+                        .inDays +
+                    1;
+              }()
+            : 0);
                          
-    Map<DateTime, double> result = shouldZeroFill ? _zeroFillDaily(daily, lastNDays) : daily;
+    Map<DateTime, double> result = (shouldZeroFill && effectiveDays > 0)
+        ? _zeroFillDaily(daily, effectiveDays)
+        : daily;
 
     if (!normalize || result.isEmpty) return result;
 
@@ -193,7 +210,7 @@ class AnalyticsService {
     final today = DateTime(now.year, now.month, now.day);
     
     for (int i = 0; i < lastNDays; i++) {
-      final date = today.subtract(Duration(days: i));
+      final date = DateTime(today.year, today.month, today.day - i);
       filled[date] = data[date] ?? 0.0;
     }
     return filled;
@@ -206,15 +223,17 @@ class AnalyticsService {
   Future<Map<int, double>> getHourlyTimeSeries(
     String label, {
     bool normalize = false,
-    int lastNDays = 14,
+    int? lastNDays = 14,
     double? minValue,
     double? maxValue,
   }) async {
-    final cutoff = clock.now().subtract(Duration(days: lastNDays));
     final events = await _eventRepo.getEventsByLabel(label);
-    
-    // Filter to last N days
-    final filteredEvents = events.where((e) => e.timestamp.isAfter(cutoff)).toList();
+    if (events.isEmpty) return {};
+
+    // Filter to last N days if specified (> 0)
+    final filteredEvents = (lastNDays != null && lastNDays > 0)
+        ? events.where((e) => e.timestamp.isAfter(clock.now().subtract(Duration(days: lastNDays)))).toList()
+        : events;
     if (filteredEvents.isEmpty) return {};
 
     final hourly = await _aggregateByHour(filteredEvents);
@@ -241,7 +260,7 @@ class AnalyticsService {
   Future<Map<DateTime, double>> getWeeklyTimeSeries(
     String label, {
     bool normalize = false,
-    int lastNDays = 30,
+    int? lastNDays = 30,
     double? minValue,
     double? maxValue,
   }) async {

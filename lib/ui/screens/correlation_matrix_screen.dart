@@ -53,6 +53,10 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
   String? _highlightedRowId;
   String? _highlightedColId;
 
+  // Date range filter
+  int _dayRange = 14;
+  static const List<int> _dayRangeOptions = [7, 14, 30, 0];
+
   // "Virtual" metrics for passive sensing data that don't have definitions in MetricService.
   // Per-app breakdowns are deliberately excluded here (too granular for a matrix), but
   // per-category screen time is added dynamically in _autoselectMetrics() below, since
@@ -238,6 +242,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
           metricA: row.label,
           metricB: col.label,
           lagDays: 0,
+          lastNDays: _dayRange == 0 ? null : _dayRange,
         );
         newMatrix[row.id]![col.id] = detailed == null
             ? null
@@ -342,7 +347,12 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                 ? _buildEmptyState(textTheme)
                 : ListView(
                     children: [
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildDayRangeSelector(colorScheme, textTheme),
+                      ),
+                      const SizedBox(height: 12),
                       _buildInsightsSpotlightCard(colorScheme, textTheme),
                       const SizedBox(height: 20),
                       _buildMatrixGrid(colorScheme, textTheme),
@@ -353,6 +363,40 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
           _buildLegend(colorScheme, textTheme),
         ],
       ),
+    );
+  }
+
+  Widget _buildDayRangeSelector(ColorScheme colorScheme, TextTheme textTheme) {
+    return Row(
+      children: [
+        Icon(Icons.date_range_rounded, size: 16, color: colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Text('Range:', style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+        const SizedBox(width: 8),
+        ..._dayRangeOptions.map((d) {
+          final isActive = _dayRange == d;
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: ChoiceChip(
+              label: Text(d == 0 ? 'All' : '${d}d'),
+              selected: isActive,
+              onSelected: (_) {
+                setState(() => _dayRange = d);
+                _loadMatrix();
+              },
+              labelStyle: textTheme.labelSmall?.copyWith(
+                fontSize: 11,
+                color: isActive ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+              ),
+              selectedColor: colorScheme.primary,
+              backgroundColor: Colors.white.withAlpha(10),
+              side: BorderSide.none,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+          );
+        }),
+      ],
     );
   }
 
@@ -754,6 +798,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                   rowMetric: rowMetric,
                   colMetric: colMetric,
                   correlation: correlation,
+                  dayRange: _dayRange,
                 ),
               );
             } else {
@@ -1024,6 +1069,7 @@ class _CorrelationMatrixScreenState extends State<CorrelationMatrixScreen> {
                           rowMetric: _spotlightRow!,
                           colMetric: _spotlightCol!,
                           correlation: r,
+                          dayRange: _dayRange,
                         ),
                       );
                     },
@@ -1210,10 +1256,12 @@ class _CorrelationDetailsSheet extends StatefulWidget {
   final MetricDefinition rowMetric;
   final MetricDefinition colMetric;
   final double correlation;
+  final int dayRange;
   const _CorrelationDetailsSheet({
     required this.rowMetric,
     required this.colMetric,
     required this.correlation,
+    this.dayRange = 14,
   });
 
   @override
@@ -1236,8 +1284,9 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
 
   Future<void> _fetchAndAlignData() async {
     final analyticsService = context.read<AnalyticsService>();
-    final dataRow = await analyticsService.getDailyTimeSeries(widget.rowMetric.label, normalize: true, lastNDays: 14);
-    final dataCol = await analyticsService.getDailyTimeSeries(widget.colMetric.label, normalize: true, lastNDays: 14);
+    final int? effectiveRange = widget.dayRange == 0 ? null : widget.dayRange;
+    final dataRow = await analyticsService.getDailyTimeSeries(widget.rowMetric.label, normalize: true, lastNDays: effectiveRange);
+    final dataCol = await analyticsService.getDailyTimeSeries(widget.colMetric.label, normalize: true, lastNDays: effectiveRange);
 
     final sortedDates = dataRow.keys.where((d) => dataCol.containsKey(d)).toList()
       ..sort((a, b) => a.compareTo(b));
@@ -1253,13 +1302,11 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
       dateLabels.add('${date.month}/${date.day}');
     }
 
-    // Match the 14-day window the trend chart above actually plots, instead
-    // of silently computing the stat over the user's entire history.
     final detailed = await analyticsService.calculateSpearmanCorrelationDetailed(
       metricA: widget.rowMetric.label,
       metricB: widget.colMetric.label,
       lagDays: 0,
-      lastNDays: 14,
+      lastNDays: effectiveRange,
     );
 
     if (mounted) {
@@ -1499,7 +1546,7 @@ class _CorrelationDetailsSheetState extends State<_CorrelationDetailsSheet> {
             )
           else ...[
             Text(
-              '14-Day Overlaid Trend (Normalized)',
+              widget.dayRange == 0 ? 'All-Time Overlaid Trend (Normalized)' : '${widget.dayRange}-Day Overlaid Trend (Normalized)',
               style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),

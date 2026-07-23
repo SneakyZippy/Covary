@@ -1,7 +1,7 @@
 {
-    "latest_version":  "1.3.1",
-    "build_number":  57,
-    "build_timestamp":  "2026-07-14T16:36:40+02:00",
+    "latest_version":  "1.3.2",
+    "build_number":  58,
+    "build_timestamp":  "2026-07-23T14:22:46+02:00",
     "download_url":  "https://github.com/SneakyZippy/Covary/releases/latest/download/app-release.apk",
-    "release_notes":  "Release v1.3.1+57\n\n- **Correlation Matrix**: Added selection possibilities to dynamically build metrics including user-defined app categories."
+    "release_notes":  "Release v1.3.2+58\n\n- **All-Time Analytics Range**: Added 'All' range selector across Metric Insights, Lagged Trend Analysis, and Correlation Matrix screens."
 }

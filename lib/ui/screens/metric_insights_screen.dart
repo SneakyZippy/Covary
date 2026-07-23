@@ -104,20 +104,22 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         ? _getEffectiveLabel(_secondaryLabel!, _viewMode)
         : null;
 
+    final int? effectiveRange = _dayRange == 0 ? null : _dayRange;
+
     if (_viewMode == InsightViewMode.daily) {
-      primaryData = await analytics.getDailyTimeSeries(primaryEffective, normalize: false, lastNDays: _dayRange);
+      primaryData = await analytics.getDailyTimeSeries(primaryEffective, normalize: false, lastNDays: effectiveRange);
       if (secondaryEffective != null) {
-        secondaryData = await analytics.getDailyTimeSeries(secondaryEffective, normalize: false, lastNDays: _dayRange);
+        secondaryData = await analytics.getDailyTimeSeries(secondaryEffective, normalize: false, lastNDays: effectiveRange);
       }
     } else if (_viewMode == InsightViewMode.weekly) {
-      primaryData = await analytics.getWeeklyTimeSeries(primaryEffective, normalize: false, lastNDays: _dayRange);
+      primaryData = await analytics.getWeeklyTimeSeries(primaryEffective, normalize: false, lastNDays: effectiveRange);
       if (secondaryEffective != null) {
-        secondaryData = await analytics.getWeeklyTimeSeries(secondaryEffective, normalize: false, lastNDays: _dayRange);
+        secondaryData = await analytics.getWeeklyTimeSeries(secondaryEffective, normalize: false, lastNDays: effectiveRange);
       }
     } else if (_viewMode == InsightViewMode.circadian) {
-      primaryData = await analytics.getHourlyTimeSeries(primaryEffective, normalize: false, lastNDays: _dayRange);
+      primaryData = await analytics.getHourlyTimeSeries(primaryEffective, normalize: false, lastNDays: effectiveRange);
       if (secondaryEffective != null) {
-        secondaryData = await analytics.getHourlyTimeSeries(secondaryEffective, normalize: false, lastNDays: _dayRange);
+        secondaryData = await analytics.getHourlyTimeSeries(secondaryEffective, normalize: false, lastNDays: effectiveRange);
       }
     }
 
@@ -378,7 +380,7 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
 
   Widget _buildDayRangeSelector(ColorScheme colorScheme, TextTheme textTheme) {
     final bool isWeekly = _viewMode == InsightViewMode.weekly;
-    final List<int> options = isWeekly ? [30, 60, 90] : [7, 14, 30];
+    final List<int> options = isWeekly ? [30, 60, 90, 0] : [7, 14, 30, 0];
     return Row(
       children: [
         Icon(Icons.date_range_rounded, size: 16, color: colorScheme.onSurfaceVariant),
@@ -387,10 +389,11 @@ class _MetricInsightsScreenState extends State<MetricInsightsScreen> with Ticker
         const SizedBox(width: 8),
         ...options.map((d) {
           final isActive = _dayRange == d;
+          final String labelText = d == 0 ? 'All' : (isWeekly ? '${d ~/ 7}w' : '${d}d');
           return Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
-              label: Text(isWeekly ? '${d ~/ 7}w' : '${d}d'),
+              label: Text(labelText),
               selected: isActive,
               onSelected: (_) {
                 setState(() => _dayRange = d);

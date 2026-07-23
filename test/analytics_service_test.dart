@@ -159,4 +159,90 @@ void main() {
       });
     });
   });
+
+  group('AnalyticsService All-Time Range Tests (lastNDays = null or 0)', () {
+    test('getDailyTimeSeries includes events older than trailing N days when lastNDays is null or 0', () async {
+      final now = DateTime(2026, 7, 8, 12, 0, 0);
+
+      final events = [
+        Event(
+          id: 'old_e1',
+          timestamp: DateTime(2026, 1, 1, 10, 0, 0), // 188 days before 'now'
+          category: EventCategory.behavior,
+          label: 'Logged a Meal',
+          value: '1',
+          latencyMs: 0,
+          triggerSource: TriggerSource.manual,
+          interactionType: InteractionType.click,
+        ),
+        Event(
+          id: 'recent_e2',
+          timestamp: DateTime(2026, 7, 8, 12, 0, 0),
+          category: EventCategory.behavior,
+          label: 'Logged a Meal',
+          value: '1',
+          latencyMs: 0,
+          triggerSource: TriggerSource.manual,
+          interactionType: InteractionType.click,
+        ),
+      ];
+
+      final eventRepo = FakeEventRepository(events);
+      final metricRepo = FakeMetricRepository([]);
+      final analyticsService = AnalyticsService(eventRepo, metricRepo);
+
+      await withClock(Clock.fixed(now), () async {
+        // Limited to 30 days should exclude 2026-01-01
+        final daily30d = await analyticsService.getDailyTimeSeries('Logged a Meal', normalize: false, lastNDays: 30);
+        expect(daily30d.containsKey(DateTime(2026, 1, 1)), isFalse);
+        expect(daily30d.containsKey(DateTime(2026, 7, 8)), isTrue);
+
+        // lastNDays = 0 or null (All Time) should include 2026-01-01
+        final dailyAll0 = await analyticsService.getDailyTimeSeries('Logged a Meal', normalize: false, lastNDays: 0);
+        expect(dailyAll0.containsKey(DateTime(2026, 1, 1)), isTrue);
+        expect(dailyAll0.containsKey(DateTime(2026, 7, 8)), isTrue);
+
+        final dailyAllNull = await analyticsService.getDailyTimeSeries('Logged a Meal', normalize: false, lastNDays: null);
+        expect(dailyAllNull.containsKey(DateTime(2026, 1, 1)), isTrue);
+        expect(dailyAllNull.containsKey(DateTime(2026, 7, 8)), isTrue);
+      });
+    });
+
+    test('getHourlyTimeSeries aggregates all events when lastNDays is null or 0', () async {
+      final now = DateTime(2026, 7, 8, 12, 0, 0);
+
+      final events = [
+        Event(
+          id: 'old_e1',
+          timestamp: DateTime(2026, 1, 1, 14, 0, 0),
+          category: EventCategory.behavior,
+          label: 'Logged a Meal',
+          value: '1',
+          latencyMs: 0,
+          triggerSource: TriggerSource.manual,
+          interactionType: InteractionType.click,
+        ),
+        Event(
+          id: 'recent_e2',
+          timestamp: DateTime(2026, 7, 8, 14, 0, 0),
+          category: EventCategory.behavior,
+          label: 'Logged a Meal',
+          value: '1',
+          latencyMs: 0,
+          triggerSource: TriggerSource.manual,
+          interactionType: InteractionType.click,
+        ),
+      ];
+
+      final eventRepo = FakeEventRepository(events);
+      final metricRepo = FakeMetricRepository([]);
+      final analyticsService = AnalyticsService(eventRepo, metricRepo);
+
+      await withClock(Clock.fixed(now), () async {
+        final hourlyAll = await analyticsService.getHourlyTimeSeries('Logged a Meal', normalize: false, lastNDays: 0);
+        expect(hourlyAll.containsKey(14), isTrue);
+        expect(hourlyAll[14], greaterThan(0.0));
+      });
+    });
+  });
 }
