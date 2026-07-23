@@ -1116,6 +1116,8 @@ class _MetricSelectionDialogState extends State<_MetricSelectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final allIds = widget.allMetrics.map((m) => m.id).toList();
+
     return DefaultTabController(
       length: 2,
       child: AlertDialog(
@@ -1123,17 +1125,26 @@ class _MetricSelectionDialogState extends State<_MetricSelectionDialog> {
           children: [
             const Text('Select Metrics'),
             const Spacer(),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedRows = List.from(allIds);
+                  _selectedCols = List.from(allIds);
+                });
+              },
+              child: const Text('Select All', style: TextStyle(fontSize: 11)),
+            ),
             TextButton.icon(
               onPressed: widget.onAutoselect,
-              icon: const Icon(Icons.auto_awesome, size: 16),
-              label: const Text('Autoselect', style: TextStyle(fontSize: 12)),
+              icon: const Icon(Icons.auto_awesome, size: 14),
+              label: const Text('Auto', style: TextStyle(fontSize: 11)),
             ),
           ],
         ),
         contentPadding: EdgeInsets.zero,
         content: SizedBox(
           width: double.maxFinite,
-          height: 400,
+          height: 420,
           child: Column(
             children: [
               const TabBar(
@@ -1145,24 +1156,34 @@ class _MetricSelectionDialogState extends State<_MetricSelectionDialog> {
               Expanded(
                 child: TabBarView(
                   children: [
-                    _buildMetricList(_selectedRows, (id) {
-                      setState(() {
-                        if (_selectedRows.contains(id)) {
-                          _selectedRows.remove(id);
-                        } else {
-                          _selectedRows.add(id);
-                        }
-                      });
-                    }),
-                    _buildMetricList(_selectedCols, (id) {
-                      setState(() {
-                        if (_selectedCols.contains(id)) {
-                          _selectedCols.remove(id);
-                        } else {
-                          _selectedCols.add(id);
-                        }
-                      });
-                    }),
+                    _buildMetricList(
+                      _selectedRows,
+                      (id) {
+                        setState(() {
+                          if (_selectedRows.contains(id)) {
+                            _selectedRows.remove(id);
+                          } else {
+                            _selectedRows.add(id);
+                          }
+                        });
+                      },
+                      onSelectAll: () => setState(() => _selectedRows = List.from(allIds)),
+                      onDeselectAll: () => setState(() => _selectedRows.clear()),
+                    ),
+                    _buildMetricList(
+                      _selectedCols,
+                      (id) {
+                        setState(() {
+                          if (_selectedCols.contains(id)) {
+                            _selectedCols.remove(id);
+                          } else {
+                            _selectedCols.add(id);
+                          }
+                        });
+                      },
+                      onSelectAll: () => setState(() => _selectedCols = List.from(allIds)),
+                      onDeselectAll: () => setState(() => _selectedCols.clear()),
+                    ),
                   ],
                 ),
               ),
@@ -1192,23 +1213,67 @@ class _MetricSelectionDialogState extends State<_MetricSelectionDialog> {
     );
   }
 
-  Widget _buildMetricList(List<String> selection, Function(String) onToggle) {
-    return ListView.builder(
-      itemCount: widget.allMetrics.length,
-      itemBuilder: (context, index) {
-        final metric = widget.allMetrics[index];
-        final isSelected = selection.contains(metric.id);
-        return CheckboxListTile(
-          title: Text(_displayLabel(metric)),
-          subtitle: Text(
-            metric.category.name.toUpperCase(),
-            style: const TextStyle(fontSize: 10),
+  Widget _buildMetricList(
+    List<String> selection,
+    Function(String) onToggle, {
+    required VoidCallback onSelectAll,
+    required VoidCallback onDeselectAll,
+  }) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${selection.length} of ${widget.allMetrics.length} selected',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              Row(
+                children: [
+                  InkWell(
+                    onTap: onSelectAll,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Text('Select All', style: TextStyle(fontSize: 11, color: Colors.blue)),
+                    ),
+                  ),
+                  const Text('|', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  InkWell(
+                    onTap: onDeselectAll,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Text('Clear', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          secondary: _buildDialogIcon(metric.emoji, context),
-          value: isSelected,
-          onChanged: (_) => onToggle(metric.id),
-        );
-      },
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView.builder(
+            itemCount: widget.allMetrics.length,
+            itemBuilder: (context, index) {
+              final metric = widget.allMetrics[index];
+              final isSelected = selection.contains(metric.id);
+              return CheckboxListTile(
+                dense: true,
+                title: Text(_displayLabel(metric), style: const TextStyle(fontSize: 13)),
+                subtitle: Text(
+                  metric.category.name.toUpperCase(),
+                  style: const TextStyle(fontSize: 9),
+                ),
+                secondary: _buildDialogIcon(metric.emoji, context),
+                value: isSelected,
+                onChanged: (_) => onToggle(metric.id),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
