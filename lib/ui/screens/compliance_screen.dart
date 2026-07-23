@@ -22,6 +22,8 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   int _totalPossibleSessions = 0;
   double _subjectiveBiasRisk = 0.0;
 
+  int _activeDays = 0;
+
   @override
   void initState() {
     super.initState();
@@ -36,21 +38,23 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     
     final events = await eventRepo.getEventsInDateRange(fourteenDaysAgo, now);
     
-    // Filter out meta events and app usage for compliance.
-    // IMPORTANT: We also exclude system-triggered events (passive sensing)
-    // because they don't represent user-initiated compliance.
-    final researchEvents = events.where((e) => 
-      e.category != EventCategory.meta && 
-      e.category != EventCategory.appUsage &&
-      e.triggerSource != TriggerSource.system
-    ).toList();
+    // Filter out meta events and passive sensing (app usage, background health steps, weather) for compliance.
+    // Compliance evaluates user-initiated active self-reports and prompt check-ins.
+    final researchEvents = events.where((e) {
+      if (e.category == EventCategory.meta) return false;
+      if (e.category == EventCategory.appUsage) return false;
+      if (e.category == EventCategory.weather) return false;
+      if (e.triggerSource == TriggerSource.system) return false;
+      if (e.label.contains('segment')) return false;
+      if (e.label.startsWith('step_')) return false;
+      return true;
+    }).toList();
 
     // Calculate Real-time vs Recall (excluding system data)
     final total = researchEvents.length;
     final recall = researchEvents.where((e) {
       if (e.recordedAt == null) {
-        // Fallback for older database versions without recordedAt
-        return e.triggerSource == TriggerSource.manual;
+        return false;
       }
       
       // If the event was logged more than 15 minutes after the time it "happened"
@@ -70,6 +74,9 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
 
     final Map<DateTime, double> tempMap = {};
     double sumRatios = 0.0;
+    int completedCount = 0;
+    int activeDays = 0;
+
     for (int i = 0; i < 14; i++) {
       final date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
       
@@ -78,25 +85,26 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
         e.timestamp.month == date.month && 
         e.timestamp.day == date.day
       ).length;
+
+      final researchEventsThisDay = researchEvents.where((e) => 
+        e.timestamp.year == date.year && 
+        e.timestamp.month == date.month && 
+        e.timestamp.day == date.day
+      ).length;
+
+      if (sessionsThisDay > 0 || researchEventsThisDay > 0) {
+        activeDays++;
+      }
+
+      completedCount += sessionsThisDay;
 
       // Ratio of completed windows vs available windows
       final ratio = totalWindows > 0 
           ? (sessionsThisDay / totalWindows).clamp(0.0, 1.0) 
-          : (sessionsThisDay > 0 ? 1.0 : 0.0);
+          : ((sessionsThisDay > 0 || researchEventsThisDay > 0) ? 1.0 : 0.0);
       
       tempMap[date] = ratio;
       sumRatios += ratio;
-    }
-
-    int completedCount = 0;
-    for (int i = 0; i < 14; i++) {
-      final date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
-      final sessionsThisDay = sessionEvents.where((e) => 
-        e.timestamp.year == date.year && 
-        e.timestamp.month == date.month && 
-        e.timestamp.day == date.day
-      ).length;
-      completedCount += sessionsThisDay;
     }
 
     final subjectiveEvents = events.where((e) => 
@@ -119,8 +127,9 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
         _recallRatio = total > 0 ? (total - recall) / total : 1.0;
         _subjectiveBiasRisk = subjectiveBiasRisk;
         _overallCompliance = sumRatios / 14;
-        _completedSessions = completedCount;
+        _completedSessions = completedCount > 0 ? completedCount : researchEvents.length;
         _totalPossibleSessions = totalWindows * 14;
+        _activeDays = activeDays;
         _isLoading = false;
       });
     }
@@ -259,7 +268,9 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Completed $_completedSessions of $_totalPossibleSessions scheduled check-ins over the last 14 days.',
+                    _totalPossibleSessions > 0
+                        ? 'Completed $_completedSessions of $_totalPossibleSessions scheduled check-ins over the last 14 days.'
+                        : 'Logged $_completedSessions check-ins across $_activeDays of 14 days (Ad-hoc tracking).',
                     style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
