@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -207,6 +208,12 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
         _maxY = (maxVal * 1.2).ceilToDouble();
         _isLoading = false;
       });
+
+      if (dates.isNotEmpty) {
+        if (_selectedDayForHourly == null || !dates.contains(_selectedDayForHourly)) {
+          _loadHourlyData(dates.last);
+        }
+      }
     }
   }
 
@@ -426,6 +433,7 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     return LineChart(
       LineChartData(
+        minY: 0,
         maxY: _maxY,
         gridData: FlGridData(
           show: true,
@@ -443,6 +451,7 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
             spots: e.value.spots,
             isCurved: true,
             curveSmoothness: 0.35,
+            preventCurveOverShooting: true,
             color: color,
             barWidth: 4,
             isStrokeCapRound: true,
@@ -555,6 +564,7 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
 
   FlTitlesData _getTitlesData() {
     final textTheme = Theme.of(context).textTheme;
+    final double yInterval = max(1.0, (_maxY / 4).ceilToDouble());
     return FlTitlesData(
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -580,8 +590,16 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          reservedSize: 40,
-          getTitlesWidget: (val, meta) => Text('${val.toInt()}m', style: textTheme.labelSmall?.copyWith(fontSize: 10)),
+          reservedSize: 44,
+          interval: yInterval,
+          getTitlesWidget: (val, meta) {
+            if (val < 0) return const SizedBox();
+            // Suppress duplicate max title if it overlaps with regular step
+            if (val == meta.max && (val - (val ~/ yInterval * yInterval)).abs() < (yInterval * 0.3) && val != 0) {
+              return const SizedBox();
+            }
+            return Text('${val.toInt()}m', style: textTheme.labelSmall?.copyWith(fontSize: 10));
+          },
         ),
       ),
     );
@@ -591,6 +609,11 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     if (_hourlyData == null) return const SizedBox();
+
+    final double maxHourlyVal = (_hourlyData != null && _hourlyData!.values.isNotEmpty)
+        ? _hourlyData!.values.reduce(max).toDouble()
+        : 0.0;
+    final double hourlyMaxY = max(60.0, (maxHourlyVal * 1.2).ceilToDouble());
 
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 24, 24, 0),
@@ -610,11 +633,23 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          AspectRatio(
-            aspectRatio: 2.5,
-            child: BarChart(
-              BarChartData(
-                gridData: const FlGridData(show: false),
+          if (maxHourlyVal == 0.0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'No hourly usage recorded for ${DateFormat('MMM d').format(_selectedDayForHourly!)}.',
+                  style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+            )
+          else
+            AspectRatio(
+              aspectRatio: 2.5,
+              child: BarChart(
+                BarChartData(
+                  maxY: hourlyMaxY,
+                  gridData: const FlGridData(show: false),
                 titlesData: FlTitlesData(
                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -622,8 +657,15 @@ class _UsageTrendsScreenState extends State<UsageTrendsScreen> {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      interval: 4,
-                      getTitlesWidget: (v, m) => Text('${v.toInt()}h', style: const TextStyle(fontSize: 8)),
+                      interval: 1,
+                      getTitlesWidget: (v, m) {
+                        final hour = v.toInt();
+                        if (hour % 4 != 0 && hour != 23) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text('${hour}h', style: textTheme.labelSmall?.copyWith(fontSize: 9)),
+                        );
+                      },
                     ),
                   ),
                 ),
